@@ -36,8 +36,10 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
 
     setError(null);
 
-    // Make sure size is valid and reasonable (at least 60px for scannability, max 1000px)
-    const renderSize = Math.max(60, Math.min(1000, Math.round(size)));
+    // Make sure we have high definition rendering for print. High DPI printing requires a large source image
+    // to prevent pixelation, distortion, or blurred lines in the print output/PDF export.
+    // Any size from 600px to 1200px provides ultra-high resolution without slowing down the DOM.
+    const renderSize = Math.max(800, Math.min(1500, Math.round(size * 6)));
 
     // Create an off-screen container to isolate the rendering process
     const tempDiv = document.createElement("div");
@@ -170,6 +172,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
           boxSizing: 'border-box',
           objectFit: 'contain',
           display: 'block',
+          imageRendering: 'pixelated',
         }}
         referrerPolicy="no-referrer"
       />
