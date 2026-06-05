@@ -147,7 +147,8 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
       className={`w-full h-full select-none leading-normal break-words overflow-hidden flex flex-col ${justifyClass} ${alignClass}`}
       style={{
         textAlign: textalign as any,
-        whiteSpace: "pre-wrap"
+        whiteSpace: "pre-wrap",
+        color: obj.color || "#000000"
       }}
     >
       <div 
@@ -865,10 +866,11 @@ export function LabelCanvas({
                   return (
                     <div
                       key={`cell-${sIdx}-${cIdx}`}
-                      className="office-print-cell relative overflow-hidden bg-white select-none print:bg-transparent"
+                      className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
                       style={{
                         width: `${pxCellW}px`,
                         height: `${pxCellH}px`,
+                        backgroundColor: labelConfig.bgColor || "#ffffff",
                         border: sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)` : "none",
                         borderRadius: `${sheetConfig.borderRadius}mm`,
                         boxSizing: "border-box",
@@ -878,6 +880,20 @@ export function LabelCanvas({
                         "--cell-border": sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.6)` : "none",
                       } as React.CSSProperties}
                     >
+                      {/* Watermark/Background Image overlay */}
+                      {labelConfig.bgImage && (
+                        <div 
+                          className="absolute inset-0 pointer-events-none select-none"
+                          style={{
+                            backgroundImage: `url(${labelConfig.bgImage})`,
+                            backgroundSize: labelConfig.bgImageSize || "contain",
+                            backgroundPosition: "center",
+                            backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
+                            opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
                       {resolvedObjs.map((obj) => {
                         const itemX = mmToPx(obj.x, printScale);
                         const itemY = mmToPx(obj.y, printScale);
@@ -932,6 +948,8 @@ export function LabelCanvas({
                                   barcodeFontStyle={obj.barcodeFontStyle}
                                   barcodeTextMargin={obj.barcodeTextMargin}
                                   textFlowOrigin={obj.textFlowOrigin}
+                                  color={obj.color}
+                                  barcodeTextColor={obj.barcodeTextColor}
                                 />
                               )}
 
@@ -940,6 +958,7 @@ export function LabelCanvas({
                                   content={obj.content}
                                   size={itemW * 0.9}
                                   textFlowOrigin={obj.textFlowOrigin}
+                                  color={obj.color}
                                 />
                               )}
 
@@ -1092,10 +1111,11 @@ export function LabelCanvas({
                   return (
                     <div
                       key={`thermal-cell-${rIdx}-${cIdx}`}
-                      className="batch-print-cell relative overflow-hidden bg-white select-none print:bg-transparent"
+                      className="batch-print-cell relative overflow-hidden select-none print:bg-transparent"
                       style={{
                         width: `${pxCellW}px`,
                         height: `${pxCellH}px`,
+                        backgroundColor: labelConfig.bgColor || "#ffffff",
                         boxSizing: "border-box",
                         border: sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)` : "none",
                         borderRadius: `${sheetConfig.borderRadius}mm`,
@@ -1103,6 +1123,20 @@ export function LabelCanvas({
                         "--cell-h": `${labelConfig.height}mm`,
                       } as React.CSSProperties}
                     >
+                      {/* Watermark/Background Image overlay */}
+                      {labelConfig.bgImage && (
+                        <div 
+                          className="absolute inset-0 pointer-events-none select-none"
+                          style={{
+                            backgroundImage: `url(${labelConfig.bgImage})`,
+                            backgroundSize: labelConfig.bgImageSize || "contain",
+                            backgroundPosition: "center",
+                            backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
+                            opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
+                            zIndex: 0,
+                          }}
+                        />
+                      )}
                       {resolvedObjs.map((obj) => {
                         const itemX = mmToPx(obj.x, printScale);
                         const itemY = mmToPx(obj.y, printScale);
@@ -1157,6 +1191,8 @@ export function LabelCanvas({
                                   barcodeFontStyle={obj.barcodeFontStyle}
                                   barcodeTextMargin={obj.barcodeTextMargin}
                                   textFlowOrigin={obj.textFlowOrigin}
+                                  color={obj.color}
+                                  barcodeTextColor={obj.barcodeTextColor}
                                 />
                               )}
 
@@ -1165,6 +1201,7 @@ export function LabelCanvas({
                                   content={obj.content}
                                   size={itemW * 0.9}
                                   textFlowOrigin={obj.textFlowOrigin}
+                                  color={obj.color}
                                 />
                               )}
 
@@ -1362,7 +1399,7 @@ export function LabelCanvas({
             onSelectObject(null);
           }
         }}
-        className={`bg-white shadow-xl absolute transition-shadow duration-300 print:shadow-none print:border-none print:m-0 print:p-0 ${
+        className={`shadow-xl absolute transition-shadow duration-300 print:shadow-none print:border-none print:m-0 print:p-0 ${
           gridSnapSize > 0 
             ? "bg-[radial-gradient(#e2e8f0_1px,transparent_1.2px)] [background-size:10px_10px]" 
             : ""
@@ -1373,9 +1410,24 @@ export function LabelCanvas({
           left: "24px",
           top: "24px",
           maxWidth: "100%",
+          backgroundColor: labelConfig.bgColor || "#ffffff",
         }}
         title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
       >
+        {/* Watermark/Background Image overlay */}
+        {labelConfig.bgImage && (
+          <div 
+            className="absolute inset-0 pointer-events-none select-none"
+            style={{
+              backgroundImage: `url(${labelConfig.bgImage})`,
+              backgroundSize: labelConfig.bgImageSize || "contain",
+              backgroundPosition: "center",
+              backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
+              opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
+              zIndex: 0,
+            }}
+          />
+        )}
         {/* Render individual items */}
         {objects.map((obj) => {
           const isSelected = obj.id === selectedId;
@@ -1499,6 +1551,16 @@ export function LabelCanvas({
                     barcodeFontStyle={obj.barcodeFontStyle}
                     barcodeTextMargin={obj.barcodeTextMargin}
                     textFlowOrigin={obj.textFlowOrigin}
+                    color={obj.color}
+                    barcodeTextColor={obj.barcodeTextColor}
+                    onUpdateContent={(newVal) => {
+                      if (onUpdateObject) {
+                        onUpdateObject({
+                          ...obj,
+                          content: newVal
+                        });
+                      }
+                    }}
                   />
                 )}
 
@@ -1507,6 +1569,7 @@ export function LabelCanvas({
                     content={obj.content}
                     size={itemW * 0.9} // Take 90% space to fit beautifully
                     textFlowOrigin={obj.textFlowOrigin}
+                    color={obj.color}
                   />
                 )}
 

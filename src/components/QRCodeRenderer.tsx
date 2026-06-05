@@ -9,9 +9,10 @@ interface QRCodeRendererProps {
   content: string;
   size?: number; // in pt
   textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  color?: string;
 }
 
-export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120, textFlowOrigin = "center" }: QRCodeRendererProps) {
+export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120, textFlowOrigin = "center", color }: QRCodeRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,8 +42,8 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
         text: cleanContent,
         width: size,
         height: size,
-        colorDark: "#000000",
-        colorLight: "#ffffff",
+        colorDark: color || "#000000",
+        colorLight: "transparent", // Use transparent to adapt nicely to colored backgrounds!
         correctLevel: QRCodeLib.CorrectLevel ? QRCodeLib.CorrectLevel.H : 3, // H level
       });
 
@@ -99,7 +100,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
   }
 
   return (
-    <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-white overflow-hidden`}>
+    <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-transparent overflow-hidden`}>
       <div 
         ref={containerRef} 
         style={{

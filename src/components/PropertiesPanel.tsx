@@ -533,8 +533,40 @@ export function PropertiesPanel({
                 </div>
               </div>
 
-              {/* PHẦN TIỀN TỐ VÀ HẬU TỐ */}
-              <div className="pt-2 border-t border-gray-250/60 pb-1.5 space-y-2.5">
+            {/* Màu sắc chữ */}
+            <div className="pt-2 border-t border-gray-250/60 font-sans">
+              <label className="block text-[11px] text-slate-650 font-bold mb-1">Màu sắc chữ</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                  placeholder="#000000"
+                />
+                <div className="flex space-x-1">
+                  {["#000000", "#FF0000", "#0000FF", "#008000", "#FFA500"].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => handleAttributeChange("color", hex)}
+                      className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                      style={{ backgroundColor: hex }}
+                      title={hex}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* PHẦN TIỀN TỐ VÀ HẬU TỐ */}
+            <div className="pt-2 border-t border-gray-250/60 pb-1.5 space-y-2.5">
                 <span className="block text-[11px] uppercase tracking-wider font-extrabold text-kiot-navy">
                   Tiền tố &amp; Hậu tố
                 </span>
@@ -824,8 +856,6 @@ export function PropertiesPanel({
                     <option value="CODE128">CODE128 (Chữ &amp; số - Khuyên dùng)</option>
                     <option value="EAN13">EAN-13 (13 chữ số - Châu Âu/VN)</option>
                     <option value="CODE39">CODE39 (Chữ &amp; số cơ bản)</option>
-                    <option value="UPCA">UPC-A (12 chữ số - Mỹ)</option>
-                    <option value="ITF">ITF (Nhập hàng hóa)</option>
                   </select>
                   <ChevronDown className="absolute right-2 top-2  w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                 </div>
@@ -855,6 +885,38 @@ export function PropertiesPanel({
                     onChange={(e) => handleAttributeChange("barcodeHeight", parseInt(e.target.value) || 15)}
                     className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
                   />
+                </div>
+              </div>
+            </div>
+
+            {/* Màu sắc mã vạch */}
+            <div className="pt-2 border-t border-gray-200/50">
+              <label className="block text-[11px] text-slate-650 font-bold mb-1">Màu mã vạch (đối tượng)</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                  placeholder="#000000"
+                />
+                <div className="flex space-x-1">
+                  {["#000000", "#FF0000", "#0000FF", "#008000", "#FFA500"].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => handleAttributeChange("color", hex)}
+                      className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                      style={{ backgroundColor: hex }}
+                      title={hex}
+                    />
+                  ))}
                 </div>
               </div>
             </div>
@@ -987,6 +1049,38 @@ export function PropertiesPanel({
                     </button>
                   </div>
                 </div>
+
+                {/* Màu sắc chữ nhãn mã vạch */}
+                <div className="pt-2 border-t border-gray-200/50">
+                  <label className="block text-[11px] text-slate-650 font-bold mb-1">Màu sắc chữ nhãn</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="color"
+                      value={selectedObject.barcodeTextColor || "#000000"}
+                      onChange={(e) => handleAttributeChange("barcodeTextColor", e.target.value)}
+                      className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={selectedObject.barcodeTextColor || "#000000"}
+                      onChange={(e) => handleAttributeChange("barcodeTextColor", e.target.value)}
+                      className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                      placeholder="#000000"
+                    />
+                    <div className="flex space-x-1">
+                      {["#000000", "#FF0000", "#0000FF", "#008000", "#FFA500"].map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => handleAttributeChange("barcodeTextColor", hex)}
+                          className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                          style={{ backgroundColor: hex }}
+                          title={hex}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1066,6 +1160,38 @@ export function PropertiesPanel({
 
             <div className="text-[11px] text-gray-600 font-bold leading-relaxed bg-slate-50 p-2 rounded-md border border-gray-200">
               💡 <strong>Mẹo:</strong> QR Code sẽ tự động tăng mật độ nén dựa trên độ dài dữ liệu để máy quét/camera nhận dạng nhanh nhất.
+            </div>
+
+            {/* Màu QR Code */}
+            <div className="pt-2 border-t border-gray-200/50">
+              <label className="block text-[11px] text-slate-650 font-bold mb-1">Màu sắc mã QR (đối tượng)</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={selectedObject.color || "#000000"}
+                  onChange={(e) => handleAttributeChange("color", e.target.value)}
+                  className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                  placeholder="#000000"
+                />
+                <div className="flex space-x-1">
+                  {["#000000", "#FF0000", "#0000FF", "#008000", "#FFA500"].map((hex) => (
+                    <button
+                      key={hex}
+                      type="button"
+                      onClick={() => handleAttributeChange("color", hex)}
+                      className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                      style={{ backgroundColor: hex }}
+                      title={hex}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Điểm neo / Dòng chảy cho QR Code */}

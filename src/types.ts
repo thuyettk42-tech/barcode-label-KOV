@@ -47,7 +47,7 @@ export interface LabelObject {
   suffixTextSuperSub?: 'normal' | 'subscript' | 'superscript';
 
   // Barcode attributes
-  barcodeFormat?: 'CODE128' | 'EAN13' | 'CODE39' | 'UPCA' | 'ITF';
+  barcodeFormat?: 'CODE128' | 'EAN13' | 'CODE39';
   displayValue?: boolean;
   barcodeWidth?: number; // 1, 2, 3, 4
   barcodeHeight?: number; // in mm
@@ -66,14 +66,22 @@ export interface LabelObject {
   imageFit?: 'contain' | 'cover' | 'fill';
   imageOpacity?: number; // 0 to 1
 
-  // Excel integration attributes
+   // Excel integration attributes
   excelColumn?: string;
+
+  // Custom styling colors
+  color?: string; // Text color, QR code color, or Barcode lines color
+  barcodeTextColor?: string; // Specific color for the barcode label text
 }
 
 export interface LabelConfig {
   width: number; // in mm
   height: number; // in mm
   name: string;
+  bgColor?: string;
+  bgImage?: string;
+  bgImageOpacity?: number;
+  bgImageSize?: 'contain' | 'cover' | 'repeat' | 'auto';
 }
 
 export interface SheetLayoutConfig {
