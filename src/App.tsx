@@ -939,6 +939,22 @@ export default function App() {
         mimeType = "text/plain;charset=utf-8";
       }
       
+      // Check if running in Python pywebview desktop container to prompt native saving
+      // @ts-ignore
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file_native) {
+        // @ts-ignore
+        window.pywebview.api.save_file_native(filename, fileContent)
+          .then((isSaved: boolean) => {
+            if (isSaved) {
+              alert(`Đã lưu thành công tệp tin thiết kế vào thiết bị của bạn!`);
+            }
+          })
+          .catch((err: any) => {
+            alert("Lỗi khi lưu tệp tin thông qua Python: " + err.message);
+          });
+        return;
+      }
+      
       const blob = new Blob([fileContent], { type: mimeType });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -997,6 +1013,44 @@ export default function App() {
       e.target.value = "";
     };
     reader.readAsText(file);
+  };
+
+  // Import design from pasted raw text (Base64 .ktl string or .json text)
+  const handleImportFromPaste = () => {
+    const code = prompt("Vui lòng dán chuỗi cấu hình (.ktl đã sao chép hoặc nội dung JSON) vào đây để khôi phục:");
+    if (!code || !code.trim()) return;
+
+    try {
+      let parsedData: any = null;
+      const stripped = code.trim();
+
+      // 1. Try parsing as Standard JSON text first
+      try {
+        parsedData = JSON.parse(stripped);
+      } catch (jsonErr) {
+        // 2. Try Base64 DECODE
+        try {
+          const decodedStr = decodeURIComponent(escape(atob(stripped)));
+          parsedData = JSON.parse(decodedStr);
+        } catch (b64Err) {
+          throw new Error("Định dạng mã dán vào không hợp lệ. Vui lòng dán đúng chuỗi .ktl (Base64) hoặc JSON của mẫu.");
+        }
+      }
+
+      if (parsedData && parsedData.labelConfig && parsedData.objects) {
+        setLabelConfig(parsedData.labelConfig);
+        setObjects(parsedData.objects);
+        if (parsedData.sheetConfig) {
+          setSheetConfig(parsedData.sheetConfig);
+        }
+        setSelectedId(null);
+        alert(`Đã khôi phục thành công mã thiết kế "${parsedData.name || "Mẫu dán"}" gồm ${parsedData.objects.length} phần tử!`);
+      } else {
+        alert("Thông tin cấu trúc không đầy đủ (thiếu thông số hoặc danh sách đối tượng mẫu).");
+      }
+    } catch (err: any) {
+      alert("Lỗi khi khôi phục thiết kế: " + err.message);
+    }
   };
 
   // Delete saved design from database
@@ -1201,6 +1255,15 @@ export default function App() {
                 className="hidden"
               />
             </label>
+            <button
+              type="button"
+              onClick={handleImportFromPaste}
+              className="h-7 px-2.5 rounded bg-white hover:bg-sky-50 text-[11px] font-bold text-sky-850 tracking-wide flex items-center space-x-1 border border-sky-200 hover:border-sky-350 transition cursor-pointer shadow-xs shrink-0"
+              title="Dán nhanh chuỗi mã thiết kế .ktl hoặc nội dung JSON đã sao chép"
+            >
+              <FileText className="w-3.5 h-3.5 text-sky-550 shrink-0" />
+              <span>Dán mã lưu</span>
+            </button>
           </div>
 
           {/* Quick instructions toggle */}
@@ -3297,6 +3360,38 @@ export default function App() {
                       >
                         File .json (Mã nguồn)
                         <span className="block text-[8px] text-slate-400 font-normal">Định dạng JSON gốc</span>
+                      </button>
+                    </div>
+
+                    {/* Offline backup copy paste tooltip card */}
+                    <div className="mt-2.5 p-2 px-2.5 bg-sky-50/50 border border-sky-100 rounded-lg space-y-1.5 font-sans">
+                      <span className="block text-[9.5px] text-slate-550 font-semibold leading-relaxed">
+                        💡 <strong>Lưu ý bản Offline:</strong> Nếu bạn chạy bằng phần mềm cài đặt <strong>.exe (Python Desktop)</strong> và không thấy hội thoại tải lưu file, hãy bấm nút dưới đây để sao chép chuỗi mã cấu hình:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nameToSave = saveTemplateName.trim() || `Bản vẽ ${new Date().toLocaleDateString("vi-VN")}`;
+                          const exportData = {
+                            version: "2.4",
+                            name: nameToSave,
+                            timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
+                            labelConfig,
+                            sheetConfig,
+                            objects
+                          };
+                          const jsonStr = JSON.stringify(exportData);
+                          let contentToCopy = jsonStr;
+                          if (saveFileFormat === 'ktl') {
+                            contentToCopy = btoa(unescape(encodeURIComponent(jsonStr)));
+                          }
+                          navigator.clipboard.writeText(contentToCopy)
+                            .then(() => alert("Đã sao chép mã thiết kế dạng text vào bộ nhớ tạm thành công! Hãy dán mã vào tài liệu để lưu lại."))
+                            .catch(err => alert("Không thể sao chép: " + err.message));
+                        }}
+                        className="w-full py-1 text-center bg-kiot-cyan text-white hover:bg-sky-650 rounded font-black text-[10px] uppercase cursor-pointer select-none shadow-sm transition"
+                      >
+                        🗊 Sao chép nhanh chuỗi .{saveFileFormat}
                       </button>
                     </div>
                   </div>
