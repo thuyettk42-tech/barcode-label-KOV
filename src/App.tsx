@@ -54,7 +54,7 @@ import {
 export default function App() {
   // 1. Core state for current active label
   const [labelConfig, setLabelConfig] = useState<LabelConfig>({
-    width: 70,
+    width: 65,
     height: 45,
     name: "Tem Kệ Siêu Thị Mặc Định"
   });
@@ -69,7 +69,7 @@ export default function App() {
       type: "text",
       x: 3,
       y: 4,
-      width: 64,
+      width: 59,
       height: 5,
       content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
       fontSize: 9,
@@ -81,7 +81,7 @@ export default function App() {
       type: "barcode",
       x: 3,
       y: 11,
-      width: 42,
+      width: 38,
       height: 18,
       content: "VND-2026-06",
       barcodeFormat: "CODE128",
@@ -95,7 +95,7 @@ export default function App() {
       type: "text",
       x: 3,
       y: 34,
-      width: 64,
+      width: 59,
       height: 5,
       content: "Hotline: 1900 1234 - Địa chỉ: Hà Nội",
       fontSize: 7.5,
@@ -104,10 +104,10 @@ export default function App() {
     {
       id: "init-qrcode-1",
       type: "qrcode",
-      x: 48,
+      x: 44,
       y: 11,
-      width: 19,
-      height: 19,
+      width: 18,
+      height: 18,
       content: "https://create-barcode-label.vercel.app/"
     }
   ]);
@@ -211,7 +211,7 @@ export default function App() {
   // Google auth configurations removed for offline usage
 
   // Temporary string states for numeric inputs to allow easy deletion/re-typing
-  const [widthInput, setWidthInput] = useState<string>("70");
+  const [widthInput, setWidthInput] = useState<string>("65");
   const [heightInput, setHeightInput] = useState<string>("45");
   const [colsInput, setColsInput] = useState<string>("1");
   const [rowsInput, setRowsInput] = useState<string>("8");
@@ -222,8 +222,28 @@ export default function App() {
   const [colGapOfficeInput, setColGapOfficeInput] = useState<string>("0");
   const [rowGapOfficeInput, setRowGapOfficeInput] = useState<string>("3");
   const [desiredRollWidthInput, setDesiredRollWidthInput] = useState<string>("75");
+  const [customWidthInput, setCustomWidthInput] = useState<string>("210");
+  const [customHeightInput, setCustomHeightInput] = useState<string>("297");
+  const [borderRadiusInput, setBorderRadiusInput] = useState<string>("2");
 
   // Keep temporary inputs synchronized with main configurations from external updates
+  useEffect(() => {
+    if (document.activeElement?.id !== "custom-width-input") {
+      setCustomWidthInput(String(sheetConfig.customWidth || 210));
+    }
+  }, [sheetConfig.customWidth]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "custom-height-input") {
+      setCustomHeightInput(String(sheetConfig.customHeight || 297));
+    }
+  }, [sheetConfig.customHeight]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "border-radius-input") {
+      setBorderRadiusInput(String(sheetConfig.borderRadius !== undefined ? sheetConfig.borderRadius : 2));
+    }
+  }, [sheetConfig.borderRadius]);
   useEffect(() => {
     if (document.activeElement?.id !== "width-input") {
       setWidthInput(String(labelConfig.width));
@@ -1413,7 +1433,7 @@ export default function App() {
                       className="w-full flex items-center justify-between bg-white border border-gray-300 hover:border-kiot-cyan rounded-lg px-2.5 py-2 text-sm font-bold text-slate-800 focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none text-left cursor-pointer transition shadow-xs"
                     >
                       <span className="truncate">
-                        {labelConfig.width === 70 && labelConfig.height === 45 ? "70x45mm (Tem Kệ)" :
+                        {labelConfig.width === 65 && labelConfig.height === 45 ? "65x45mm (Tem Kệ)" :
                          labelConfig.width === 75 && labelConfig.height === 100 ? "75x100mm (Shipping)" :
                          labelConfig.width === 100 && labelConfig.height === 150 ? "100x150mm (Shipping)" :
                          labelConfig.width === 40 && labelConfig.height === 30 ? "40x30mm (Nhãn Giá)" :
@@ -1437,15 +1457,15 @@ export default function App() {
                           <button
                             type="button"
                             onClick={() => {
-                              applyPresetDimensions(70, 45, "Tem Kệ Siêu Thị");
+                              applyPresetDimensions(65, 45, "Tem Kệ Siêu Thị");
                               setIsQuickSizeOpen(false);
                             }}
                             className={`w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 text-left font-semibold transition cursor-pointer ${
-                              labelConfig.width === 70 && labelConfig.height === 45 ? "text-kiot-navy bg-sky-50/35" : "text-slate-700"
+                              labelConfig.width === 65 && labelConfig.height === 45 ? "text-kiot-navy bg-sky-50/35" : "text-slate-700"
                             }`}
                           >
-                            <span>70x45mm (Tem Kệ - Nhãn Siêu Thị)</span>
-                            {labelConfig.width === 70 && labelConfig.height === 45 && (
+                            <span>65x45mm (Tem Kệ - Nhãn Siêu Thị)</span>
+                            {labelConfig.width === 65 && labelConfig.height === 45 && (
                               <span className="text-kiot-cyan font-bold text-sm">✓</span>
                             )}
                           </button>
@@ -1615,23 +1635,55 @@ export default function App() {
                           <div>
                             <label className="block text-[11px] text-slate-500 font-bold mb-1">Ch.rộng giấy (mm)</label>
                             <input
-                              type="number"
-                              min={50}
-                              max={600}
-                              value={sheetConfig.customWidth}
-                              onChange={(e) => setSheetConfig(prev => ({ ...prev, customWidth: parseInt(e.target.value) || 210 }))}
+                              id="custom-width-input"
+                              type="text"
+                              value={customWidthInput}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setCustomWidthInput(raw);
+                                const parsed = parseInt(raw, 10);
+                                if (!isNaN(parsed) && parsed >= 50 && parsed <= 600) {
+                                  setSheetConfig(prev => ({ ...prev, customWidth: parsed }));
+                                }
+                              }}
+                              onBlur={() => {
+                                const parsed = parseInt(customWidthInput, 10);
+                                if (isNaN(parsed) || parsed < 50 || parsed > 600) {
+                                  setSheetConfig(prev => ({ ...prev, customWidth: 210 }));
+                                  setCustomWidthInput("210");
+                                } else {
+                                  setSheetConfig(prev => ({ ...prev, customWidth: parsed }));
+                                  setCustomWidthInput(String(parsed));
+                                }
+                              }}
                               className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                             />
                           </div>
                           <div>
                             <label className="block text-[11px] text-slate-500 font-bold mb-1">Ch.cao giấy (mm)</label>
                             <input
-                              type="number"
-                              min={50}
-                              max={600}
-                              value={sheetConfig.customHeight}
-                              onChange={(e) => setSheetConfig(prev => ({ ...prev, customHeight: parseInt(e.target.value) || 297 }))}
-                              className="w-full bg-white border border-gray-300 rounded p-1 text-xs outline-none font-mono"
+                              id="custom-height-input"
+                              type="text"
+                              value={customHeightInput}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setCustomHeightInput(raw);
+                                const parsed = parseInt(raw, 10);
+                                if (!isNaN(parsed) && parsed >= 50 && parsed <= 600) {
+                                  setSheetConfig(prev => ({ ...prev, customHeight: parsed }));
+                                }
+                              }}
+                              onBlur={() => {
+                                const parsed = parseInt(customHeightInput, 10);
+                                if (isNaN(parsed) || parsed < 50 || parsed > 600) {
+                                  setSheetConfig(prev => ({ ...prev, customHeight: 297 }));
+                                  setCustomHeightInput("297");
+                                } else {
+                                  setSheetConfig(prev => ({ ...prev, customHeight: parsed }));
+                                  setCustomHeightInput(String(parsed));
+                                }
+                              }}
+                              className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                             />
                           </div>
                         </div>
@@ -1944,12 +1996,28 @@ export default function App() {
                           <div>
                             <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Độ bo góc ( Radius - mm)</label>
                             <input
-                              type="number"
-                              min={0}
-                              max={15}
+                              id="border-radius-input"
+                              type="text"
                               disabled={sheetConfig.borderRadius === 0}
-                              value={sheetConfig.borderRadius}
-                              onChange={(e) => setSheetConfig(prev => ({ ...prev, borderRadius: Math.max(0, parseInt(e.target.value) || 0) }))}
+                              value={borderRadiusInput}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setBorderRadiusInput(raw);
+                                const parsed = parseInt(raw, 10);
+                                if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
+                                  setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
+                                }
+                              }}
+                              onBlur={() => {
+                                const parsed = parseInt(borderRadiusInput, 10);
+                                if (isNaN(parsed) || parsed < 0 || parsed > 15) {
+                                  setSheetConfig(prev => ({ ...prev, borderRadius: 0 }));
+                                  setBorderRadiusInput("0");
+                                } else {
+                                  setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
+                                  setBorderRadiusInput(String(parsed));
+                                }
+                              }}
                               className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold disabled:opacity-50"
                             />
                           </div>
@@ -2188,7 +2256,7 @@ export default function App() {
                       className="w-full py-1.5 bg-kiot-cyan hover:bg-sky-600 text-white rounded text-[11px] font-bold text-center select-none cursor-pointer transition border border-kiot-cyan flex items-center justify-center space-x-1 shadow-xs font-sans"
                       title="Tính toán kích thước Chiều rộng của tem nhãn dán tối ưu nhất dựa theo số cột tem và khoảng cách để khít với cuộn decal."
                     >
-                      ⚡ <span>Khớp vừa nhãn vào khổ cuộn</span>
+                      ⚡ <span>Khớp vừa khổ giấy</span>
                     </button>
                   </div>
                 )}
@@ -2223,50 +2291,58 @@ export default function App() {
                     <div className="grid grid-cols-1 gap-2">
                       <button
                         onClick={() => handleAddObject("text")}
-                        className="py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                         title="Thêm một đoạn dòng văn bản mới ở giữa nhãn"
                       >
                         <span className="flex items-center space-x-2">
                            <FileText className="w-4 h-4 text-kiot-cyan" />
-                           <span>Thêm Văn Bản</span>
+                           <span>Văn bản</span>
                         </span>
-                        <Plus className="w-3.5 h-3.5 opacity-50 text-kiot-cyan" />
+                        <span className="p-0.5 rounded-full bg-sky-50 text-kiot-cyan border border-kiot-cyan/30 group-hover:bg-kiot-cyan group-hover:text-white transition-colors duration-150 shadow-2xs">
+                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                        </span>
                       </button>
 
                       <button
                         onClick={() => handleAddObject("barcode")}
-                        className="py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                         title="Thêm một hình vẽ mã vạch chuẩn 1D ở giữa nhãn"
                       >
                         <span className="flex items-center space-x-2">
                           <Barcode className="w-4 h-4 text-emerald-500" />
-                          <span>Thêm Mã Vạch</span>
+                          <span>Mã vạch</span>
                         </span>
-                        <Plus className="w-3.5 h-3.5 opacity-50 text-kiot-cyan" />
+                        <span className="p-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                        </span>
                       </button>
 
                       <button
                         onClick={() => handleAddObject("qrcode")}
-                        className="py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                         title="Thêm một hình vẽ mã QR code ở giữa nhãn"
                       >
                         <span className="flex items-center space-x-2">
                           <QrCode className="w-4 h-4 text-blue-500" />
-                          <span>Thêm Mã QR</span>
+                          <span>Mã QR</span>
                         </span>
-                        <Plus className="w-3.5 h-3.5 opacity-50 text-kiot-cyan" />
+                        <span className="p-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                        </span>
                       </button>
 
                       <button
                         onClick={() => setShowImageImportModal(true)}
-                        className="py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                         title="Chèn logo, con dấu hoặc hình ảnh bất kỳ vào nhãn"
                       >
                         <span className="flex items-center space-x-2">
                           <Image className="w-4 h-4 text-rose-500" />
-                          <span>Thêm Hình Ảnh</span>
+                          <span>Hình ảnh</span>
                         </span>
-                        <Plus className="w-3.5 h-3.5 opacity-50 text-kiot-cyan" />
+                        <span className="p-0.5 rounded-full bg-rose-50 text-rose-650 border border-rose-500/30 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                        </span>
                       </button>
                     </div>
                   </section>
@@ -2330,10 +2406,10 @@ export default function App() {
                   {/* Format Notice block */}
                   <div className="mt-3 pt-3 border-t border-emerald-250/20 text-[11.5px] text-emerald-800 flex items-start space-x-1.5 shadow-2xs select-none">
                     <span className="shrink-0 bg-emerald-600 text-white font-extrabold text-[9.5px] px-1.5 py-0.5 rounded uppercase tracking-wide">
-                      Mẹo
+                      NOTE
                     </span>
                     <span className="leading-relaxed font-bold text-emerald-900">
-                      Định dạng file sẽ lấy dữ liệu dòng 1 làm tiêu đề, dữ liệu in sẽ bắt đầu từ dòng 2.
+                      Dữ liệu dòng 1 sẽ làm tiêu đề, Dữ liệu để in sẽ bắt đầu từ dòng 2
                     </span>
                   </div>
 
@@ -2580,7 +2656,7 @@ export default function App() {
                 className="w-full py-2 bg-kiot-cyan hover:bg-sky-600 border border-kiot-cyan text-white rounded-lg text-[11.5px] font-black text-center select-none cursor-pointer transition flex items-center justify-center space-x-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300"
                 title="Tự động co giãn tất cả đối tượng vừa vặn vào khổ tem và giữ nguyên vị trí cân đối"
               >
-                ⚡ <span>Khớp vừa nhãn vào khổ cuộn</span>
+                ⚡ <span>Khớp vừa với nhãn</span>
               </button>
 
               <div className="space-y-2 border-b border-gray-200/60 pb-3">
@@ -2632,14 +2708,29 @@ export default function App() {
                 {printQuantityMode === 'constant' ? (
                   <div className="space-y-1.5 pt-1.5">
                     <input
-                      type="number"
-                      min={1}
-                      max={500}
+                      id="print-copies-input"
+                      type="text"
                       value={printCopiesInput}
                       onChange={(e) => {
-                        const val = parseInt(e.target.value) || 1;
-                        setPrintCopiesInput(val);
-                        setPrintCopies(val);
+                        const raw = e.target.value;
+                        setPrintCopiesInput(raw);
+                        const val = parseInt(raw, 10);
+                        if (!isNaN(val) && val >= 1) {
+                          setPrintCopies(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        const val = parseInt(printCopiesInput, 10);
+                        if (isNaN(val) || val < 1) {
+                          setPrintCopies(1);
+                          setPrintCopiesInput("1");
+                        } else if (val > 500) {
+                          setPrintCopies(500);
+                          setPrintCopiesInput("500");
+                        } else {
+                          setPrintCopies(val);
+                          setPrintCopiesInput(String(val));
+                        }
                       }}
                       className="w-full px-2 py-1 text-xs border border-gray-250 rounded font-mono font-bold text-slate-800 bg-white"
                     />

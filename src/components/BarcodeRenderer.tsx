@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState, memo } from "react";
 
 interface BarcodeRendererProps {
   content: string;
-  format?: 'CODE128' | 'EAN13' | 'CODE39';
+  format?: "CODE128" | "EAN13" | "CODE39";
   displayValue?: boolean;
   fontSize?: number;
   barcodeWidth?: number;
@@ -18,10 +18,19 @@ interface BarcodeRendererProps {
   barcodeShowTextBelow?: boolean;
   barcodeFontFamily?: string;
   barcodeFontSize?: number;
-  barcodeFontWeight?: 'normal' | 'bold';
-  barcodeFontStyle?: 'normal' | 'italic';
+  barcodeFontWeight?: "normal" | "bold";
+  barcodeFontStyle?: "normal" | "italic";
   barcodeTextMargin?: number;
-  textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
+  textFlowOrigin?:
+    | "top-left"
+    | "top-center"
+    | "top-right"
+    | "center-left"
+    | "center"
+    | "center-right"
+    | "bottom-left"
+    | "bottom-center"
+    | "bottom-right";
   onUpdateContent?: (newVal: string) => void;
   color?: string;
   barcodeTextColor?: string;
@@ -45,7 +54,10 @@ function calculateEAN13Checksum(first12Digits: string): number {
 }
 
 // Shared dynamic formatter & corrector to safely handle any raw user input gracefully
-function processBarcodeContent(content: string, format: string): ValidationResult {
+function processBarcodeContent(
+  content: string,
+  format: string,
+): ValidationResult {
   const raw = content.trim();
   if (!raw) {
     return { valid: false, error: "Dữ liệu trống", encodedContent: "" };
@@ -55,7 +67,11 @@ function processBarcodeContent(content: string, format: string): ValidationResul
     // Keep only digits
     const digitsOnly = raw.replace(/\D/g, "");
     if (digitsOnly.length < 12) {
-      return { valid: false, error: "EAN13 yêu cầu ít nhất 12 chữ số", encodedContent: "" };
+      return {
+        valid: false,
+        error: "EAN13 yêu cầu ít nhất 12 chữ số",
+        encodedContent: "",
+      };
     }
     const first12 = digitsOnly.substring(0, 12);
     const checksum = calculateEAN13Checksum(first12);
@@ -68,7 +84,12 @@ function processBarcodeContent(content: string, format: string): ValidationResul
     const upper = raw.toUpperCase();
     // Validate characters
     if (!/^[A-Z0-9\s\-\.\$\/\+\%]+$/.test(upper)) {
-      return { valid: false, error: "CODE39 chỉ hỗ trợ ký tự chữ hoa, số và [-, ., $, /, +, %, khoảng trắng]", encodedContent: "" };
+      return {
+        valid: false,
+        error:
+          "CODE39 chỉ hỗ trợ ký tự chữ hoa, số và [-, ., $, /, +, %, khoảng trắng]",
+        encodedContent: "",
+      };
     }
     return { valid: true, error: null, encodedContent: upper };
   }
@@ -81,7 +102,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   content,
   format = "CODE128",
   displayValue = true,
-  fontSize = 11,
+  fontSize = 7,
   barcodeWidth = 2,
   barcodeHeight = 15,
   pixelScale,
@@ -99,7 +120,10 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 }: BarcodeRendererProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
-  const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
+  const [naturalDimensions, setNaturalDimensions] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(content);
@@ -178,21 +202,24 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
           if (!valid) {
             setRenderError("Không thể mã hóa giá trị này theo chuẩn " + format);
           }
-        }
+        },
       });
 
       // Transform the SVG to be scale-invariant and responsive with viewBox
       if (svgRef.current) {
         const rawWidth = svgRef.current.getAttribute("width");
         const rawHeight = svgRef.current.getAttribute("height");
-        
+
         if (rawWidth && rawHeight) {
           const numWidth = parseFloat(rawWidth);
           const numHeight = parseFloat(rawHeight);
-          
+
           if (!isNaN(numWidth) && !isNaN(numHeight)) {
             setNaturalDimensions({ width: numWidth, height: numHeight });
-            svgRef.current.setAttribute("viewBox", `0 0 ${numWidth} ${numHeight}`);
+            svgRef.current.setAttribute(
+              "viewBox",
+              `0 0 ${numWidth} ${numHeight}`,
+            );
             svgRef.current.removeAttribute("width");
             svgRef.current.removeAttribute("height");
             svgRef.current.style.width = "";
@@ -207,7 +234,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   }, [effectiveContent, format, barcodeWidth, barcodeHeight, color]);
 
   const finalPixelScale = pixelScale ?? 3.7795;
-  
+
   // Font styling resolution
   let resolvedFontFamily = "var(--font-sans)";
   if (barcodeFontFamily === "Arial") {
@@ -228,11 +255,11 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     color: barcodeTextColor || color || "#000000",
   };
 
-  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.3;
+  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
   const marginPx = marginMm * finalPixelScale;
 
   const origin = textFlowOrigin || "center";
-  
+
   let justifyClass = "justify-start";
   if (origin.startsWith("top")) {
     justifyClass = "justify-start";
@@ -256,101 +283,130 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   }
 
   const scaleMultiplier = finalPixelScale / 3.7795;
-  const displayWidth = naturalDimensions ? naturalDimensions.width * scaleMultiplier : undefined;
-  const displayHeight = naturalDimensions ? naturalDimensions.height * scaleMultiplier : undefined;
+  const displayWidth = naturalDimensions
+    ? naturalDimensions.width * scaleMultiplier
+    : undefined;
+  const displayHeight = naturalDimensions
+    ? naturalDimensions.height * scaleMultiplier
+    : undefined;
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between items-stretch overflow-hidden select-none">
       {/* Absolute overlay for error state so the actual <svg> tag is NEVER unmounted, preventing ref stuck behavior */}
       {effectiveError && !isEditing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded text-center select-none overflow-hidden z-10">
-          <span className="font-bold text-[10px] leading-tight select-none">⚠️ {effectiveError}</span>
-          <span className="text-[9px] text-red-500 truncate w-full select-none mt-0.5">{content}</span>
+          <span className="font-bold text-[10px] leading-tight select-none">
+            ⚠️ {effectiveError}
+          </span>
+          <span className="text-[9px] text-red-500 truncate w-full select-none mt-0.5">
+            {content}
+          </span>
         </div>
       )}
 
       {/* Main Barcode Display (made invisible while preserving layout size and ref bindings when in error state) */}
-      <div className={`w-full h-full flex flex-col ${justifyClass} ${alignClass} overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}>
-        {showAbove && (
-          isEditing ? (
-            <input
-              type="text"
-              autoFocus
-              value={tempValue}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              onMouseDown={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              style={{
-                fontFamily: resolvedFontFamily,
-                fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
-                fontWeight: barcodeFontWeight,
-                fontStyle: barcodeFontStyle,
-                marginBottom: `${marginPx}px`,
-                textAlign: textalign as any,
-              }}
-              className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
-                effectiveError ? "border-red-500 ring-2 ring-red-100" : "border-kiot-cyan ring-2 ring-cyan-100"
-              } rounded-sm shadow-sm z-50`}
+      <div
+        className={`w-full h-full flex flex-col justify-center items-center overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}
+      >
+        <div
+          className={`flex flex-col ${alignClass} justify-between items-center w-full h-full py-[1.5px]`}
+        >
+          {showAbove &&
+            (isEditing ? (
+              <input
+                type="text"
+                autoFocus
+                value={tempValue}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                style={{
+                  fontFamily: resolvedFontFamily,
+                  fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
+                  fontWeight: barcodeFontWeight,
+                  fontStyle: barcodeFontStyle,
+                  marginBottom: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                  effectiveError
+                    ? "border-red-500 ring-2 ring-red-100"
+                    : "border-kiot-cyan ring-2 ring-cyan-100"
+                } rounded-sm shadow-sm z-50`}
+              />
+            ) : (
+              <div
+                style={{
+                  ...textStyle,
+                  marginBottom: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                onDoubleClick={handleStartEdit}
+                title="Nhấp đúp để sửa nhãn"
+              >
+                {effectiveContent || content}
+              </div>
+            ))}
+          <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
+            <svg
+              ref={svgRef}
+              style={
+                naturalDimensions
+                  ? {
+                      width: `${displayWidth}px`,
+                      height: "100%",
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                    }
+                  : undefined
+              }
+              preserveAspectRatio="none"
+              className="block"
             />
-          ) : (
-            <div 
-              style={{ ...textStyle, marginBottom: `${marginPx}px`, textAlign: textalign as any }} 
-              className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
-              onDoubleClick={handleStartEdit}
-              title="Nhấp đúp để sửa nhãn"
-            >
-              {effectiveContent || content}
-            </div>
-          )
-        )}
-        <div className={`flex-1 w-full min-h-0 flex items-center ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} overflow-hidden`}>
-          <svg 
-            ref={svgRef} 
-            style={naturalDimensions ? {
-              width: `${displayWidth}px`,
-              height: `${displayHeight}px`,
-              maxWidth: "100%",
-              maxHeight: "100%",
-            } : undefined}
-            className="block" 
-          />
+          </div>
+          {showBelow &&
+            (isEditing ? (
+              <input
+                type="text"
+                autoFocus
+                value={tempValue}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                style={{
+                  fontFamily: resolvedFontFamily,
+                  fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
+                  fontWeight: barcodeFontWeight,
+                  fontStyle: barcodeFontStyle,
+                  marginTop: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                  effectiveError
+                    ? "border-red-500 ring-2 ring-red-100"
+                    : "border-kiot-cyan ring-2 ring-cyan-100"
+                } rounded-sm shadow-sm z-50`}
+              />
+            ) : (
+              <div
+                style={{
+                  ...textStyle,
+                  marginTop: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                onDoubleClick={handleStartEdit}
+                title="Nhấp đúp để sửa nhãn"
+              >
+                {effectiveContent || content}
+              </div>
+            ))}
         </div>
-        {showBelow && (
-          isEditing ? (
-            <input
-              type="text"
-              autoFocus
-              value={tempValue}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              onMouseDown={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              style={{
-                fontFamily: resolvedFontFamily,
-                fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
-                fontWeight: barcodeFontWeight,
-                fontStyle: barcodeFontStyle,
-                marginTop: `${marginPx}px`,
-                textAlign: textalign as any,
-              }}
-              className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
-                effectiveError ? "border-red-500 ring-2 ring-red-100" : "border-kiot-cyan ring-2 ring-cyan-100"
-              } rounded-sm shadow-sm z-50`}
-            />
-          ) : (
-            <div 
-              style={{ ...textStyle, marginTop: `${marginPx}px`, textAlign: textalign as any }} 
-              className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
-              onDoubleClick={handleStartEdit}
-              title="Nhấp đúp để sửa nhãn"
-            >
-              {effectiveContent || content}
-            </div>
-          )
-        )}
       </div>
     </div>
   );

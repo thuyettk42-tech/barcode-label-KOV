@@ -18,13 +18,22 @@ interface LabelCanvasProps {
   gridSnapSize: number; // snappy size in mm (e.g., 1mm. 0 means none)
   onSelectObject: (id: string | null) => void;
   onUpdateObjectCoordinates: (id: string, x: number, y: number) => void;
-  onUpdateObjectGeometry: (id: string, x: number, y: number, width: number, height: number) => void;
+  onUpdateObjectGeometry: (
+    id: string,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => void;
   onDeleteObject: (id: string) => void;
   isBatchPrinting?: boolean;
   excelData?: any[];
-  resolveDynamicObjects?: (objs: LabelObject[], rowIndex: number) => LabelObject[];
+  resolveDynamicObjects?: (
+    objs: LabelObject[],
+    rowIndex: number,
+  ) => LabelObject[];
   sheetConfig?: SheetLayoutConfig;
-  officePreviewMode?: 'design' | 'sheet';
+  officePreviewMode?: "design" | "sheet";
   printCopies?: number;
   printManifestLength?: number;
   isSystemPrinting?: boolean;
@@ -33,14 +42,26 @@ interface LabelCanvasProps {
 }
 
 const getRotatedCursor = (
-  handle: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "top-center" | "bottom-center" | "left-center" | "right-center",
-  angle: number = 0
+  handle:
+    | "top-left"
+    | "top-right"
+    | "bottom-left"
+    | "bottom-right"
+    | "top-center"
+    | "bottom-center"
+    | "left-center"
+    | "right-center",
+  angle: number = 0,
 ): string => {
   if (!angle) {
-    if (handle === "top-center" || handle === "bottom-center") return "ns-resize";
-    if (handle === "left-center" || handle === "right-center") return "ew-resize";
-    if (handle === "top-left" || handle === "bottom-right") return "nwse-resize";
-    if (handle === "top-right" || handle === "bottom-left") return "nesw-resize";
+    if (handle === "top-center" || handle === "bottom-center")
+      return "ns-resize";
+    if (handle === "left-center" || handle === "right-center")
+      return "ew-resize";
+    if (handle === "top-left" || handle === "bottom-right")
+      return "nwse-resize";
+    if (handle === "top-right" || handle === "bottom-left")
+      return "nesw-resize";
     return "move";
   }
 
@@ -57,11 +78,21 @@ const getRotatedCursor = (
   const totalAngle = (baseAngle + angle) % 360;
   const normalized = totalAngle < 0 ? totalAngle + 360 : totalAngle;
 
-  if ((normalized >= 337.5 || normalized < 22.5) || (normalized >= 157.5 && normalized < 202.5)) {
+  if (
+    normalized >= 337.5 ||
+    normalized < 22.5 ||
+    (normalized >= 157.5 && normalized < 202.5)
+  ) {
     return "ns-resize";
-  } else if ((normalized >= 22.5 && normalized < 67.5) || (normalized >= 202.5 && normalized < 247.5)) {
+  } else if (
+    (normalized >= 22.5 && normalized < 67.5) ||
+    (normalized >= 202.5 && normalized < 247.5)
+  ) {
     return "nesw-resize";
-  } else if ((normalized >= 67.5 && normalized < 112.5) || (normalized >= 247.5 && normalized < 292.5)) {
+  } else if (
+    (normalized >= 67.5 && normalized < 112.5) ||
+    (normalized >= 247.5 && normalized < 292.5)
+  ) {
     return "ew-resize";
   } else {
     return "nwse-resize";
@@ -78,8 +109,14 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
   };
 
   // Resolve alignment / flow origin classes
-  const origin = obj.textFlowOrigin || (obj.textAlign === "center" ? "center" : (obj.textAlign === "right" ? "top-right" : "top-left"));
-  
+  const origin =
+    obj.textFlowOrigin ||
+    (obj.textAlign === "center"
+      ? "center"
+      : obj.textAlign === "right"
+        ? "top-right"
+        : "top-left");
+
   let justifyClass = "justify-start";
   let alignClass = "items-start";
   let textalign = "left";
@@ -107,11 +144,11 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
     text: string,
     fontSizeVal?: number,
     fontFamilyVal?: string,
-    fontWeightVal?: 'normal' | 'bold',
-    fontStyleVal?: 'normal' | 'italic',
+    fontWeightVal?: "normal" | "bold",
+    fontStyleVal?: "normal" | "italic",
     underlineVal?: boolean,
     lineThroughVal?: boolean,
-    superSubVal?: 'normal' | 'subscript' | 'superscript'
+    superSubVal?: "normal" | "subscript" | "superscript",
   ) => {
     let decs = [];
     if (underlineVal) decs.push("underline");
@@ -120,9 +157,17 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
 
     let wrapped: React.ReactNode = text;
     if (superSubVal === "subscript") {
-      wrapped = <sub className="align-sub text-[70%] font-semibold leading-none">{text}</sub>;
+      wrapped = (
+        <sub className="align-sub text-[70%] font-semibold leading-none">
+          {text}
+        </sub>
+      );
     } else if (superSubVal === "superscript") {
-      wrapped = <sup className="align-super text-[70%] font-semibold leading-none">{text}</sup>;
+      wrapped = (
+        <sup className="align-super text-[70%] font-semibold leading-none">
+          {text}
+        </sup>
+      );
     }
 
     return (
@@ -140,7 +185,12 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
     );
   };
 
-  const flexJustify = textalign === 'center' ? 'center' : textalign === 'right' ? 'flex-end' : 'flex-start';
+  const flexJustify =
+    textalign === "center"
+      ? "center"
+      : textalign === "right"
+        ? "flex-end"
+        : "flex-start";
 
   return (
     <div
@@ -148,23 +198,24 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
       style={{
         textAlign: textalign as any,
         whiteSpace: "pre-wrap",
-        color: obj.color || "#000000"
+        color: obj.color || "#000000",
       }}
     >
-      <div 
-        className="max-w-full w-full flex flex-wrap items-baseline" 
+      <div
+        className="max-w-full w-full flex flex-wrap items-baseline"
         style={{ justifyContent: flexJustify }}
       >
-        {obj.prefixText && renderSegment(
-          obj.prefixText,
-          obj.prefixFontSize,
-          obj.prefixFontFamily,
-          obj.prefixFontWeight,
-          obj.prefixFontStyle,
-          obj.prefixTextDecorationUnderline,
-          obj.prefixTextDecorationLineThrough,
-          obj.prefixTextSuperSub
-        )}
+        {obj.prefixText &&
+          renderSegment(
+            obj.prefixText,
+            obj.prefixFontSize,
+            obj.prefixFontFamily,
+            obj.prefixFontWeight,
+            obj.prefixFontStyle,
+            obj.prefixTextDecorationUnderline,
+            obj.prefixTextDecorationLineThrough,
+            obj.prefixTextSuperSub,
+          )}
         {renderSegment(
           obj.content,
           obj.fontSize,
@@ -173,18 +224,19 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           obj.fontStyle,
           obj.textDecorationUnderline,
           obj.textDecorationLineThrough,
-          obj.textSuperSub
+          obj.textSuperSub,
         )}
-        {obj.suffixText && renderSegment(
-          obj.suffixText,
-          obj.suffixFontSize,
-          obj.suffixFontFamily,
-          obj.suffixFontWeight,
-          obj.suffixFontStyle,
-          obj.suffixTextDecorationUnderline,
-          obj.suffixTextDecorationLineThrough,
-          obj.suffixTextSuperSub
-        )}
+        {obj.suffixText &&
+          renderSegment(
+            obj.suffixText,
+            obj.suffixFontSize,
+            obj.suffixFontFamily,
+            obj.suffixFontWeight,
+            obj.suffixFontStyle,
+            obj.suffixTextDecorationUnderline,
+            obj.suffixTextDecorationLineThrough,
+            obj.suffixTextSuperSub,
+          )}
       </div>
     </div>
   );
@@ -230,12 +282,12 @@ export function LabelCanvas({
   excelData = [],
   resolveDynamicObjects,
   sheetConfig,
-  officePreviewMode = 'design',
+  officePreviewMode = "design",
   printCopies,
   printManifestLength,
   isSystemPrinting = false,
   onAddImageObject,
-  onUpdateObject
+  onUpdateObject,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -256,11 +308,13 @@ export function LabelCanvas({
     };
   }, []);
 
-  const limitPreview = !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
+  const limitPreview =
+    !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
 
   // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
   // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
-  const printScale = (isPrinting || isSystemPrinting) ? BASE_DPI_SCALE : pixelScale;
+  const printScale =
+    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -270,39 +324,46 @@ export function LabelCanvas({
   // Synchronize document print-size variables dynamically based on active sheet config or label size.
   useEffect(() => {
     const root = document.documentElement;
-    const isOfficeMode = sheetConfig && sheetConfig.mode === 'office';
-    const showOfficeSheet = isOfficeMode && officePreviewMode === 'sheet';
-    const isThermalMode = sheetConfig && sheetConfig.mode === 'thermal';
-    const showThermalSheetGrid = isThermalMode && sheetConfig && officePreviewMode === 'sheet';
+    const isOfficeMode = sheetConfig && sheetConfig.mode === "office";
+    const showOfficeSheet = isOfficeMode && officePreviewMode === "sheet";
+    const isThermalMode = sheetConfig && sheetConfig.mode === "thermal";
+    const showThermalSheetGrid =
+      isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
     if (showOfficeSheet && sheetConfig) {
       let baseWidth = 210; // A4
       let baseHeight = 297;
-      if (sheetConfig.paperSize === 'A5') {
+      if (sheetConfig.paperSize === "A5") {
         baseWidth = 148;
         baseHeight = 210;
-      } else if (sheetConfig.paperSize === 'custom') {
+      } else if (sheetConfig.paperSize === "custom") {
         baseWidth = sheetConfig.customWidth || 210;
         baseHeight = sheetConfig.customHeight || 297;
       }
-      if (sheetConfig.orientation === 'landscape') {
+      if (sheetConfig.orientation === "landscape") {
         const temp = baseWidth;
         baseWidth = baseHeight;
         baseHeight = temp;
       }
-      root.style.setProperty('--print-width', `${baseWidth}mm`);
-      root.style.setProperty('--print-height', `${baseHeight}mm`);
+      root.style.setProperty("--print-width", `${baseWidth}mm`);
+      root.style.setProperty("--print-height", `${baseHeight}mm`);
     } else if (showThermalSheetGrid && sheetConfig) {
       const cols = sheetConfig.cols || 1;
       const colGap = sheetConfig.colGap || 0;
       const backingWidth = cols * labelConfig.width + (cols - 1) * colGap;
-      root.style.setProperty('--print-width', `${backingWidth}mm`);
-      root.style.setProperty('--print-height', `${labelConfig.height}mm`);
+      root.style.setProperty("--print-width", `${backingWidth}mm`);
+      root.style.setProperty("--print-height", `${labelConfig.height}mm`);
     } else {
-      root.style.setProperty('--print-width', `${labelConfig.width}mm`);
-      root.style.setProperty('--print-height', `${labelConfig.height}mm`);
+      root.style.setProperty("--print-width", `${labelConfig.width}mm`);
+      root.style.setProperty("--print-height", `${labelConfig.height}mm`);
     }
-  }, [labelConfig.width, labelConfig.height, sheetConfig, officePreviewMode, isBatchPrinting]);
+  }, [
+    labelConfig.width,
+    labelConfig.height,
+    sheetConfig,
+    officePreviewMode,
+    isBatchPrinting,
+  ]);
 
   // Dragging event states
   const [dragState, setDragState] = useState<{
@@ -316,7 +377,15 @@ export function LabelCanvas({
   // Resizing event states
   const [resizeState, setResizeState] = useState<{
     objectId: string;
-    handle: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "top-center" | "bottom-center" | "left-center" | "right-center";
+    handle:
+      | "top-left"
+      | "top-right"
+      | "bottom-left"
+      | "bottom-right"
+      | "top-center"
+      | "bottom-center"
+      | "left-center"
+      | "right-center";
     origX: number; // in mm
     origY: number; // in mm
     origWidth: number; // in mm
@@ -333,15 +402,38 @@ export function LabelCanvas({
     startAngle: number;
   } | null>(null);
 
-  const [localRotateAngle, setLocalRotateAngle] = useState<{ id: string; angle: number } | null>(null);
-  const latestRotateAngleRef = useRef<{ id: string; angle: number } | null>(null);
+  const [localRotateAngle, setLocalRotateAngle] = useState<{
+    id: string;
+    angle: number;
+  } | null>(null);
+  const latestRotateAngleRef = useRef<{ id: string; angle: number } | null>(
+    null,
+  );
 
   // Local real-time coordinates/dimensions for smooth rendering
-  const [localDragCoords, setLocalDragCoords] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [localResizeDims, setLocalResizeDims] = useState<{ id: string; x: number; y: number; width: number; height: number } | null>(null);
+  const [localDragCoords, setLocalDragCoords] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [localResizeDims, setLocalResizeDims] = useState<{
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
-  const latestCoordsRef = useRef<{ id: string; x: number; y: number } | null>(null);
-  const latestResizeRef = useRef<{ id: string; x: number; y: number; width: number; height: number } | null>(null);
+  const latestCoordsRef = useRef<{ id: string; x: number; y: number } | null>(
+    null,
+  );
+  const latestResizeRef = useRef<{
+    id: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   // Listen to keyboard nudges
   useEffect(() => {
@@ -350,7 +442,12 @@ export function LabelCanvas({
 
       // Disable arrow-key scrolling / navigation if workspace is active
       const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA" || activeEl.tagName === "SELECT")) {
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.tagName === "SELECT")
+      ) {
         return; // Avoid intercepting inputs
       }
 
@@ -360,8 +457,12 @@ export function LabelCanvas({
       // To prevent rounding snap-back locks (越南语: tránh bị kẹt do bo tròn),
       // nudge increment must match or be a multiple of the grid snap size if grid snapping is active.
       const increment = e.shiftKey
-        ? (gridSnapSize > 0 ? gridSnapSize * 5 : 5)
-        : (gridSnapSize > 0 ? gridSnapSize : 0.5);
+        ? gridSnapSize > 0
+          ? gridSnapSize * 5
+          : 5
+        : gridSnapSize > 0
+          ? gridSnapSize
+          : 0.5;
 
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -372,7 +473,7 @@ export function LabelCanvas({
           activeObj.height,
           labelConfig.width,
           labelConfig.height,
-          gridSnapSize
+          gridSnapSize,
         );
         onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
       } else if (e.key === "ArrowRight") {
@@ -384,7 +485,7 @@ export function LabelCanvas({
           activeObj.height,
           labelConfig.width,
           labelConfig.height,
-          gridSnapSize
+          gridSnapSize,
         );
         onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
       } else if (e.key === "ArrowUp") {
@@ -396,7 +497,7 @@ export function LabelCanvas({
           activeObj.height,
           labelConfig.width,
           labelConfig.height,
-          gridSnapSize
+          gridSnapSize,
         );
         onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
       } else if (e.key === "ArrowDown") {
@@ -408,7 +509,7 @@ export function LabelCanvas({
           activeObj.height,
           labelConfig.width,
           labelConfig.height,
-          gridSnapSize
+          gridSnapSize,
         );
         onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
       } else if (e.key === "Delete" || e.key === "Backspace") {
@@ -419,7 +520,14 @@ export function LabelCanvas({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, objects, labelConfig, gridSnapSize, onUpdateObjectCoordinates, onDeleteObject]);
+  }, [
+    selectedId,
+    objects,
+    labelConfig,
+    gridSnapSize,
+    onUpdateObjectCoordinates,
+    onDeleteObject,
+  ]);
 
   // Pointer dragging handler on canvas area
   const handleLabelMouseDown = (e: React.MouseEvent) => {
@@ -439,7 +547,7 @@ export function LabelCanvas({
       origX: obj.x,
       origY: obj.y,
       startX: e.clientX,
-      startY: e.clientY
+      startY: e.clientY,
     });
   };
 
@@ -469,16 +577,27 @@ export function LabelCanvas({
         activeObj.height,
         labelConfig.width,
         labelConfig.height,
-        gridSnapSize
+        gridSnapSize,
       );
 
-      latestCoordsRef.current = { id: dragState.objectId, x: coords.x, y: coords.y };
+      latestCoordsRef.current = {
+        id: dragState.objectId,
+        x: coords.x,
+        y: coords.y,
+      };
       setLocalDragCoords({ id: dragState.objectId, x: coords.x, y: coords.y });
     };
 
     const handleMouseUp = () => {
-      if (latestCoordsRef.current && latestCoordsRef.current.id === dragState.objectId) {
-        onUpdateObjectCoordinates(dragState.objectId, latestCoordsRef.current.x, latestCoordsRef.current.y);
+      if (
+        latestCoordsRef.current &&
+        latestCoordsRef.current.id === dragState.objectId
+      ) {
+        onUpdateObjectCoordinates(
+          dragState.objectId,
+          latestCoordsRef.current.x,
+          latestCoordsRef.current.y,
+        );
       }
       latestCoordsRef.current = null;
       setLocalDragCoords(null);
@@ -492,12 +611,27 @@ export function LabelCanvas({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [dragState, objects, pixelScale, gridSnapSize, labelConfig, onUpdateObjectCoordinates]);
+  }, [
+    dragState,
+    objects,
+    pixelScale,
+    gridSnapSize,
+    labelConfig,
+    onUpdateObjectCoordinates,
+  ]);
 
   const handleResizeStart = (
     e: React.MouseEvent,
     obj: LabelObject,
-    handle: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "top-center" | "bottom-center" | "left-center" | "right-center"
+    handle:
+      | "top-left"
+      | "top-right"
+      | "bottom-left"
+      | "bottom-right"
+      | "top-center"
+      | "bottom-center"
+      | "left-center"
+      | "right-center",
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -511,7 +645,7 @@ export function LabelCanvas({
       origWidth: obj.width,
       origHeight: obj.height,
       startX: e.clientX,
-      startY: e.clientY
+      startY: e.clientY,
     });
   };
 
@@ -535,7 +669,7 @@ export function LabelCanvas({
       let newWidth = resizeState.origWidth;
       let newHeight = resizeState.origHeight;
 
-      const angleRad = (activeObj.angle || 0) * Math.PI / 180;
+      const angleRad = ((activeObj.angle || 0) * Math.PI) / 180;
       const cos = Math.cos(angleRad);
       const sin = Math.sin(angleRad);
 
@@ -546,15 +680,31 @@ export function LabelCanvas({
       let oppX_orig = 0;
       let oppY_orig = 0;
 
-      if (resizeState.handle === "right-center" || resizeState.handle === "bottom-right" || resizeState.handle === "top-right") {
+      if (
+        resizeState.handle === "right-center" ||
+        resizeState.handle === "bottom-right" ||
+        resizeState.handle === "top-right"
+      ) {
         oppX_orig = -resizeState.origWidth / 2;
-      } else if (resizeState.handle === "left-center" || resizeState.handle === "bottom-left" || resizeState.handle === "top-left") {
+      } else if (
+        resizeState.handle === "left-center" ||
+        resizeState.handle === "bottom-left" ||
+        resizeState.handle === "top-left"
+      ) {
         oppX_orig = resizeState.origWidth / 2;
       }
 
-      if (resizeState.handle === "bottom-center" || resizeState.handle === "bottom-left" || resizeState.handle === "bottom-right") {
+      if (
+        resizeState.handle === "bottom-center" ||
+        resizeState.handle === "bottom-left" ||
+        resizeState.handle === "bottom-right"
+      ) {
         oppY_orig = -resizeState.origHeight / 2;
-      } else if (resizeState.handle === "top-center" || resizeState.handle === "top-left" || resizeState.handle === "top-right") {
+      } else if (
+        resizeState.handle === "top-center" ||
+        resizeState.handle === "top-left" ||
+        resizeState.handle === "top-right"
+      ) {
         oppY_orig = resizeState.origHeight / 2;
       }
 
@@ -566,15 +716,31 @@ export function LabelCanvas({
       const localDeltaXmm = deltaXmm * cos + deltaYmm * sin;
       const localDeltaYmm = -deltaXmm * sin + deltaYmm * cos;
 
-      if (resizeState.handle === "right-center" || resizeState.handle === "top-right" || resizeState.handle === "bottom-right") {
+      if (
+        resizeState.handle === "right-center" ||
+        resizeState.handle === "top-right" ||
+        resizeState.handle === "bottom-right"
+      ) {
         newWidth = resizeState.origWidth + localDeltaXmm;
-      } else if (resizeState.handle === "left-center" || resizeState.handle === "top-left" || resizeState.handle === "bottom-left") {
+      } else if (
+        resizeState.handle === "left-center" ||
+        resizeState.handle === "top-left" ||
+        resizeState.handle === "bottom-left"
+      ) {
         newWidth = resizeState.origWidth - localDeltaXmm;
       }
 
-      if (resizeState.handle === "bottom-center" || resizeState.handle === "bottom-left" || resizeState.handle === "bottom-right") {
+      if (
+        resizeState.handle === "bottom-center" ||
+        resizeState.handle === "bottom-left" ||
+        resizeState.handle === "bottom-right"
+      ) {
         newHeight = resizeState.origHeight + localDeltaYmm;
-      } else if (resizeState.handle === "top-center" || resizeState.handle === "top-left" || resizeState.handle === "top-right") {
+      } else if (
+        resizeState.handle === "top-center" ||
+        resizeState.handle === "top-left" ||
+        resizeState.handle === "top-right"
+      ) {
         newHeight = resizeState.origHeight - localDeltaYmm;
       }
 
@@ -597,15 +763,31 @@ export function LabelCanvas({
       let oppX_new = 0;
       let oppY_new = 0;
 
-      if (resizeState.handle === "right-center" || resizeState.handle === "bottom-right" || resizeState.handle === "top-right") {
+      if (
+        resizeState.handle === "right-center" ||
+        resizeState.handle === "bottom-right" ||
+        resizeState.handle === "top-right"
+      ) {
         oppX_new = -newWidth / 2;
-      } else if (resizeState.handle === "left-center" || resizeState.handle === "bottom-left" || resizeState.handle === "top-left") {
+      } else if (
+        resizeState.handle === "left-center" ||
+        resizeState.handle === "bottom-left" ||
+        resizeState.handle === "top-left"
+      ) {
         oppX_new = newWidth / 2;
       }
 
-      if (resizeState.handle === "bottom-center" || resizeState.handle === "bottom-left" || resizeState.handle === "bottom-right") {
+      if (
+        resizeState.handle === "bottom-center" ||
+        resizeState.handle === "bottom-left" ||
+        resizeState.handle === "bottom-right"
+      ) {
         oppY_new = -newHeight / 2;
-      } else if (resizeState.handle === "top-center" || resizeState.handle === "top-left" || resizeState.handle === "top-right") {
+      } else if (
+        resizeState.handle === "top-center" ||
+        resizeState.handle === "top-left" ||
+        resizeState.handle === "top-right"
+      ) {
         oppY_new = newHeight / 2;
       }
 
@@ -637,7 +819,7 @@ export function LabelCanvas({
           x: xVal,
           y: yVal,
           width: wVal,
-          height: hVal
+          height: hVal,
         };
 
         setLocalResizeDims({
@@ -645,19 +827,22 @@ export function LabelCanvas({
           x: xVal,
           y: yVal,
           width: wVal,
-          height: hVal
+          height: hVal,
         });
       }
     };
 
     const handleMouseUp = () => {
-      if (latestResizeRef.current && latestResizeRef.current.id === resizeState.objectId) {
+      if (
+        latestResizeRef.current &&
+        latestResizeRef.current.id === resizeState.objectId
+      ) {
         onUpdateObjectGeometry(
           resizeState.objectId,
           latestResizeRef.current.x,
           latestResizeRef.current.y,
           latestResizeRef.current.width,
-          latestResizeRef.current.height
+          latestResizeRef.current.height,
         );
       }
       latestResizeRef.current = null;
@@ -672,7 +857,14 @@ export function LabelCanvas({
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [resizeState, objects, pixelScale, gridSnapSize, labelConfig, onUpdateObjectGeometry]);
+  }, [
+    resizeState,
+    objects,
+    pixelScale,
+    gridSnapSize,
+    labelConfig,
+    onUpdateObjectGeometry,
+  ]);
 
   const handleRotateStart = (e: React.MouseEvent, obj: LabelObject) => {
     e.stopPropagation();
@@ -691,7 +883,7 @@ export function LabelCanvas({
       objectId: obj.id,
       centerX,
       centerY,
-      startAngle: obj.angle || 0
+      startAngle: obj.angle || 0,
     });
   };
 
@@ -701,10 +893,13 @@ export function LabelCanvas({
 
     const handleMouseMove = (e: MouseEvent) => {
       // Calculate angle from center of element to mouse
-      const rad = Math.atan2(e.clientY - rotateState.centerY, e.clientX - rotateState.centerX);
+      const rad = Math.atan2(
+        e.clientY - rotateState.centerY,
+        e.clientX - rotateState.centerX,
+      );
       // straight up is 0/360, so add 90 degrees
       let deg = (rad * 180) / Math.PI + 90;
-      
+
       // Keep within [0, 360] degree range
       if (deg < 0) deg += 360;
       deg = Math.round(deg);
@@ -719,12 +914,15 @@ export function LabelCanvas({
     };
 
     const handleMouseUp = () => {
-      if (latestRotateAngleRef.current && latestRotateAngleRef.current.id === rotateState.objectId) {
+      if (
+        latestRotateAngleRef.current &&
+        latestRotateAngleRef.current.id === rotateState.objectId
+      ) {
         const activeObj = objects.find((o) => o.id === rotateState.objectId);
         if (activeObj && onUpdateObject) {
           onUpdateObject({
             ...activeObj,
-            angle: latestRotateAngleRef.current.angle
+            angle: latestRotateAngleRef.current.angle,
           });
         }
       }
@@ -753,21 +951,21 @@ export function LabelCanvas({
   const getSheetDimensions = (config: any) => {
     let baseWidth = 210; // A4
     let baseHeight = 297;
-    if (config?.paperSize === 'A5') {
+    if (config?.paperSize === "A5") {
       baseWidth = 148;
       baseHeight = 210;
-    } else if (config?.paperSize === 'custom') {
+    } else if (config?.paperSize === "custom") {
       baseWidth = config.customWidth || 210;
       baseHeight = config.customHeight || 297;
     }
-    if (config?.orientation === 'landscape') {
+    if (config?.orientation === "landscape") {
       return { width: baseHeight, height: baseWidth };
     }
     return { width: baseWidth, height: baseHeight };
   };
 
-  const isOfficeMode = sheetConfig && sheetConfig.mode === 'office';
-  const showOfficeSheet = isOfficeMode && officePreviewMode === 'sheet';
+  const isOfficeMode = sheetConfig && sheetConfig.mode === "office";
+  const showOfficeSheet = isOfficeMode && officePreviewMode === "sheet";
 
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
@@ -785,12 +983,18 @@ export function LabelCanvas({
     const pxCellW = mmToPx(labelConfig.width, pixelScale);
     const pxCellH = mmToPx(labelConfig.height, pixelScale);
 
-    const cellsPerSheet = Math.max(1, (sheetConfig.rows || 1) * (sheetConfig.cols || 1));
+    const cellsPerSheet = Math.max(
+      1,
+      (sheetConfig.rows || 1) * (sheetConfig.cols || 1),
+    );
 
     let totalItems = 0;
     const hasExcel = excelData && excelData.length > 0;
     if (hasExcel) {
-      totalItems = printManifestLength !== undefined ? printManifestLength : excelData.length;
+      totalItems =
+        printManifestLength !== undefined
+          ? printManifestLength
+          : excelData.length;
     } else {
       totalItems = printCopies || cellsPerSheet;
     }
@@ -812,13 +1016,25 @@ export function LabelCanvas({
         <div className="bg-white/95 rounded-lg border border-gray-200 p-3 mb-5 shadow-sm text-center max-w-xl z-20 no-print">
           <p className="text-[12px] font-bold text-[#1E293B] flex items-center justify-center space-x-1.5">
             <LayoutGrid className="w-4 h-4 text-emerald-600 animate-pulse" />
-            <span>Trang xem trước bản in ({sheetConfig.paperSize === "custom" ? "Tự chọn" : sheetConfig.paperSize} - {sheetConfig.orientation === "portrait" ? "Khổ dọc" : "Khổ ngang"})</span>
+            <span>
+              Trang xem trước bản in (
+              {sheetConfig.paperSize === "custom"
+                ? "Tự chọn"
+                : sheetConfig.paperSize}{" "}
+              -{" "}
+              {sheetConfig.orientation === "portrait" ? "Khổ dọc" : "Khổ ngang"}
+              )
+            </span>
           </p>
           <p className="text-[10px] text-gray-500 mt-0.5 leading-relaxed">
-            Áp dụng ma trận lề lề trên: {sheetConfig.marginTop}mm, trái: {sheetConfig.marginLeft}mm | {sheetConfig.cols} cột x {sheetConfig.rows} hàng.
+            Áp dụng ma trận lề lề trên: {sheetConfig.marginTop}mm, trái:{" "}
+            {sheetConfig.marginLeft}mm | {sheetConfig.cols} cột x{" "}
+            {sheetConfig.rows} hàng.
           </p>
           <div className="text-[10px] bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-md font-bold mt-1.5 inline-block border border-gray-200">
-            {hasExcel ? `Liên kết Excel: ${totalItems} hàng (${totalSheets} trang)` : `Số nhãn lặp đầy ô: ${totalItems} (${totalSheets} trang)`}
+            {hasExcel
+              ? `Liên kết Excel: ${totalItems} hàng (${totalSheets} trang)`
+              : `Số nhãn lặp đầy ô: ${totalItems} (${totalSheets} trang)`}
           </div>
         </div>
 
@@ -828,179 +1044,230 @@ export function LabelCanvas({
             return (
               <div
                 key={`sheet-page-${sIdx}`}
-              className="office-print-page bg-white relative shadow-lg border border-gray-300 md:mb-8 shrink-0 print:m-0 print:shadow-none print:border-none"
-              style={{
-                width: `${pxSheetW}px`,
-                height: `${pxSheetH}px`,
-                paddingTop: `${pxMT}px`,
-                paddingBottom: `${pxMB}px`,
-                paddingLeft: `${pxML}px`,
-                paddingRight: `${pxMR}px`,
-                display: "grid",
-                gridTemplateColumns: `repeat(${sheetConfig.cols || 1}, ${pxCellW}px)`,
-                gridTemplateRows: `repeat(${sheetConfig.rows || 1}, ${pxCellH}px)`,
-                columnGap: `${pxCG}px`,
-                rowGap: `${pxRG}px`,
-                boxSizing: "border-box",
-                alignContent: "start",
-                justifyContent: "start",
-                "--print-width": `${sW}mm`,
-                "--print-height": `${sH}mm`,
-                "--sheet-m-top": `${sheetConfig.marginTop}mm`,
-                "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
-                "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
-                "--sheet-m-right": `${sheetConfig.marginRight}mm`,
-                "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
-                "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
-                "--sheet-col-gap": `${sheetConfig.colGap}mm`,
-                "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
-              } as React.CSSProperties}
-            >
-              {Array.from({ length: safeLength(cellsPerSheet) }).map((_, cIdx) => {
-                const globalIdx = sIdx * cellsPerSheet + cIdx;
-                if (globalIdx < totalItems) {
-                  const resolvedObjs = resolveDynamicObjects
-                    ? resolveDynamicObjects(objects, globalIdx)
-                    : objects;
-
-                  return (
-                    <div
-                      key={`cell-${sIdx}-${cIdx}`}
-                      className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
-                      style={{
-                        width: `${pxCellW}px`,
-                        height: `${pxCellH}px`,
-                        backgroundColor: labelConfig.bgColor || "#ffffff",
-                        border: sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)` : "none",
-                        borderRadius: `${sheetConfig.borderRadius}mm`,
-                        boxSizing: "border-box",
-                        "--cell-w": `${labelConfig.width}mm`,
-                        "--cell-h": `${labelConfig.height}mm`,
-                        "--cell-radius": `${sheetConfig.borderRadius}mm`,
-                        "--cell-border": sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.6)` : "none",
-                      } as React.CSSProperties}
-                    >
-                      {/* Watermark/Background Image overlay */}
-                      {labelConfig.bgImage && (
-                        <div 
-                          className="absolute inset-0 pointer-events-none select-none"
-                          style={{
-                            backgroundImage: `url(${labelConfig.bgImage})`,
-                            backgroundSize: labelConfig.bgImageSize || "contain",
-                            backgroundPosition: "center",
-                            backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
-                            opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
-                            zIndex: 0,
-                          }}
-                        />
-                      )}
-                      {resolvedObjs.map((obj) => {
-                        const itemX = mmToPx(obj.x, printScale);
-                        const itemY = mmToPx(obj.y, printScale);
-                        const itemW = mmToPx(obj.width, printScale);
-                        const itemH = mmToPx(obj.height, printScale);
-                        const xPct = (obj.x / labelConfig.width) * 100;
-                        const yPct = (obj.y / labelConfig.height) * 100;
-                        const wPct = (obj.width / labelConfig.width) * 100;
-                        const hPct = (obj.height / labelConfig.height) * 100;
-                        const trans = obj.type === "text" ? getTextTransform(obj.textFlowOrigin) : "none";
-                        const rotationStr = obj.angle ? `rotate(${obj.angle}deg)` : "";
-                        const finalTransform = `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() || "none";
-
-                        return (
-                          <div
-                            key={obj.id}
-                            className="object-print-class absolute flex flex-col items-stretch"
-                            style={{
-                              left: `${xPct}%`,
-                              top: `${yPct}%`,
-                              width: `${wPct}%`,
-                              height: obj.type === "text" ? "auto" : `${hPct}%`,
-                              minHeight: obj.type === "text" ? `${hPct}%` : undefined,
-                              transform: finalTransform,
-                              transformOrigin: obj.angle ? "center center" : "top left",
-                              "--o-x": `${obj.x}mm`,
-                              "--o-y": `${obj.y}mm`,
-                              "--o-w": `${obj.width}mm`,
-                              "--o-h": `${obj.height}mm`,
-                              "--o-print-height": obj.type === "text" ? "auto" : `${obj.height}mm`,
-                              "--o-print-min-height": obj.type === "text" ? `${obj.height}mm` : "0mm",
-                              "--o-transform": finalTransform
-                            } as React.CSSProperties}
-                          >
-                            <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                              {obj.type === "text" && renderTextElement(obj, printScale)}
-
-                              {obj.type === "barcode" && (
-                                <BarcodeRenderer
-                                  content={obj.content}
-                                  format={obj.barcodeFormat}
-                                  displayValue={obj.displayValue}
-                                  barcodeWidth={obj.barcodeWidth}
-                                  barcodeHeight={obj.barcodeHeight}
-                                  fontSize={obj.barcodeFontSize || 11}
-                                  pixelScale={printScale}
-                                  barcodeShowTextAbove={obj.barcodeShowTextAbove}
-                                  barcodeShowTextBelow={obj.barcodeShowTextBelow}
-                                  barcodeFontFamily={obj.barcodeFontFamily}
-                                  barcodeFontSize={obj.barcodeFontSize}
-                                  barcodeFontWeight={obj.barcodeFontWeight}
-                                  barcodeFontStyle={obj.barcodeFontStyle}
-                                  barcodeTextMargin={obj.barcodeTextMargin}
-                                  textFlowOrigin={obj.textFlowOrigin}
-                                  color={obj.color}
-                                  barcodeTextColor={obj.barcodeTextColor}
-                                />
-                              )}
-
-                              {obj.type === "qrcode" && (
-                                <QRCodeRenderer
-                                  content={obj.content}
-                                  size={itemW * 0.9}
-                                  textFlowOrigin={obj.textFlowOrigin}
-                                  color={obj.color}
-                                />
-                              )}
-
-                              {obj.type === "image" && (
-                                <img
-                                  src={obj.content}
-                                  alt="Label Element"
-                                  className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
-                                  style={{
-                                    objectFit: obj.imageFit || "contain",
-                                    opacity: obj.imageOpacity !== undefined ? obj.imageOpacity : 1,
-                                    display: "block"
-                                  }}
-                                  referrerPolicy="no-referrer"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div
-                      key={`empty-cell-${sIdx}-${cIdx}`}
-                      className="office-print-cell relative border border-dashed border-gray-100 flex items-center justify-center bg-slate-50/15 print:border-none print:bg-transparent"
-                      style={{
-                        width: `${pxCellW}px`,
-                        height: `${pxCellH}px`,
-                        boxSizing: "border-box",
-                        "--cell-w": `${labelConfig.width}mm`,
-                        "--cell-h": `${labelConfig.height}mm`,
-                        "--cell-border": "none",
-                      } as React.CSSProperties}
-                    >
-                      <span className="text-[9px] text-gray-300 font-mono no-print">Trống</span>
-                    </div>
-                  );
+                className="office-print-page bg-white relative shadow-lg border border-gray-300 md:mb-8 shrink-0 print:m-0 print:shadow-none print:border-none"
+                style={
+                  {
+                    width: `${pxSheetW}px`,
+                    height: `${pxSheetH}px`,
+                    paddingTop: `${pxMT}px`,
+                    paddingBottom: `${pxMB}px`,
+                    paddingLeft: `${pxML}px`,
+                    paddingRight: `${pxMR}px`,
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${sheetConfig.cols || 1}, ${pxCellW}px)`,
+                    gridTemplateRows: `repeat(${sheetConfig.rows || 1}, ${pxCellH}px)`,
+                    columnGap: `${pxCG}px`,
+                    rowGap: `${pxRG}px`,
+                    boxSizing: "border-box",
+                    alignContent: "start",
+                    justifyContent: "start",
+                    "--print-width": `${sW}mm`,
+                    "--print-height": `${sH}mm`,
+                    "--sheet-m-top": `${sheetConfig.marginTop}mm`,
+                    "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
+                    "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
+                    "--sheet-m-right": `${sheetConfig.marginRight}mm`,
+                    "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
+                    "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
+                    "--sheet-col-gap": `${sheetConfig.colGap}mm`,
+                    "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
+                  } as React.CSSProperties
                 }
-              })}
-            </div>
+              >
+                {Array.from({ length: safeLength(cellsPerSheet) }).map(
+                  (_, cIdx) => {
+                    const globalIdx = sIdx * cellsPerSheet + cIdx;
+                    if (globalIdx < totalItems) {
+                      const resolvedObjs = resolveDynamicObjects
+                        ? resolveDynamicObjects(objects, globalIdx)
+                        : objects;
+
+                      return (
+                        <div
+                          key={`cell-${sIdx}-${cIdx}`}
+                          className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
+                          style={
+                            {
+                              width: `${pxCellW}px`,
+                              height: `${pxCellH}px`,
+                              backgroundColor: labelConfig.bgColor || "#ffffff",
+                              border: sheetConfig.showBorder
+                                ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)`
+                                : "none",
+                              borderRadius: `${sheetConfig.borderRadius}mm`,
+                              boxSizing: "border-box",
+                              "--cell-w": `${labelConfig.width}mm`,
+                              "--cell-h": `${labelConfig.height}mm`,
+                              "--cell-radius": `${sheetConfig.borderRadius}mm`,
+                              "--cell-border": sheetConfig.showBorder
+                                ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.6)`
+                                : "none",
+                            } as React.CSSProperties
+                          }
+                        >
+                          {/* Watermark/Background Image overlay */}
+                          {labelConfig.bgImage && (
+                            <div
+                              className="absolute inset-0 pointer-events-none select-none"
+                              style={{
+                                backgroundImage: `url(${labelConfig.bgImage})`,
+                                backgroundSize:
+                                  labelConfig.bgImageSize || "contain",
+                                backgroundPosition: "center",
+                                backgroundRepeat:
+                                  labelConfig.bgImageSize === "repeat"
+                                    ? "repeat"
+                                    : "no-repeat",
+                                opacity:
+                                  labelConfig.bgImageOpacity !== undefined
+                                    ? labelConfig.bgImageOpacity
+                                    : 0.3,
+                                zIndex: 0,
+                              }}
+                            />
+                          )}
+                          {resolvedObjs.map((obj) => {
+                            const itemX = mmToPx(obj.x, printScale);
+                            const itemY = mmToPx(obj.y, printScale);
+                            const itemW = mmToPx(obj.width, printScale);
+                            const itemH = mmToPx(obj.height, printScale);
+                            const xPct = (obj.x / labelConfig.width) * 100;
+                            const yPct = (obj.y / labelConfig.height) * 100;
+                            const wPct = (obj.width / labelConfig.width) * 100;
+                            const hPct =
+                              (obj.height / labelConfig.height) * 100;
+                            const trans =
+                              obj.type === "text"
+                                ? getTextTransform(obj.textFlowOrigin)
+                                : "none";
+                            const rotationStr = obj.angle
+                              ? `rotate(${obj.angle}deg)`
+                              : "";
+                            const finalTransform =
+                              `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
+                              "none";
+
+                            return (
+                              <div
+                                key={obj.id}
+                                className="object-print-class absolute flex flex-col items-stretch"
+                                style={
+                                  {
+                                    left: `${xPct}%`,
+                                    top: `${yPct}%`,
+                                    width: `${wPct}%`,
+                                    height:
+                                      obj.type === "text" ? "auto" : `${hPct}%`,
+                                    minHeight:
+                                      obj.type === "text"
+                                        ? `${hPct}%`
+                                        : undefined,
+                                    transform: finalTransform,
+                                    transformOrigin: obj.angle
+                                      ? "center center"
+                                      : "top left",
+                                    "--o-x": `${obj.x}mm`,
+                                    "--o-y": `${obj.y}mm`,
+                                    "--o-w": `${obj.width}mm`,
+                                    "--o-h": `${obj.height}mm`,
+                                    "--o-print-height":
+                                      obj.type === "text"
+                                        ? "auto"
+                                        : `${obj.height}mm`,
+                                    "--o-print-min-height":
+                                      obj.type === "text"
+                                        ? `${obj.height}mm`
+                                        : "0mm",
+                                    "--o-transform": finalTransform,
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                                  {obj.type === "text" &&
+                                    renderTextElement(obj, printScale)}
+
+                                  {obj.type === "barcode" && (
+                                    <BarcodeRenderer
+                                      content={obj.content}
+                                      format={obj.barcodeFormat}
+                                      displayValue={obj.displayValue}
+                                      barcodeWidth={obj.barcodeWidth}
+                                      barcodeHeight={obj.barcodeHeight}
+                                      fontSize={obj.barcodeFontSize || 7}
+                                      pixelScale={printScale}
+                                      barcodeShowTextAbove={
+                                        obj.barcodeShowTextAbove
+                                      }
+                                      barcodeShowTextBelow={
+                                        obj.barcodeShowTextBelow
+                                      }
+                                      barcodeFontFamily={obj.barcodeFontFamily}
+                                      barcodeFontSize={obj.barcodeFontSize}
+                                      barcodeFontWeight={obj.barcodeFontWeight}
+                                      barcodeFontStyle={obj.barcodeFontStyle}
+                                      barcodeTextMargin={obj.barcodeTextMargin}
+                                      textFlowOrigin={obj.textFlowOrigin}
+                                      color={obj.color}
+                                      barcodeTextColor={obj.barcodeTextColor}
+                                    />
+                                  )}
+
+                                  {obj.type === "qrcode" && (
+                                    <QRCodeRenderer
+                                      content={obj.content}
+                                      size={itemW * 0.9}
+                                      textFlowOrigin={obj.textFlowOrigin}
+                                      color={obj.color}
+                                    />
+                                  )}
+
+                                  {obj.type === "image" && (
+                                    <img
+                                      src={obj.content}
+                                      alt="Label Element"
+                                      className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+                                      style={{
+                                        objectFit: obj.imageFit || "contain",
+                                        opacity:
+                                          obj.imageOpacity !== undefined
+                                            ? obj.imageOpacity
+                                            : 1,
+                                        display: "block",
+                                      }}
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div
+                          key={`empty-cell-${sIdx}-${cIdx}`}
+                          className="office-print-cell relative border border-dashed border-gray-100 flex items-center justify-center bg-slate-50/15 print:border-none print:bg-transparent"
+                          style={
+                            {
+                              width: `${pxCellW}px`,
+                              height: `${pxCellH}px`,
+                              boxSizing: "border-box",
+                              "--cell-w": `${labelConfig.width}mm`,
+                              "--cell-h": `${labelConfig.height}mm`,
+                              "--cell-border": "none",
+                            } as React.CSSProperties
+                          }
+                        >
+                          <span className="text-[9px] text-gray-300 font-mono no-print">
+                            Trống
+                          </span>
+                        </div>
+                      );
+                    }
+                  },
+                )}
+              </div>
             );
           })}
         </div>
@@ -1008,10 +1275,12 @@ export function LabelCanvas({
         {limitPreview && totalSheets > 3 && (
           <div className="mt-4 mb-2 p-3.5 bg-amber-50/95 border border-amber-250/70 rounded-xl shadow-md text-center max-w-lg mx-auto no-print flex flex-col items-center justify-center space-y-2 select-none animate-fadeIn">
             <p className="text-[11.5px] text-amber-950 font-bold leading-relaxed">
-              ⚡ Đang chỉ hiển thị trước 3 / {totalSheets} trang thiết kế để giữ tốc độ phản hồi siêu mượt.
+              ⚡ Đang chỉ hiển thị trước 3 / {totalSheets} trang thiết kế để giữ
+              tốc độ phản hồi siêu mượt.
             </p>
             <p className="text-[10px] text-amber-900 leading-normal font-medium">
-              Toàn bộ {totalSheets} trang sẽ tự động được gửi và xuất đầy đủ khi bạn in ấn (Print / Ctrl+P)!
+              Toàn bộ {totalSheets} trang sẽ tự động được gửi và xuất đầy đủ khi
+              bạn in ấn (Print / Ctrl+P)!
             </p>
             <button
               type="button"
@@ -1027,8 +1296,9 @@ export function LabelCanvas({
   }
 
   // Integrated multi-column and gap-aware thermal preview/print engine
-  const isThermalMode = sheetConfig && sheetConfig.mode === 'thermal';
-  const showThermalSheetGrid = isThermalMode && sheetConfig && officePreviewMode === 'sheet';
+  const isThermalMode = sheetConfig && sheetConfig.mode === "thermal";
+  const showThermalSheetGrid =
+    isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
   if (showThermalSheetGrid && sheetConfig) {
     const cols = Math.max(1, sheetConfig.cols || 1);
@@ -1049,7 +1319,10 @@ export function LabelCanvas({
     let totalItems = 0;
     const hasExcel = excelData && excelData.length > 0;
     if (hasExcel) {
-      totalItems = printManifestLength !== undefined ? printManifestLength : excelData.length;
+      totalItems =
+        printManifestLength !== undefined
+          ? printManifestLength
+          : excelData.length;
     } else {
       totalItems = printCopies || cols;
     }
@@ -1074,10 +1347,14 @@ export function LabelCanvas({
             <span>Xem trước bản in cuộn ({cols} tem 1 hàng)</span>
           </p>
           <p className="text-[10px] text-gray-400 mt-0.5 leading-relaxed font-semibold">
-            Chiều rộng phôi cuộn: {backingWidth}mm | Khoảng cách cột: {colGap}mm | Khoảng trống hàng (Gap): {rowGap}mm (~{(rowGap / 25.4).toFixed(3)} inch)
+            Chiều rộng phôi cuộn: {backingWidth}mm | Khoảng cách cột: {colGap}mm
+            | Khoảng trống hàng (Gap): {rowGap}mm (~{(rowGap / 25.4).toFixed(3)}{" "}
+            inch)
           </p>
           <div className="text-[10px] bg-sky-50 text-kiot-navy px-2.5 py-0.5 rounded-md font-bold mt-1.5 inline-block border border-kiot-cyan/35 ring-1 ring-kiot-cyan/5">
-            {hasExcel ? `Liên kết Excel: ${totalItems} hàng (${totalRows} hàng tem)` : `Số nhãn in thử: ${totalItems} (${totalRows} hàng tem)`}
+            {hasExcel
+              ? `Liên kết Excel: ${totalItems} hàng (${totalRows} hàng tem)`
+              : `Số nhãn in thử: ${totalItems} (${totalRows} hàng tem)`}
           </div>
         </div>
 
@@ -1087,162 +1364,208 @@ export function LabelCanvas({
             return (
               <div
                 key={`thermal-row-${rIdx}`}
-              className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
-              style={{
-                width: `${pxBackingW}px`,
-                height: `${pxBackingH}px`,
-                display: "flex",
-                flexDirection: "row",
-                gap: `${pxColGap}px`,
-                boxSizing: "border-box",
-                marginBottom: `${pxRowGap}px`, // visual gap on screen
-                "--print-width": `${backingWidth}mm`,
-                "--print-height": `${labelH}mm`,
-                "--print-col-gap": `${colGap}mm`,
-              } as React.CSSProperties}
-            >
-              {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
-                const globalIdx = rIdx * cols + cIdx;
-                if (globalIdx < totalItems) {
-                  const resolvedObjs = resolveDynamicObjects
-                    ? resolveDynamicObjects(objects, globalIdx)
-                    : objects;
-
-                  return (
-                    <div
-                      key={`thermal-cell-${rIdx}-${cIdx}`}
-                      className="batch-print-cell relative overflow-hidden select-none print:bg-transparent"
-                      style={{
-                        width: `${pxCellW}px`,
-                        height: `${pxCellH}px`,
-                        backgroundColor: labelConfig.bgColor || "#ffffff",
-                        boxSizing: "border-box",
-                        border: sheetConfig.showBorder ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)` : "none",
-                        borderRadius: `${sheetConfig.borderRadius}mm`,
-                        "--cell-w": `${labelConfig.width}mm`,
-                        "--cell-h": `${labelConfig.height}mm`,
-                      } as React.CSSProperties}
-                    >
-                      {/* Watermark/Background Image overlay */}
-                      {labelConfig.bgImage && (
-                        <div 
-                          className="absolute inset-0 pointer-events-none select-none"
-                          style={{
-                            backgroundImage: `url(${labelConfig.bgImage})`,
-                            backgroundSize: labelConfig.bgImageSize || "contain",
-                            backgroundPosition: "center",
-                            backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
-                            opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
-                            zIndex: 0,
-                          }}
-                        />
-                      )}
-                      {resolvedObjs.map((obj) => {
-                        const itemX = mmToPx(obj.x, printScale);
-                        const itemY = mmToPx(obj.y, printScale);
-                        const itemW = mmToPx(obj.width, printScale);
-                        const itemH = mmToPx(obj.height, printScale);
-                        const xPct = (obj.x / labelConfig.width) * 100;
-                        const yPct = (obj.y / labelConfig.height) * 100;
-                        const wPct = (obj.width / labelConfig.width) * 100;
-                        const hPct = (obj.height / labelConfig.height) * 100;
-                        const trans = obj.type === "text" ? getTextTransform(obj.textFlowOrigin) : "none";
-                        const rotationStr = obj.angle ? `rotate(${obj.angle}deg)` : "";
-                        const finalTransform = `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() || "none";
-
-                        return (
-                          <div
-                            key={obj.id}
-                            className="object-print-class absolute flex flex-col items-stretch"
-                            style={{
-                              left: `${xPct}%`,
-                              top: `${yPct}%`,
-                              width: `${wPct}%`,
-                              height: obj.type === "text" ? "auto" : `${hPct}%`,
-                              minHeight: obj.type === "text" ? `${hPct}%` : undefined,
-                              transform: finalTransform,
-                              transformOrigin: obj.angle ? "center center" : "top left",
-                              "--o-x": `${obj.x}mm`,
-                              "--o-y": `${obj.y}mm`,
-                              "--o-w": `${obj.width}mm`,
-                              "--o-h": `${obj.height}mm`,
-                              "--o-print-height": obj.type === "text" ? "auto" : `${obj.height}mm`,
-                              "--o-print-min-height": obj.type === "text" ? `${obj.height}mm` : "0mm",
-                              "--o-transform": finalTransform
-                            } as React.CSSProperties}
-                          >
-                            <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                              {obj.type === "text" && renderTextElement(obj, printScale)}
-
-                              {obj.type === "barcode" && (
-                                <BarcodeRenderer
-                                  content={obj.content}
-                                  format={obj.barcodeFormat}
-                                  displayValue={obj.displayValue}
-                                  barcodeWidth={obj.barcodeWidth}
-                                  barcodeHeight={obj.barcodeHeight}
-                                  fontSize={obj.barcodeFontSize || 11}
-                                  pixelScale={printScale}
-                                  barcodeShowTextAbove={obj.barcodeShowTextAbove}
-                                  barcodeShowTextBelow={obj.barcodeShowTextBelow}
-                                  barcodeFontFamily={obj.barcodeFontFamily}
-                                  barcodeFontSize={obj.barcodeFontSize}
-                                  barcodeFontWeight={obj.barcodeFontWeight}
-                                  barcodeFontStyle={obj.barcodeFontStyle}
-                                  barcodeTextMargin={obj.barcodeTextMargin}
-                                  textFlowOrigin={obj.textFlowOrigin}
-                                  color={obj.color}
-                                  barcodeTextColor={obj.barcodeTextColor}
-                                />
-                              )}
-
-                              {obj.type === "qrcode" && (
-                                <QRCodeRenderer
-                                  content={obj.content}
-                                  size={itemW * 0.9}
-                                  textFlowOrigin={obj.textFlowOrigin}
-                                  color={obj.color}
-                                />
-                              )}
-
-                              {obj.type === "image" && (
-                                <img
-                                  src={obj.content}
-                                  alt="Label Element"
-                                  className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
-                                  style={{
-                                    objectFit: obj.imageFit || "contain",
-                                    opacity: obj.imageOpacity !== undefined ? obj.imageOpacity : 1,
-                                    display: "block"
-                                  }}
-                                  referrerPolicy="no-referrer"
-                                />
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div
-                      key={`empty-thermal-cell-${rIdx}-${cIdx}`}
-                      className="batch-print-cell relative border border-dashed border-gray-150 flex items-center justify-center bg-slate-50/15 print:border-none print:bg-transparent"
-                      style={{
-                        width: `${pxCellW}px`,
-                        height: `${pxCellH}px`,
-                        boxSizing: "border-box",
-                        "--cell-w": `${labelConfig.width}mm`,
-                        "--cell-h": `${labelConfig.height}mm`,
-                      } as React.CSSProperties}
-                    >
-                      <span className="text-[9px] text-gray-300 font-mono no-print">Trống</span>
-                    </div>
-                  );
+                className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
+                style={
+                  {
+                    width: `${pxBackingW}px`,
+                    height: `${pxBackingH}px`,
+                    display: "flex",
+                    flexDirection: "row",
+                    gap: `${pxColGap}px`,
+                    boxSizing: "border-box",
+                    marginBottom: `${pxRowGap}px`, // visual gap on screen
+                    "--print-width": `${backingWidth}mm`,
+                    "--print-height": `${labelH}mm`,
+                    "--print-col-gap": `${colGap}mm`,
+                  } as React.CSSProperties
                 }
-              })}
-            </div>
+              >
+                {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
+                  const globalIdx = rIdx * cols + cIdx;
+                  if (globalIdx < totalItems) {
+                    const resolvedObjs = resolveDynamicObjects
+                      ? resolveDynamicObjects(objects, globalIdx)
+                      : objects;
+
+                    return (
+                      <div
+                        key={`thermal-cell-${rIdx}-${cIdx}`}
+                        className="batch-print-cell relative overflow-hidden select-none print:bg-transparent"
+                        style={
+                          {
+                            width: `${pxCellW}px`,
+                            height: `${pxCellH}px`,
+                            backgroundColor: labelConfig.bgColor || "#ffffff",
+                            boxSizing: "border-box",
+                            border: sheetConfig.showBorder
+                              ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)`
+                              : "none",
+                            borderRadius: `${sheetConfig.borderRadius}mm`,
+                            "--cell-w": `${labelConfig.width}mm`,
+                            "--cell-h": `${labelConfig.height}mm`,
+                          } as React.CSSProperties
+                        }
+                      >
+                        {/* Watermark/Background Image overlay */}
+                        {labelConfig.bgImage && (
+                          <div
+                            className="absolute inset-0 pointer-events-none select-none"
+                            style={{
+                              backgroundImage: `url(${labelConfig.bgImage})`,
+                              backgroundSize:
+                                labelConfig.bgImageSize || "contain",
+                              backgroundPosition: "center",
+                              backgroundRepeat:
+                                labelConfig.bgImageSize === "repeat"
+                                  ? "repeat"
+                                  : "no-repeat",
+                              opacity:
+                                labelConfig.bgImageOpacity !== undefined
+                                  ? labelConfig.bgImageOpacity
+                                  : 0.3,
+                              zIndex: 0,
+                            }}
+                          />
+                        )}
+                        {resolvedObjs.map((obj) => {
+                          const itemX = mmToPx(obj.x, printScale);
+                          const itemY = mmToPx(obj.y, printScale);
+                          const itemW = mmToPx(obj.width, printScale);
+                          const itemH = mmToPx(obj.height, printScale);
+                          const xPct = (obj.x / labelConfig.width) * 100;
+                          const yPct = (obj.y / labelConfig.height) * 100;
+                          const wPct = (obj.width / labelConfig.width) * 100;
+                          const hPct = (obj.height / labelConfig.height) * 100;
+                          const trans =
+                            obj.type === "text"
+                              ? getTextTransform(obj.textFlowOrigin)
+                              : "none";
+                          const rotationStr = obj.angle
+                            ? `rotate(${obj.angle}deg)`
+                            : "";
+                          const finalTransform =
+                            `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
+                            "none";
+
+                          return (
+                            <div
+                              key={obj.id}
+                              className="object-print-class absolute flex flex-col items-stretch"
+                              style={
+                                {
+                                  left: `${xPct}%`,
+                                  top: `${yPct}%`,
+                                  width: `${wPct}%`,
+                                  height:
+                                    obj.type === "text" ? "auto" : `${hPct}%`,
+                                  minHeight:
+                                    obj.type === "text"
+                                      ? `${hPct}%`
+                                      : undefined,
+                                  transform: finalTransform,
+                                  transformOrigin: obj.angle
+                                    ? "center center"
+                                    : "top left",
+                                  "--o-x": `${obj.x}mm`,
+                                  "--o-y": `${obj.y}mm`,
+                                  "--o-w": `${obj.width}mm`,
+                                  "--o-h": `${obj.height}mm`,
+                                  "--o-print-height":
+                                    obj.type === "text"
+                                      ? "auto"
+                                      : `${obj.height}mm`,
+                                  "--o-print-min-height":
+                                    obj.type === "text"
+                                      ? `${obj.height}mm`
+                                      : "0mm",
+                                  "--o-transform": finalTransform,
+                                } as React.CSSProperties
+                              }
+                            >
+                              <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                                {obj.type === "text" &&
+                                  renderTextElement(obj, printScale)}
+
+                                {obj.type === "barcode" && (
+                                  <BarcodeRenderer
+                                    content={obj.content}
+                                    format={obj.barcodeFormat}
+                                    displayValue={obj.displayValue}
+                                    barcodeWidth={obj.barcodeWidth}
+                                    barcodeHeight={obj.barcodeHeight}
+                                    fontSize={obj.barcodeFontSize || 7}
+                                    pixelScale={printScale}
+                                    barcodeShowTextAbove={
+                                      obj.barcodeShowTextAbove
+                                    }
+                                    barcodeShowTextBelow={
+                                      obj.barcodeShowTextBelow
+                                    }
+                                    barcodeFontFamily={obj.barcodeFontFamily}
+                                    barcodeFontSize={obj.barcodeFontSize}
+                                    barcodeFontWeight={obj.barcodeFontWeight}
+                                    barcodeFontStyle={obj.barcodeFontStyle}
+                                    barcodeTextMargin={obj.barcodeTextMargin}
+                                    textFlowOrigin={obj.textFlowOrigin}
+                                    color={obj.color}
+                                    barcodeTextColor={obj.barcodeTextColor}
+                                  />
+                                )}
+
+                                {obj.type === "qrcode" && (
+                                  <QRCodeRenderer
+                                    content={obj.content}
+                                    size={itemW * 0.9}
+                                    textFlowOrigin={obj.textFlowOrigin}
+                                    color={obj.color}
+                                  />
+                                )}
+
+                                {obj.type === "image" && (
+                                  <img
+                                    src={obj.content}
+                                    alt="Label Element"
+                                    className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+                                    style={{
+                                      objectFit: obj.imageFit || "contain",
+                                      opacity:
+                                        obj.imageOpacity !== undefined
+                                          ? obj.imageOpacity
+                                          : 1,
+                                      display: "block",
+                                    }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div
+                        key={`empty-thermal-cell-${rIdx}-${cIdx}`}
+                        className="batch-print-cell relative border border-dashed border-gray-150 flex items-center justify-center bg-slate-50/15 print:border-none print:bg-transparent"
+                        style={
+                          {
+                            width: `${pxCellW}px`,
+                            height: `${pxCellH}px`,
+                            boxSizing: "border-box",
+                            "--cell-w": `${labelConfig.width}mm`,
+                            "--cell-h": `${labelConfig.height}mm`,
+                          } as React.CSSProperties
+                        }
+                      >
+                        <span className="text-[9px] text-gray-300 font-mono no-print">
+                          Trống
+                        </span>
+                      </div>
+                    );
+                  }
+                })}
+              </div>
             );
           })}
         </div>
@@ -1250,10 +1573,12 @@ export function LabelCanvas({
         {limitPreview && totalRows > 20 && (
           <div className="mt-4 mb-2 p-3.5 bg-sky-50/95 border border-sky-200/70 rounded-xl shadow-md text-center max-w-lg mx-auto no-print flex flex-col items-center justify-center space-y-2 select-none animate-fadeIn">
             <p className="text-[11.5px] text-sky-950 font-bold leading-relaxed">
-              ⚡ Đang chỉ hiển thị trước 20 / {totalRows} hàng tem để đảm bảo trình duyệt cuộn mượt mà.
+              ⚡ Đang chỉ hiển thị trước 20 / {totalRows} hàng tem để đảm bảo
+              trình duyệt cuộn mượt mà.
             </p>
             <p className="text-[10px] text-sky-900 leading-normal font-medium">
-              Toàn bộ {totalRows} hàng ({totalItems} tem) sẽ tự động được gửi và xuất đầy đủ khi bạn in ấn (Print / Ctrl+P)!
+              Toàn bộ {totalRows} hàng ({totalItems} tem) sẽ tự động được gửi và
+              xuất đầy đủ khi bạn in ấn (Print / Ctrl+P)!
             </p>
             <button
               type="button"
@@ -1269,7 +1594,7 @@ export function LabelCanvas({
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       id="label-editor-workspace"
       className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-150/50 border border-gray-200 shadow-inner overflow-auto relative select-none"
@@ -1298,7 +1623,7 @@ export function LabelCanvas({
       }}
     >
       {/* Center Wrapper for Rulers and the Active Canvas to scroll together perfectly */}
-      <div 
+      <div
         id="canvas-ruler-wrapper"
         className="relative shrink-0 flex-initial"
         style={{
@@ -1307,381 +1632,447 @@ export function LabelCanvas({
         }}
       >
         {/* CORNER RULER ANCHOR */}
-        <div 
+        <div
           className="absolute bg-gray-200 border-r border-b border-gray-350 text-[10px] text-gray-550 font-bold select-none z-10 flex items-center justify-center select-none no-print"
           style={{
             width: "24px",
             height: "24px",
             left: 0,
-            top: 0
+            top: 0,
           }}
         >
           mm
         </div>
 
-      {/* HORIZONTAL RULER (TOP) */}
-      <div 
-        className="absolute bg-gray-50 border-b border-gray-300 overflow-hidden select-none z-10 flex no-print"
-        style={{
-          height: "24px",
-          width: `${pxWidth}px`,
-          left: "24px",
-          top: 0
-        }}
-      >
-        {Array.from({ length: safeLength(topTicksCount + 1) }).map((_, i) => {
-          const valueMm = i * 5;
-          const leftPx = mmToPx(valueMm, pixelScale);
-          const isMajor = valueMm % 10 === 0;
+        {/* HORIZONTAL RULER (TOP) */}
+        <div
+          className="absolute bg-gray-50 border-b border-gray-300 overflow-hidden select-none z-10 flex no-print"
+          style={{
+            height: "24px",
+            width: `${pxWidth}px`,
+            left: "24px",
+            top: 0,
+          }}
+        >
+          {Array.from({ length: safeLength(topTicksCount + 1) }).map((_, i) => {
+            const valueMm = i * 5;
+            const leftPx = mmToPx(valueMm, pixelScale);
+            const isMajor = valueMm % 10 === 0;
 
-          return (
-            <div 
-              key={`h-tick-${i}`}
-              className="absolute border-l border-gray-300 flex flex-col items-start transition-all"
-              style={{
-                left: `${leftPx}px`,
-                height: isMajor ? "24px" : "12px",
-                bottom: 0
-              }}
-            >
-              {isMajor && (
-                <span className="text-[9px] font-mono text-gray-500 pl-1 pt-0.5 leading-none select-none">
-                  {valueMm}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            return (
+              <div
+                key={`h-tick-${i}`}
+                className="absolute border-l border-gray-300 flex flex-col items-start transition-all"
+                style={{
+                  left: `${leftPx}px`,
+                  height: isMajor ? "24px" : "12px",
+                  bottom: 0,
+                }}
+              >
+                {isMajor && (
+                  <span className="text-[9px] font-mono text-gray-500 pl-1 pt-0.5 leading-none select-none">
+                    {valueMm}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
 
-      {/* VERTICAL RULER (LEFT) */}
-      <div 
-        className="absolute bg-gray-50 border-r border-gray-300 overflow-hidden select-none z-10 no-print"
-        style={{
-          width: "24px",
-          height: `${pxHeight}px`,
-          left: 0,
-          top: "24px"
-        }}
-      >
-        {Array.from({ length: safeLength(leftTicksCount + 1) }).map((_, i) => {
-          const valueMm = i * 5;
-          const topPx = mmToPx(valueMm, pixelScale);
-          const isMajor = valueMm % 10 === 0;
+        {/* VERTICAL RULER (LEFT) */}
+        <div
+          className="absolute bg-gray-50 border-r border-gray-300 overflow-hidden select-none z-10 no-print"
+          style={{
+            width: "24px",
+            height: `${pxHeight}px`,
+            left: 0,
+            top: "24px",
+          }}
+        >
+          {Array.from({ length: safeLength(leftTicksCount + 1) }).map(
+            (_, i) => {
+              const valueMm = i * 5;
+              const topPx = mmToPx(valueMm, pixelScale);
+              const isMajor = valueMm % 10 === 0;
 
-          return (
-            <div 
-              key={`v-tick-${i}`}
-              className="absolute border-t border-gray-300 flex items-center transition-all"
-              style={{
-                top: `${topPx}px`,
-                width: isMajor ? "24px" : "12px",
-                right: 0
-              }}
-            >
-              {isMajor && (
-                <span className="text-[9px] font-mono text-gray-500 pr-1 pb-1 leading-none absolute right-3 rotate-270 origin-right select-none">
-                  {valueMm}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              return (
+                <div
+                  key={`v-tick-${i}`}
+                  className="absolute border-t border-gray-300 flex items-center transition-all"
+                  style={{
+                    top: `${topPx}px`,
+                    width: isMajor ? "24px" : "12px",
+                    right: 0,
+                  }}
+                >
+                  {isMajor && (
+                    <span className="text-[9px] font-mono text-gray-500 pr-1 pb-1 leading-none absolute right-3 rotate-270 origin-right select-none">
+                      {valueMm}
+                    </span>
+                  )}
+                </div>
+              );
+            },
+          )}
+        </div>
 
-      {/* PRINT SHEET - PRIMARY CANVAS WRAPPER */}
-      <div
-        ref={labelRef}
-        id="thermal-label-canvas"
-        onMouseDown={handleLabelMouseDown}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            onSelectObject(null);
-          }
-        }}
-        className={`shadow-xl absolute transition-shadow duration-300 print:shadow-none print:border-none print:m-0 print:p-0 ${
-          gridSnapSize > 0 
-            ? "bg-[radial-gradient(#e2e8f0_1px,transparent_1.2px)] [background-size:10px_10px]" 
-            : ""
-        }`}
-        style={{
-          width: `${pxWidth}px`,
-          height: `${pxHeight}px`,
-          left: "24px",
-          top: "24px",
-          maxWidth: "100%",
-          backgroundColor: labelConfig.bgColor || "#ffffff",
-        }}
-        title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
-      >
-        {/* Watermark/Background Image overlay */}
-        {labelConfig.bgImage && (
-          <div 
-            className="absolute inset-0 pointer-events-none select-none"
-            style={{
-              backgroundImage: `url(${labelConfig.bgImage})`,
-              backgroundSize: labelConfig.bgImageSize || "contain",
-              backgroundPosition: "center",
-              backgroundRepeat: labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
-              opacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
-              zIndex: 0,
-            }}
-          />
-        )}
-        {/* Render individual items */}
-        {objects.map((obj) => {
-          const isSelected = obj.id === selectedId;
-          const isDraggingThis = localDragCoords && localDragCoords.id === obj.id;
-          const isResizingThis = localResizeDims && localResizeDims.id === obj.id;
-
-          const activeX = isResizingThis ? localResizeDims.x : (isDraggingThis ? localDragCoords.x : obj.x);
-          const activeY = isResizingThis ? localResizeDims.y : (isDraggingThis ? localDragCoords.y : obj.y);
-          const activeW = isResizingThis ? localResizeDims.width : obj.width;
-          const activeH = isResizingThis ? localResizeDims.height : obj.height;
-
-          const itemX = mmToPx(activeX, printScale);
-          const itemY = mmToPx(activeY, printScale);
-          const itemW = mmToPx(activeW, printScale);
-          const itemH = mmToPx(activeH, printScale);
-          const xPct = (activeX / labelConfig.width) * 100;
-          const yPct = (activeY / labelConfig.height) * 100;
-          const wPct = (activeW / labelConfig.width) * 100;
-          const hPct = (activeH / labelConfig.height) * 100;
-          
-          const isRotatingThis = localRotateAngle && localRotateAngle.id === obj.id;
-          const activeAngle = isRotatingThis ? localRotateAngle!.angle : (obj.angle || 0);
-
-          const rotationStr = activeAngle ? `rotate(${activeAngle}deg)` : "";
-          const trans = obj.type === "text" ? getTextTransform(obj.textFlowOrigin) : "none";
-          const finalTransform = `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() || "none";
-
-          return (
+        {/* PRINT SHEET - PRIMARY CANVAS WRAPPER */}
+        <div
+          ref={labelRef}
+          id="thermal-label-canvas"
+          onMouseDown={handleLabelMouseDown}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              onSelectObject(null);
+            }
+          }}
+          className={`shadow-xl absolute transition-shadow duration-300 print:shadow-none print:border-none print:m-0 print:p-0 ${
+            gridSnapSize > 0
+              ? "bg-[radial-gradient(#e2e8f0_1px,transparent_1.2px)] [background-size:10px_10px]"
+              : ""
+          }`}
+          style={{
+            width: `${pxWidth}px`,
+            height: `${pxHeight}px`,
+            left: "24px",
+            top: "24px",
+            maxWidth: "100%",
+            backgroundColor: labelConfig.bgColor || "#ffffff",
+          }}
+          title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
+        >
+          {/* Watermark/Background Image overlay */}
+          {labelConfig.bgImage && (
             <div
-              key={obj.id}
-              id={`object-${obj.id}`}
-              onMouseDown={(e) => handleObjectMouseDown(e, obj)}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                if (obj.type === "text") {
-                  setEditingTextId(obj.id);
-                }
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-              }}
-              className={`object-print-class absolute flex flex-col items-stretch group cursor-move select-none transition-shadow ${
-                isSelected 
-                  ? "ring-2 ring-kiot-cyan ring-offset-[1.5px] bg-sky-50/10 z-30 shadow-md" 
-                  : "hover:ring-1 hover:ring-kiot-cyan/40 z-20 hover:bg-gray-50/30"
-              }`}
+              className="absolute inset-0 pointer-events-none select-none"
               style={{
-                left: `${xPct}%`,
-                top: `${yPct}%`,
-                width: `${wPct}%`,
-                height: obj.type === "text" ? "auto" : `${hPct}%`,
-                minHeight: obj.type === "text" ? `${hPct}%` : undefined,
-                transform: finalTransform,
-                transformOrigin: activeAngle ? "center center" : "top left",
-                // Standard inline properties as custom CSS variables for our print-stylesheet engine:
-                "--o-x": `${activeX}mm`,
-                "--o-y": `${activeY}mm`,
-                "--o-w": `${activeW}mm`,
-                "--o-h": `${activeH}mm`,
-                "--o-print-height": obj.type === "text" ? "auto" : `${activeH}mm`,
-                "--o-print-min-height": obj.type === "text" ? `${activeH}mm` : "0mm",
-                "--o-transform": finalTransform
-              } as React.CSSProperties}
-            >
-              {/* Dynamic Content Rendering */}
-              <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                {obj.type === "text" && (
-                  editingTextId === obj.id ? (
-                    <textarea
-                      autoFocus
-                      defaultValue={obj.content}
-                      onChange={(e) => {
+                backgroundImage: `url(${labelConfig.bgImage})`,
+                backgroundSize: labelConfig.bgImageSize || "contain",
+                backgroundPosition: "center",
+                backgroundRepeat:
+                  labelConfig.bgImageSize === "repeat" ? "repeat" : "no-repeat",
+                opacity:
+                  labelConfig.bgImageOpacity !== undefined
+                    ? labelConfig.bgImageOpacity
+                    : 0.3,
+                zIndex: 0,
+              }}
+            />
+          )}
+          {/* Render individual items */}
+          {objects.map((obj) => {
+            const isSelected = obj.id === selectedId;
+            const isDraggingThis =
+              localDragCoords && localDragCoords.id === obj.id;
+            const isResizingThis =
+              localResizeDims && localResizeDims.id === obj.id;
+
+            const activeX = isResizingThis
+              ? localResizeDims.x
+              : isDraggingThis
+                ? localDragCoords.x
+                : obj.x;
+            const activeY = isResizingThis
+              ? localResizeDims.y
+              : isDraggingThis
+                ? localDragCoords.y
+                : obj.y;
+            const activeW = isResizingThis ? localResizeDims.width : obj.width;
+            const activeH = isResizingThis
+              ? localResizeDims.height
+              : obj.height;
+
+            const itemX = mmToPx(activeX, printScale);
+            const itemY = mmToPx(activeY, printScale);
+            const itemW = mmToPx(activeW, printScale);
+            const itemH = mmToPx(activeH, printScale);
+            const xPct = (activeX / labelConfig.width) * 100;
+            const yPct = (activeY / labelConfig.height) * 100;
+            const wPct = (activeW / labelConfig.width) * 100;
+            const hPct = (activeH / labelConfig.height) * 100;
+
+            const isRotatingThis =
+              localRotateAngle && localRotateAngle.id === obj.id;
+            const activeAngle = isRotatingThis
+              ? localRotateAngle!.angle
+              : obj.angle || 0;
+
+            const rotationStr = activeAngle ? `rotate(${activeAngle}deg)` : "";
+            const trans =
+              obj.type === "text"
+                ? getTextTransform(obj.textFlowOrigin)
+                : "none";
+            const finalTransform =
+              `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
+              "none";
+
+            return (
+              <div
+                key={obj.id}
+                id={`object-${obj.id}`}
+                onMouseDown={(e) => handleObjectMouseDown(e, obj)}
+                onDoubleClick={(e) => {
+                  e.stopPropagation();
+                  if (obj.type === "text") {
+                    setEditingTextId(obj.id);
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+                className={`object-print-class absolute flex flex-col items-stretch group cursor-move select-none transition-shadow ${
+                  isSelected
+                    ? "ring-2 ring-kiot-cyan ring-offset-[1.5px] bg-sky-50/10 z-30 shadow-md"
+                    : "hover:ring-1 hover:ring-kiot-cyan/40 z-20 hover:bg-gray-50/30"
+                }`}
+                style={
+                  {
+                    left: `${xPct}%`,
+                    top: `${yPct}%`,
+                    width: `${wPct}%`,
+                    height: obj.type === "text" ? "auto" : `${hPct}%`,
+                    minHeight: obj.type === "text" ? `${hPct}%` : undefined,
+                    transform: finalTransform,
+                    transformOrigin: activeAngle ? "center center" : "top left",
+                    // Standard inline properties as custom CSS variables for our print-stylesheet engine:
+                    "--o-x": `${activeX}mm`,
+                    "--o-y": `${activeY}mm`,
+                    "--o-w": `${activeW}mm`,
+                    "--o-h": `${activeH}mm`,
+                    "--o-print-height":
+                      obj.type === "text" ? "auto" : `${activeH}mm`,
+                    "--o-print-min-height":
+                      obj.type === "text" ? `${activeH}mm` : "0mm",
+                    "--o-transform": finalTransform,
+                  } as React.CSSProperties
+                }
+              >
+                {/* Dynamic Content Rendering */}
+                <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                  {obj.type === "text" &&
+                    (editingTextId === obj.id ? (
+                      <textarea
+                        autoFocus
+                        defaultValue={obj.content}
+                        onChange={(e) => {
+                          if (onUpdateObject) {
+                            onUpdateObject({
+                              ...obj,
+                              content: e.target.value,
+                            });
+                          }
+                        }}
+                        onBlur={() => setEditingTextId(null)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setEditingTextId(null);
+                          }
+                          e.stopPropagation();
+                        }}
+                        onKeyUp={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        className="w-full h-full p-1 border-0 rounded-none bg-sky-50/90 text-slate-900 outline-none resize-none overflow-auto focus:ring-0 whitespace-pre-wrap select-text leading-normal z-50 text-[13px] font-semibold"
+                        style={{
+                          fontFamily:
+                            obj.fontFamily === "Arial"
+                              ? "Arial, Helvetica, sans-serif"
+                              : obj.fontFamily === "Times New Roman"
+                                ? "'Times New Roman', Times, serif"
+                                : obj.fontFamily === "Tahoma"
+                                  ? "Tahoma, Geneva, sans-serif"
+                                  : obj.fontFamily === "monospace"
+                                    ? "var(--font-mono)"
+                                    : "var(--font-sans)",
+                          fontWeight: obj.fontWeight || "normal",
+                          fontStyle: obj.fontStyle || "normal",
+                          fontSize: `${(obj.fontSize || 11) * 0.352777 * printScale}px`,
+                          textAlign: obj.textAlign || "left",
+                          lineHeight: "1.25",
+                        }}
+                      />
+                    ) : (
+                      renderTextElement(obj, printScale)
+                    ))}
+
+                  {obj.type === "barcode" && (
+                    <BarcodeRenderer
+                      content={obj.content}
+                      format={obj.barcodeFormat}
+                      displayValue={obj.displayValue}
+                      barcodeWidth={obj.barcodeWidth}
+                      barcodeHeight={obj.barcodeHeight}
+                      fontSize={obj.barcodeFontSize || 7}
+                      pixelScale={printScale}
+                      barcodeShowTextAbove={obj.barcodeShowTextAbove}
+                      barcodeShowTextBelow={obj.barcodeShowTextBelow}
+                      barcodeFontFamily={obj.barcodeFontFamily}
+                      barcodeFontSize={obj.barcodeFontSize}
+                      barcodeFontWeight={obj.barcodeFontWeight}
+                      barcodeFontStyle={obj.barcodeFontStyle}
+                      barcodeTextMargin={obj.barcodeTextMargin}
+                      textFlowOrigin={obj.textFlowOrigin}
+                      color={obj.color}
+                      barcodeTextColor={obj.barcodeTextColor}
+                      onUpdateContent={(newVal) => {
                         if (onUpdateObject) {
                           onUpdateObject({
                             ...obj,
-                            content: e.target.value
+                            content: newVal,
                           });
                         }
                       }}
-                      onBlur={() => setEditingTextId(null)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Escape') {
-                          setEditingTextId(null);
-                        }
-                        e.stopPropagation();
-                      }}
-                      onKeyUp={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full h-full p-1 border-0 rounded-none bg-sky-50/90 text-slate-900 outline-none resize-none overflow-auto focus:ring-0 whitespace-pre-wrap select-text leading-normal z-50 text-[13px] font-semibold"
-                      style={{
-                        fontFamily: obj.fontFamily === "Arial" ? "Arial, Helvetica, sans-serif" :
-                                    obj.fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif" :
-                                    obj.fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif" :
-                                    obj.fontFamily === "monospace" ? "var(--font-mono)" : "var(--font-sans)",
-                        fontWeight: obj.fontWeight || "normal",
-                        fontStyle: obj.fontStyle || "normal",
-                        fontSize: `${(obj.fontSize || 11) * 0.352777 * printScale}px`,
-                        textAlign: obj.textAlign || "left",
-                        lineHeight: "1.25"
-                      }}
                     />
-                  ) : (
-                    renderTextElement(obj, printScale)
-                  )
-                )}
+                  )}
 
-                {obj.type === "barcode" && (
-                  <BarcodeRenderer
-                    content={obj.content}
-                    format={obj.barcodeFormat}
-                    displayValue={obj.displayValue}
-                    barcodeWidth={obj.barcodeWidth}
-                    barcodeHeight={obj.barcodeHeight}
-                    fontSize={obj.barcodeFontSize || 11}
-                    pixelScale={printScale}
-                    barcodeShowTextAbove={obj.barcodeShowTextAbove}
-                    barcodeShowTextBelow={obj.barcodeShowTextBelow}
-                    barcodeFontFamily={obj.barcodeFontFamily}
-                    barcodeFontSize={obj.barcodeFontSize}
-                    barcodeFontWeight={obj.barcodeFontWeight}
-                    barcodeFontStyle={obj.barcodeFontStyle}
-                    barcodeTextMargin={obj.barcodeTextMargin}
-                    textFlowOrigin={obj.textFlowOrigin}
-                    color={obj.color}
-                    barcodeTextColor={obj.barcodeTextColor}
-                    onUpdateContent={(newVal) => {
-                      if (onUpdateObject) {
-                        onUpdateObject({
-                          ...obj,
-                          content: newVal
-                        });
+                  {obj.type === "qrcode" && (
+                    <QRCodeRenderer
+                      content={obj.content}
+                      size={itemW * 0.9} // Take 90% space to fit beautifully
+                      textFlowOrigin={obj.textFlowOrigin}
+                      color={obj.color}
+                    />
+                  )}
+
+                  {obj.type === "image" && (
+                    <img
+                      src={obj.content}
+                      alt="Label Element"
+                      className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+                      style={{
+                        objectFit: obj.imageFit || "contain",
+                        opacity:
+                          obj.imageOpacity !== undefined ? obj.imageOpacity : 1,
+                        display: "block",
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                </div>
+
+                {/* Selection Border handles for a premium feel */}
+                {isSelected && (
+                  <>
+                    {/* Rotation line and handle */}
+                    <div className="absolute top-0 left-1/2 w-[1.5px] h-8 bg-kiot-cyan -translate-x-1/2 -translate-y-full hover:scale-x-150 transition-all pointer-events-none no-print z-40" />
+                    <div
+                      onMouseDown={(e) => handleRotateStart(e, obj)}
+                      className="absolute top-0 left-1/2 w-4.5 h-4.5 bg-white border border-kiot-cyan text-kiot-cyan hover:bg-[#E0F2FE] hover:text-sky-700 cursor-alias flex items-center justify-center -translate-x-1/2 -translate-y-[36px] rounded-full shadow-md z-40 hover:scale-125 transition-all no-print"
+                      title="Kéo để xoay đối tượng (Giữ Shift để hít 15°)"
+                    >
+                      <RefreshCw className="w-2.5 h-2.5 stroke-[3]" />
+                    </div>
+
+                    {/* Corner Handles */}
+                    {/* Top-Left */}
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, obj, "top-left")}
+                      style={{
+                        cursor: getRotatedCursor("top-left", obj.angle),
+                      }}
+                      className="absolute top-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      title="Kéo góc để thay đổi kích thước đồng thời"
+                    />
+                    {/* Top-Right */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "top-right")
                       }
-                    }}
-                  />
-                )}
+                      style={{
+                        cursor: getRotatedCursor("top-right", obj.angle),
+                      }}
+                      className="absolute top-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      title="Kéo góc để thay đổi kích thước đồng thời"
+                    />
+                    {/* Bottom-Left */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "bottom-left")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("bottom-left", obj.angle),
+                      }}
+                      className="absolute bottom-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      title="Kéo góc để thay đổi kích thước đồng thời"
+                    />
+                    {/* Bottom-Right */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "bottom-right")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("bottom-right", obj.angle),
+                      }}
+                      className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      title="Kéo góc để thay đổi kích thước đồng thời"
+                    />
 
-                {obj.type === "qrcode" && (
-                  <QRCodeRenderer
-                    content={obj.content}
-                    size={itemW * 0.9} // Take 90% space to fit beautifully
-                    textFlowOrigin={obj.textFlowOrigin}
-                    color={obj.color}
-                  />
-                )}
+                    {/* Middle Edge Handles */}
+                    {/* Top-Center */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "top-center")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("top-center", obj.angle),
+                      }}
+                      className="absolute top-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      title="Kéo cạnh để thay đổi kích thước"
+                    />
+                    {/* Bottom-Center */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "bottom-center")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("bottom-center", obj.angle),
+                      }}
+                      className="absolute bottom-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      title="Kéo cạnh để thay đổi kích thước"
+                    />
+                    {/* Left-Center */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "left-center")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("left-center", obj.angle),
+                      }}
+                      className="absolute top-1/2 left-0 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      title="Kéo cạnh để thay đổi kích thước"
+                    />
+                    {/* Right-Center */}
+                    <div
+                      onMouseDown={(e) =>
+                        handleResizeStart(e, obj, "right-center")
+                      }
+                      style={{
+                        cursor: getRotatedCursor("right-center", obj.angle),
+                      }}
+                      className="absolute top-1/2 right-0 w-2 h-2 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      title="Kéo cạnh để thay đổi kích thước"
+                    />
 
-                {obj.type === "image" && (
-                  <img
-                    src={obj.content}
-                    alt="Label Element"
-                    className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
-                    style={{
-                      objectFit: obj.imageFit || "contain",
-                      opacity: obj.imageOpacity !== undefined ? obj.imageOpacity : 1,
-                      display: "block"
-                    }}
-                    referrerPolicy="no-referrer"
-                  />
+                    <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-kiot-navy text-[12px] text-white px-2 py-1 rounded-lg shadow-xl whitespace-nowrap opacity-100 font-mono font-bold select-none z-50 flex items-center space-x-1.5 pointer-events-none no-print border-2 border-kiot-cyan/40">
+                      <span>X: {obj.x}mm</span>
+                      <span>•</span>
+                      <span>Y: {obj.y}mm</span>
+                      <span>•</span>
+                      <span>W: {obj.width}mm</span>
+                      <span>•</span>
+                      <span>H: {obj.height}mm</span>
+                      {activeAngle > 0 && (
+                        <>
+                          <span>•</span>
+                          <span>R: {activeAngle}°</span>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-
-              {/* Selection Border handles for a premium feel */}
-              {isSelected && (
-                <>
-                  {/* Rotation line and handle */}
-                  <div className="absolute top-0 left-1/2 w-[1.5px] h-8 bg-kiot-cyan -translate-x-1/2 -translate-y-full hover:scale-x-150 transition-all pointer-events-none no-print z-40" />
-                  <div 
-                    onMouseDown={(e) => handleRotateStart(e, obj)}
-                    className="absolute top-0 left-1/2 w-4.5 h-4.5 bg-white border border-kiot-cyan text-kiot-cyan hover:bg-[#E0F2FE] hover:text-sky-700 cursor-alias flex items-center justify-center -translate-x-1/2 -translate-y-[36px] rounded-full shadow-md z-40 hover:scale-125 transition-all no-print"
-                    title="Kéo để xoay đối tượng (Giữ Shift để hít 15°)"
-                  >
-                    <RefreshCw className="w-2.5 h-2.5 stroke-[3]" />
-                  </div>
-
-                  {/* Corner Handles */}
-                  {/* Top-Left */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "top-left")}
-                    style={{ cursor: getRotatedCursor("top-left", obj.angle) }}
-                    className="absolute top-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print" 
-                    title="Kéo góc để thay đổi kích thước đồng thời"
-                  />
-                  {/* Top-Right */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "top-right")}
-                    style={{ cursor: getRotatedCursor("top-right", obj.angle) }}
-                    className="absolute top-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print" 
-                    title="Kéo góc để thay đổi kích thước đồng thời"
-                  />
-                  {/* Bottom-Left */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "bottom-left")}
-                    style={{ cursor: getRotatedCursor("bottom-left", obj.angle) }}
-                    className="absolute bottom-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print" 
-                    title="Kéo góc để thay đổi kích thước đồng thời"
-                  />
-                  {/* Bottom-Right */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "bottom-right")}
-                    style={{ cursor: getRotatedCursor("bottom-right", obj.angle) }}
-                    className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print" 
-                    title="Kéo góc để thay đổi kích thước đồng thời"
-                  />
-
-                  {/* Middle Edge Handles */}
-                  {/* Top-Center */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "top-center")}
-                    style={{ cursor: getRotatedCursor("top-center", obj.angle) }}
-                    className="absolute top-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print" 
-                    title="Kéo cạnh để thay đổi kích thước"
-                  />
-                  {/* Bottom-Center */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "bottom-center")}
-                    style={{ cursor: getRotatedCursor("bottom-center", obj.angle) }}
-                    className="absolute bottom-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print" 
-                    title="Kéo cạnh để thay đổi kích thước"
-                  />
-                  {/* Left-Center */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "left-center")}
-                    style={{ cursor: getRotatedCursor("left-center", obj.angle) }}
-                    className="absolute top-1/2 left-0 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print" 
-                    title="Kéo cạnh để thay đổi kích thước"
-                  />
-                  {/* Right-Center */}
-                  <div 
-                    onMouseDown={(e) => handleResizeStart(e, obj, "right-center")}
-                    style={{ cursor: getRotatedCursor("right-center", obj.angle) }}
-                    className="absolute top-1/2 right-0 w-2 h-2 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print" 
-                    title="Kéo cạnh để thay đổi kích thước"
-                  />
-
-                  <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-kiot-navy text-[12px] text-white px-2 py-1 rounded-lg shadow-xl whitespace-nowrap opacity-100 font-mono font-bold select-none z-50 flex items-center space-x-1.5 pointer-events-none no-print border-2 border-kiot-cyan/40">
-                    <span>X: {obj.x}mm</span>
-                    <span>•</span>
-                    <span>Y: {obj.y}mm</span>
-                    <span>•</span>
-                    <span>W: {obj.width}mm</span>
-                    <span>•</span>
-                    <span>H: {obj.height}mm</span>
-                    {activeAngle > 0 && (
-                      <>
-                        <span>•</span>
-                        <span>R: {activeAngle}°</span>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Grid Alignment Status and helpful guides */}
@@ -1689,20 +2080,30 @@ export function LabelCanvas({
         <div className="flex items-center space-x-3 bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-2.5 rounded-full">
           <span className="flex items-center space-x-1">
             <LayoutGrid className="w-3.5 h-3.5 text-kiot-cyan" />
-            <span>Phôi nhãn dán: <strong>{labelConfig.width} x {labelConfig.height}mm</strong></span>
+            <span>
+              Phôi nhãn dán:{" "}
+              <strong>
+                {labelConfig.width} x {labelConfig.height}mm
+              </strong>
+            </span>
           </span>
           <span>•</span>
           <span>Tỷ lệ hiển thị: 1mm = {pixelScale}px</span>
           {gridSnapSize > 0 && (
             <>
               <span>•</span>
-              <span className="text-kiot-navy font-bold bg-sky-50 px-1.5 py-0.2 rounded-full whitespace-nowrap border border-kiot-cyan/20">Hút lưới (Snap): {gridSnapSize}mm</span>
+              <span className="text-kiot-navy font-bold bg-sky-50 px-1.5 py-0.2 rounded-full whitespace-nowrap border border-kiot-cyan/20">
+                Hút lưới (Snap): {gridSnapSize}mm
+              </span>
             </>
           )}
         </div>
-        
+
         <div className="flex items-center bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-3 rounded-full space-x-2">
-          <span>💡 <strong>Nút di chuyển:</strong> Sử dụng các phím mũi tên ⬅️ ➡️ ⬆️ ⬇️ để dịch nhãn, phím Delete để xoá nhanh.</span>
+          <span>
+            💡 <strong>Nút di chuyển:</strong> Sử dụng các phím mũi tên ⬅️ ➡️ ⬆️
+            ⬇️ để dịch nhãn, phím Delete để xoá nhanh.
+          </span>
         </div>
       </div>
     </div>
