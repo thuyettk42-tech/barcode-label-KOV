@@ -969,19 +969,20 @@ export function LabelCanvas({
 
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
+    const previewScale = BASE_DPI_SCALE; // Always use standard print DPI scale to ensure 100% accurate WYSIWYG
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
-    const pxSheetW = mmToPx(sW, pixelScale);
-    const pxSheetH = mmToPx(sH, pixelScale);
+    const pxSheetW = mmToPx(sW, previewScale);
+    const pxSheetH = mmToPx(sH, previewScale);
 
-    const pxML = mmToPx(sheetConfig.marginLeft, pixelScale);
-    const pxMR = mmToPx(sheetConfig.marginRight, pixelScale);
-    const pxMT = mmToPx(sheetConfig.marginTop, pixelScale);
-    const pxMB = mmToPx(sheetConfig.marginBottom, pixelScale);
-    const pxCG = mmToPx(sheetConfig.colGap, pixelScale);
-    const pxRG = mmToPx(sheetConfig.rowGap, pixelScale);
+    const pxML = mmToPx(sheetConfig.marginLeft, previewScale);
+    const pxMR = mmToPx(sheetConfig.marginRight, previewScale);
+    const pxMT = mmToPx(sheetConfig.marginTop, previewScale);
+    const pxMB = mmToPx(sheetConfig.marginBottom, previewScale);
+    const pxCG = mmToPx(sheetConfig.colGap, previewScale);
+    const pxRG = mmToPx(sheetConfig.rowGap, previewScale);
 
-    const pxCellW = mmToPx(labelConfig.width, pixelScale);
-    const pxCellH = mmToPx(labelConfig.height, pixelScale);
+    const pxCellW = mmToPx(labelConfig.width, previewScale);
+    const pxCellH = mmToPx(labelConfig.height, previewScale);
 
     const cellsPerSheet = Math.max(
       1,
@@ -1127,10 +1128,10 @@ export function LabelCanvas({
                             />
                           )}
                           {resolvedObjs.map((obj) => {
-                            const itemX = mmToPx(obj.x, printScale);
-                            const itemY = mmToPx(obj.y, printScale);
-                            const itemW = mmToPx(obj.width, printScale);
-                            const itemH = mmToPx(obj.height, printScale);
+                            const itemX = mmToPx(obj.x, previewScale);
+                            const itemY = mmToPx(obj.y, previewScale);
+                            const itemW = mmToPx(obj.width, previewScale);
+                            const itemH = mmToPx(obj.height, previewScale);
                             const xPct = (obj.x / labelConfig.width) * 100;
                             const yPct = (obj.y / labelConfig.height) * 100;
                             const wPct = (obj.width / labelConfig.width) * 100;
@@ -1184,7 +1185,7 @@ export function LabelCanvas({
                               >
                                 <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
                                   {obj.type === "text" &&
-                                    renderTextElement(obj, printScale)}
+                                    renderTextElement(obj, previewScale)}
 
                                   {obj.type === "barcode" && (
                                     <BarcodeRenderer
@@ -1194,7 +1195,7 @@ export function LabelCanvas({
                                       barcodeWidth={obj.barcodeWidth}
                                       barcodeHeight={obj.barcodeHeight}
                                       fontSize={obj.barcodeFontSize || 7}
-                                      pixelScale={printScale}
+                                      pixelScale={previewScale}
                                       barcodeShowTextAbove={
                                         obj.barcodeShowTextAbove
                                       }
@@ -1301,6 +1302,7 @@ export function LabelCanvas({
     isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
   if (showThermalSheetGrid && sheetConfig) {
+    const previewScale = BASE_DPI_SCALE; // Always use standard print DPI scale to ensure 100% accurate WYSIWYG
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
@@ -1308,13 +1310,13 @@ export function LabelCanvas({
     const labelH = labelConfig.height;
     const backingWidth = cols * labelW + (cols - 1) * colGap;
 
-    const pxBackingW = mmToPx(backingWidth, pixelScale);
-    const pxBackingH = mmToPx(labelH, pixelScale);
-    const pxColGap = mmToPx(colGap, pixelScale);
-    const pxRowGap = mmToPx(rowGap, pixelScale);
+    const pxBackingW = mmToPx(backingWidth, previewScale);
+    const pxBackingH = mmToPx(labelH, previewScale);
+    const pxColGap = mmToPx(colGap, previewScale);
+    const pxRowGap = mmToPx(rowGap, previewScale);
 
-    const pxCellW = mmToPx(labelW, pixelScale);
-    const pxCellH = mmToPx(labelH, pixelScale);
+    const pxCellW = mmToPx(labelW, previewScale);
+    const pxCellH = mmToPx(labelH, previewScale);
 
     let totalItems = 0;
     const hasExcel = excelData && excelData.length > 0;
@@ -1428,10 +1430,10 @@ export function LabelCanvas({
                           />
                         )}
                         {resolvedObjs.map((obj) => {
-                          const itemX = mmToPx(obj.x, printScale);
-                          const itemY = mmToPx(obj.y, printScale);
-                          const itemW = mmToPx(obj.width, printScale);
-                          const itemH = mmToPx(obj.height, printScale);
+                          const itemX = mmToPx(obj.x, previewScale);
+                          const itemY = mmToPx(obj.y, previewScale);
+                          const itemW = mmToPx(obj.width, previewScale);
+                          const itemH = mmToPx(obj.height, previewScale);
                           const xPct = (obj.x / labelConfig.width) * 100;
                           const yPct = (obj.y / labelConfig.height) * 100;
                           const wPct = (obj.width / labelConfig.width) * 100;
@@ -1484,7 +1486,7 @@ export function LabelCanvas({
                             >
                               <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
                                 {obj.type === "text" &&
-                                  renderTextElement(obj, printScale)}
+                                  renderTextElement(obj, previewScale)}
 
                                 {obj.type === "barcode" && (
                                   <BarcodeRenderer
@@ -1494,7 +1496,7 @@ export function LabelCanvas({
                                     barcodeWidth={obj.barcodeWidth}
                                     barcodeHeight={obj.barcodeHeight}
                                     fontSize={obj.barcodeFontSize || 7}
-                                    pixelScale={printScale}
+                                    pixelScale={previewScale}
                                     barcodeShowTextAbove={
                                       obj.barcodeShowTextAbove
                                     }
