@@ -43,7 +43,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
         width: size,
         height: size,
         colorDark: color || "#000000",
-        colorLight: "transparent", // Use transparent to adapt nicely to colored backgrounds!
+        colorLight: "#ffffff", // Use solid white for reliable print rendering and high scannability
         correctLevel: QRCodeLib.CorrectLevel ? QRCodeLib.CorrectLevel.H : 3, // H level
       });
 

@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
@@ -297,8 +298,16 @@ export function LabelCanvas({
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleBeforePrint = () => setIsPrinting(true);
-    const handleAfterPrint = () => setIsPrinting(false);
+    const handleBeforePrint = () => {
+      flushSync(() => {
+        setIsPrinting(true);
+      });
+    };
+    const handleAfterPrint = () => {
+      flushSync(() => {
+        setIsPrinting(false);
+      });
+    };
 
     window.addEventListener("beforeprint", handleBeforePrint);
     window.addEventListener("afterprint", handleAfterPrint);
