@@ -198,9 +198,9 @@ export default function App() {
     marginLeft: 10,
     marginRight: 10,
     rows: 8,
-    cols: 3,
-    rowGap: 2,
-    colGap: 2,
+    cols: 1,
+    rowGap: 3,
+    colGap: 0,
     showBorder: true,
     borderWidth: 1,
     borderRadius: 2
@@ -209,6 +209,80 @@ export default function App() {
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
+
+  // Temporary string states for numeric inputs to allow easy deletion/re-typing
+  const [widthInput, setWidthInput] = useState<string>("70");
+  const [heightInput, setHeightInput] = useState<string>("45");
+  const [colsInput, setColsInput] = useState<string>("1");
+  const [rowsInput, setRowsInput] = useState<string>("8");
+  const [marginLeftInput, setMarginLeftInput] = useState<string>("10");
+  const [marginRightInput, setMarginRightInput] = useState<string>("10");
+  const [marginTopInput, setMarginTopInput] = useState<string>( "10");
+  const [marginBottomInput, setMarginBottomInput] = useState<string>("10");
+  const [colGapOfficeInput, setColGapOfficeInput] = useState<string>("0");
+  const [rowGapOfficeInput, setRowGapOfficeInput] = useState<string>("3");
+  const [desiredRollWidthInput, setDesiredRollWidthInput] = useState<string>("75");
+
+  // Keep temporary inputs synchronized with main configurations from external updates
+  useEffect(() => {
+    if (document.activeElement?.id !== "width-input") {
+      setWidthInput(String(labelConfig.width));
+    }
+  }, [labelConfig.width]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "height-input") {
+      setHeightInput(String(labelConfig.height));
+    }
+  }, [labelConfig.height]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "cols-input" && document.activeElement?.id !== "cols-roll-input") {
+      setColsInput(String(sheetConfig.cols));
+    }
+  }, [sheetConfig.cols]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "rows-input") {
+      setRowsInput(String(sheetConfig.rows));
+    }
+  }, [sheetConfig.rows]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "margin-left-input") {
+      setMarginLeftInput(String(sheetConfig.marginLeft));
+    }
+  }, [sheetConfig.marginLeft]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "margin-right-input") {
+      setMarginRightInput(String(sheetConfig.marginRight));
+    }
+  }, [sheetConfig.marginRight]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "margin-top-input") {
+      setMarginTopInput(String(sheetConfig.marginTop));
+    }
+  }, [sheetConfig.marginTop]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "margin-bottom-input") {
+      setMarginBottomInput(String(sheetConfig.marginBottom));
+    }
+  }, [sheetConfig.marginBottom]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "col-gap-office-input") {
+      setColGapOfficeInput(String(sheetConfig.colGap));
+    }
+  }, [sheetConfig.colGap]);
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "row-gap-office-input") {
+      setRowGapOfficeInput(String(sheetConfig.rowGap));
+    }
+  }, [sheetConfig.rowGap]);
 
   // Restore preview mode & print state after printing dialogues or window focusing
   useEffect(() => {
@@ -244,6 +318,12 @@ export default function App() {
   const [rowGapUnit, setRowGapUnit] = useState<'mm' | 'inch'>('mm');
   const [colGapInput, setColGapInput] = useState<string>("");
   const [rowGapInput, setRowGapInput] = useState<string>("");
+
+  useEffect(() => {
+    if (document.activeElement?.id !== "roll-width-input") {
+      setDesiredRollWidthInput(String(desiredRollWidth));
+    }
+  }, [desiredRollWidth]);
 
   useEffect(() => {
     if (document.activeElement?.id !== "col-gap-input") {
@@ -401,9 +481,14 @@ export default function App() {
         let qty = 1; // standard default is 1 if empty or invalid
         if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
           const cleaned = String(rawVal).trim().replace(/,/g, '');
-          const parsed = parseInt(cleaned, 10);
-          if (!isNaN(parsed) && parsed > 0) {
-            qty = Math.min(parsed, 1000); // Safeguard: Cap single row quantity to 1000 to prevent crash
+          const parsedFloat = parseFloat(cleaned);
+          if (!isNaN(parsedFloat)) {
+            const integerPart = Math.floor(parsedFloat);
+            if (integerPart <= 0) {
+              qty = 1;
+            } else {
+              qty = Math.min(integerPart, 1000); // Safeguard: Cap single row quantity to 1000 to prevent crash
+            }
           } else {
             qty = 1;
           }
@@ -1196,14 +1281,26 @@ export default function App() {
                       <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Chiều rộng (mm)</label>
                       <div className="relative">
                         <input
-                          type="number"
-                          step="1"
-                          min="10"
-                          max="300"
-                          value={labelConfig.width}
+                          id="width-input"
+                          type="text"
+                          value={widthInput}
                           onChange={(e) => {
-                            const w = parseInt(e.target.value) || 10;
-                            applyPresetDimensions(Math.min(w, 300), labelConfig.height, "Cấu hình tự chọn");
+                            const s = e.target.value;
+                            setWidthInput(s);
+                            const w = parseInt(s);
+                            if (!isNaN(w) && w >= 10) {
+                              applyPresetDimensions(Math.min(w, 300), labelConfig.height, "Cấu hình tự chọn");
+                            }
+                          }}
+                          onBlur={() => {
+                            const w = parseInt(widthInput);
+                            if (isNaN(w) || w < 10) {
+                              applyPresetDimensions(10, labelConfig.height, "Cấu hình tự chọn");
+                              setWidthInput("10");
+                            } else if (w > 300) {
+                              applyPresetDimensions(300, labelConfig.height, "Cấu hình tự chọn");
+                              setWidthInput("300");
+                            }
                           }}
                           className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
                         />
@@ -1215,14 +1312,26 @@ export default function App() {
                       <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Chiều cao (mm)</label>
                       <div className="relative">
                         <input
-                          type="number"
-                          step="1"
-                          min="10"
-                          max="300"
-                          value={labelConfig.height}
+                          id="height-input"
+                          type="text"
+                          value={heightInput}
                           onChange={(e) => {
-                            const h = parseInt(e.target.value) || 10;
-                            applyPresetDimensions(labelConfig.width, Math.min(h, 300), "Cấu hình tự chọn");
+                            const s = e.target.value;
+                            setHeightInput(s);
+                            const h = parseInt(s);
+                            if (!isNaN(h) && h >= 10) {
+                              applyPresetDimensions(labelConfig.width, Math.min(h, 300), "Cấu hình tự chọn");
+                            }
+                          }}
+                          onBlur={() => {
+                            const h = parseInt(heightInput);
+                            if (isNaN(h) || h < 10) {
+                              applyPresetDimensions(labelConfig.width, 10, "Cấu hình tự chọn");
+                              setHeightInput("10");
+                            } else if (h > 300) {
+                              applyPresetDimensions(labelConfig.width, 300, "Cấu hình tự chọn");
+                              setHeightInput("300");
+                            }
                           }}
                           className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
                         />
@@ -1475,22 +1584,54 @@ export default function App() {
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Số Cột (Cols)</label>
                           <input
-                            type="number"
-                            min={1}
-                            max={15}
-                            value={sheetConfig.cols}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, cols: Math.max(1, parseInt(e.target.value) || 1) }))}
+                            id="cols-input"
+                            type="text"
+                            value={colsInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setColsInput(s);
+                              const c = parseInt(s);
+                              if (!isNaN(c) && c >= 1) {
+                                setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 15) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const c = parseInt(colsInput);
+                              if (isNaN(c) || c < 1) {
+                                setSheetConfig(prev => ({ ...prev, cols: 1 }));
+                                setColsInput("1");
+                              } else if (c > 15) {
+                                setSheetConfig(prev => ({ ...prev, cols: 15 }));
+                                setColsInput("15");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Số Hàng (Rows)</label>
                           <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            value={sheetConfig.rows}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, rows: Math.max(1, parseInt(e.target.value) || 1) }))}
+                            id="rows-input"
+                            type="text"
+                            value={rowsInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setRowsInput(s);
+                              const r = parseInt(s);
+                              if (!isNaN(r) && r >= 1) {
+                                setSheetConfig(prev => ({ ...prev, rows: Math.min(r, 30) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const r = parseInt(rowsInput);
+                              if (isNaN(r) || r < 1) {
+                                setSheetConfig(prev => ({ ...prev, rows: 1 }));
+                                setRowsInput("1");
+                              } else if (r > 30) {
+                                setSheetConfig(prev => ({ ...prev, rows: 30 }));
+                                setRowsInput("30");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
@@ -1534,44 +1675,108 @@ export default function App() {
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Lề trái (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={sheetConfig.marginLeft}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, marginLeft: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="margin-left-input"
+                            type="text"
+                            value={marginLeftInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setMarginLeftInput(s);
+                              const m = parseInt(s);
+                              if (!isNaN(m) && m >= 0) {
+                                setSheetConfig(prev => ({ ...prev, marginLeft: Math.min(m, 50) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const m = parseInt(marginLeftInput);
+                              if (isNaN(m) || m < 0) {
+                                setSheetConfig(prev => ({ ...prev, marginLeft: 0 }));
+                                setMarginLeftInput("0");
+                              } else if (m > 50) {
+                                setSheetConfig(prev => ({ ...prev, marginLeft: 50 }));
+                                setMarginLeftInput("50");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Lề phải (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={sheetConfig.marginRight}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, marginRight: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="margin-right-input"
+                            type="text"
+                            value={marginRightInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setMarginRightInput(s);
+                              const m = parseInt(s);
+                              if (!isNaN(m) && m >= 0) {
+                                setSheetConfig(prev => ({ ...prev, marginRight: Math.min(m, 50) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const m = parseInt(marginRightInput);
+                              if (isNaN(m) || m < 0) {
+                                setSheetConfig(prev => ({ ...prev, marginRight: 0 }));
+                                setMarginRightInput("0");
+                              } else if (m > 50) {
+                                setSheetConfig(prev => ({ ...prev, marginRight: 50 }));
+                                setMarginRightInput("50");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Lề trên (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={50}
-                            value={sheetConfig.marginTop}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, marginTop: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="margin-top-input"
+                            type="text"
+                            value={marginTopInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setMarginTopInput(s);
+                              const m = parseInt(s);
+                              if (!isNaN(m) && m >= 0) {
+                                setSheetConfig(prev => ({ ...prev, marginTop: Math.min(m, 50) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const m = parseInt(marginTopInput);
+                              if (isNaN(m) || m < 0) {
+                                setSheetConfig(prev => ({ ...prev, marginTop: 0 }));
+                                setMarginTopInput("0");
+                              } else if (m > 50) {
+                                setSheetConfig(prev => ({ ...prev, marginTop: 50 }));
+                                setMarginTopInput("50");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Lề dưới (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={55}
-                            value={sheetConfig.marginBottom}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, marginBottom: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="margin-bottom-input"
+                            type="text"
+                            value={marginBottomInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setMarginBottomInput(s);
+                              const m = parseInt(s);
+                              if (!isNaN(m) && m >= 0) {
+                                setSheetConfig(prev => ({ ...prev, marginBottom: Math.min(m, 55) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const m = parseInt(marginBottomInput);
+                              if (isNaN(m) || m < 0) {
+                                setSheetConfig(prev => ({ ...prev, marginBottom: 0 }));
+                                setMarginBottomInput("0");
+                              } else if (m > 55) {
+                                setSheetConfig(prev => ({ ...prev, marginBottom: 55 }));
+                                setMarginBottomInput("55");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
@@ -1587,22 +1792,54 @@ export default function App() {
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Khoảng cách cột (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={20}
-                            value={sheetConfig.colGap}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, colGap: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="col-gap-office-input"
+                            type="text"
+                            value={colGapOfficeInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setColGapOfficeInput(s);
+                              const g = parseInt(s);
+                              if (!isNaN(g) && g >= 0) {
+                                setSheetConfig(prev => ({ ...prev, colGap: Math.min(g, 20) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const g = parseInt(colGapOfficeInput);
+                              if (isNaN(g) || g < 0) {
+                                setSheetConfig(prev => ({ ...prev, colGap: 0 }));
+                                setColGapOfficeInput("0");
+                              } else if (g > 20) {
+                                setSheetConfig(prev => ({ ...prev, colGap: 20 }));
+                                setColGapOfficeInput("20");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded mb-1 text-sm p-1.5 outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
                         <div>
                           <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Khoảng cách hàng (mm)</label>
                           <input
-                            type="number"
-                            min={0}
-                            max={20}
-                            value={sheetConfig.rowGap}
-                            onChange={(e) => setSheetConfig(prev => ({ ...prev, rowGap: Math.max(0, parseInt(e.target.value) || 0) }))}
+                            id="row-gap-office-input"
+                            type="text"
+                            value={rowGapOfficeInput}
+                            onChange={(e) => {
+                              const s = e.target.value;
+                              setRowGapOfficeInput(s);
+                              const g = parseInt(s);
+                              if (!isNaN(g) && g >= 0) {
+                                setSheetConfig(prev => ({ ...prev, rowGap: Math.min(g, 20) }));
+                              }
+                            }}
+                            onBlur={() => {
+                              const g = parseInt(rowGapOfficeInput);
+                              if (isNaN(g) || g < 0) {
+                                setSheetConfig(prev => ({ ...prev, rowGap: 0 }));
+                                setRowGapOfficeInput("0");
+                              } else if (g > 20) {
+                                setSheetConfig(prev => ({ ...prev, rowGap: 20 }));
+                                setRowGapOfficeInput("20");
+                              }
+                            }}
                             className="w-full bg-white border border-gray-300 rounded mb-1 text-sm p-1.5 outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold"
                           />
                         </div>
@@ -1692,17 +1929,54 @@ export default function App() {
                         Bề rộng cuộn tem
                       </label>
                       <input
-                        type="number"
-                        min="10"
-                        max="500"
-                        value={desiredRollWidth}
-                        onChange={(e) => setDesiredRollWidth(Math.max(10, parseInt(e.target.value) || 0))}
+                        id="roll-width-input"
+                        type="text"
+                        value={desiredRollWidthInput}
+                        onChange={(e) => {
+                          const s = e.target.value;
+                          setDesiredRollWidthInput(s);
+                          const w = parseInt(s);
+                          if (!isNaN(w) && w >= 10) {
+                            setDesiredRollWidth(Math.min(w, 500));
+                          }
+                        }}
+                        onBlur={() => {
+                          const w = parseInt(desiredRollWidthInput);
+                          if (isNaN(w) || w < 10) {
+                            setDesiredRollWidth(10);
+                            setDesiredRollWidthInput("10");
+                          } else if (w > 500) {
+                            setDesiredRollWidth(500);
+                            setDesiredRollWidthInput("500");
+                          }
+                        }}
                         className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
                         placeholder="Ví dụ: 75, 110..."
                       />
                       <span className="block text-[9px] text-gray-400 select-none">
                         Tổng chiều rộng thực tế của cuộn giấy (bao gồm các cột tem và khoảng hở) để tự động căn chỉnh kích thước nhãn.
                       </span>
+
+                      {/* WARNING BADGE IF ROLL WIDTH IS SMALLER THAN LABELS */}
+                      {(() => {
+                        const colCount = sheetConfig.cols || 1;
+                        const actualGaps = (colCount - 1) * (sheetConfig.colGap || 0);
+                        const totalLabelWidth = Math.round((colCount * labelConfig.width + actualGaps) * 10) / 10;
+                        if (sheetConfig.mode === "thermal" && desiredRollWidth < totalLabelWidth) {
+                          return (
+                            <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] leading-relaxed">
+                              <p className="flex items-center text-amber-955 font-black mb-1 select-none">
+                                <span className="mr-1.5 text-xs text-amber-600">⚠️</span> Cảnh báo kích thước
+                              </p>
+                              <span>
+                                Bề rộng cuộn tem (<strong>{desiredRollWidth}mm</strong>) đang nhỏ hơn tổng chiều rộng hàng tem dán (<strong>{totalLabelWidth}mm</strong>).
+                                Vui lòng điều chỉnh lại bề rộng cuộn tem lớn hơn!
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
 
                     {/* SET COLS */}
@@ -1711,11 +1985,27 @@ export default function App() {
                         Thiết lập số tem 1 hàng
                       </label>
                       <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={sheetConfig.cols}
-                        onChange={(e) => setSheetConfig(prev => ({ ...prev, cols: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        id="cols-roll-input"
+                        type="text"
+                        value={colsInput}
+                        onChange={(e) => {
+                          const s = e.target.value;
+                          setColsInput(s);
+                          const c = parseInt(s);
+                          if (!isNaN(c) && c >= 1) {
+                            setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 20) }));
+                          }
+                        }}
+                        onBlur={() => {
+                          const c = parseInt(colsInput);
+                          if (isNaN(c) || c < 1) {
+                            setSheetConfig(prev => ({ ...prev, cols: 1 }));
+                            setColsInput("1");
+                          } else if (c > 20) {
+                            setSheetConfig(prev => ({ ...prev, cols: 20 }));
+                            setColsInput("20");
+                          }
+                        }}
                         className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
                         placeholder="Nhập số tem ví dụ: 1, 2, 3, 4..."
                       />
@@ -1737,6 +2027,12 @@ export default function App() {
                             const valNum = parseFloat(valStr) || 0;
                             const valMm = colGapUnit === 'inch' ? valNum * 25.4 : valNum;
                             setSheetConfig(prev => ({ ...prev, colGap: valMm }));
+                          }}
+                          onBlur={() => {
+                            if (!colGapInput.trim()) {
+                              setColGapInput("0");
+                              setSheetConfig(prev => ({ ...prev, colGap: 0 }));
+                            }
                           }}
                           className="flex-1 px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 bg-white"
                           placeholder="0.0"
@@ -1781,6 +2077,12 @@ export default function App() {
                             const valMm = rowGapUnit === 'inch' ? valNum * 25.4 : valNum;
                             setSheetConfig(prev => ({ ...prev, rowGap: valMm }));
                           }}
+                          onBlur={() => {
+                            if (!rowGapInput.trim()) {
+                              setRowGapInput("3");
+                              setSheetConfig(prev => ({ ...prev, rowGap: 3 }));
+                            }
+                          }}
                           className="flex-1 px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 bg-white"
                           placeholder="3.0"
                         />
@@ -1803,7 +2105,7 @@ export default function App() {
                         </select>
                       </div>
                       <span className="block text-[9px] text-gray-400 leading-normal select-none">
-                        Khoảng trống phân cách hàng (Gap sensor). Giá trị mặc định phổ biến của cuộn decal nhãn thường là <strong>0.12 inch (~3.0 mm)</strong>.
+                        Khoảng trống phân cách hàng (Gap sensor). Giá trị mặc định phổ biến của cuộn decal nhãn thường là <strong>3.0 mm</strong>.
                       </span>
                     </div>
 
