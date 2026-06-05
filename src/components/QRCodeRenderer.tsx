@@ -3,25 +3,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useRef, useState, memo } from "react";
+import { useEffect, useState, memo } from "react";
 
 interface QRCodeRendererProps {
   content: string;
-  size?: number; // in pt
+  size?: number; // in pt/px
   textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
   color?: string;
 }
 
-export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120, textFlowOrigin = "center", color }: QRCodeRendererProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
+export const QRCodeRenderer = memo(function QRCodeRenderer({ 
+  content, 
+  size = 120, 
+  textFlowOrigin = "center", 
+  color 
+}: QRCodeRendererProps) {
   const [error, setError] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
-    if (!containerRef.current) return;
-
-    // Clear previous elements
-    containerRef.current.innerHTML = "";
-
     const cleanContent = content.trim();
     if (!cleanContent) {
       setError("Nội dung trống");
@@ -36,45 +36,106 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
 
     setError(null);
 
+    // Make sure size is valid and reasonable (at least 60px for scannability, max 1000px)
+    const renderSize = Math.max(60, Math.min(1000, Math.round(size)));
+
+    // Create an off-screen container to isolate the rendering process
+    const tempDiv = document.createElement("div");
+    tempDiv.style.width = `${renderSize}px`;
+    tempDiv.style.height = `${renderSize}px`;
+    tempDiv.style.position = "absolute";
+    tempDiv.style.left = "-9999px";
+    tempDiv.style.top = "-9999px";
+    tempDiv.style.visibility = "hidden";
+    tempDiv.style.pointerEvents = "none";
+    document.body.appendChild(tempDiv);
+
     try {
-      // Determine error correction level
-      const qrcode = new QRCodeLib(containerRef.current, {
+      new QRCodeLib(tempDiv, {
         text: cleanContent,
-        width: size,
-        height: size,
+        width: renderSize,
+        height: renderSize,
         colorDark: color || "#000000",
-        colorLight: "#ffffff", // Use solid white for reliable print rendering and high scannability
-        correctLevel: QRCodeLib.CorrectLevel ? QRCodeLib.CorrectLevel.H : 3, // H level
+        colorLight: "#ffffff", // Pure white light background for flawless scan/print contrast
+        correctLevel: QRCodeLib.CorrectLevel ? QRCodeLib.CorrectLevel.H : 3, // High error correction
       });
 
-      // Apply style for responsive scale inside parent container
-      const imgs = containerRef.current.getElementsByTagName("img");
-      const canvases = containerRef.current.getElementsByTagName("canvas");
-      
-      for (let img of Array.from(imgs) as HTMLImageElement[]) {
-        img.style.width = "100%";
-        img.style.height = "100%";
-        img.style.objectFit = "contain";
-        // To avoid iframe browser exceptions on some platforms
-        img.referrerPolicy = "no-referrer";
-      }
-      
-      for (let canvas of Array.from(canvases) as HTMLCanvasElement[]) {
-        canvas.style.width = "100%";
-        canvas.style.height = "100%";
-        canvas.style.objectFit = "contain";
-        canvas.style.display = "block";
+      const checkForImage = () => {
+        const imgs = tempDiv.getElementsByTagName("img");
+        const canvases = tempDiv.getElementsByTagName("canvas");
+
+        if (imgs.length > 0 && imgs[0].src && imgs[0].src.startsWith("data:image")) {
+          setQrDataUrl(imgs[0].src);
+          cleanup();
+          return true;
+        } else if (canvases.length > 0) {
+          const canvas = canvases[0] as HTMLCanvasElement;
+          try {
+            const dataUrl = canvas.toDataURL("image/png");
+            if (dataUrl && dataUrl.startsWith("data:image")) {
+              setQrDataUrl(dataUrl);
+              cleanup();
+              return true;
+            }
+          } catch (canvasErr) {
+            console.error("Canvas conversion error:", canvasErr);
+          }
+        }
+        return false;
+      };
+
+      const cleanup = () => {
+        try {
+          if (tempDiv.parentNode) {
+            document.body.removeChild(tempDiv);
+          }
+        } catch (e) {
+          // Ignore
+        }
+      };
+
+      // Try immediately since standard qrcode.js rendering is fully synchronous
+      if (!checkForImage()) {
+        // Fallback polling just in case of any loading delays in some runtime environments
+        let attempts = 0;
+        const intervalId = setInterval(() => {
+          attempts++;
+          if (checkForImage() || attempts > 15) {
+            clearInterval(intervalId);
+            if (attempts > 15) {
+              cleanup();
+              setError("Lỗi trích xuất hình ảnh QR Code");
+            }
+          }
+        }, 20);
+        return () => {
+          clearInterval(intervalId);
+          cleanup();
+        };
       }
     } catch (err) {
-      console.error("QR Code execution fail:", err);
+      console.error("QR Code execution failed:", err);
       setError("Lỗi render QR Code");
+      try {
+        if (tempDiv.parentNode) {
+          document.body.removeChild(tempDiv);
+        }
+      } catch (e) {}
     }
-  }, [content, size]);
+  }, [content, size, color]);
 
   if (error) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-500 rounded text-center select-none overflow-hidden">
+      <div className="w-full h-full flex flex-col items-center justify-center p-1 border border-dashed border-red-300 bg-red-50 text-red-500 rounded text-center select-none overflow-hidden">
         <span className="font-bold text-[10px] select-none">⚠️ {error}</span>
+      </div>
+    );
+  }
+
+  if (!qrDataUrl) {
+    return (
+      <div className="w-full h-full flex items-center justify-center p-0.5 bg-transparent overflow-hidden">
+        <div className="w-4/5 h-4/5 bg-gray-100/50 border border-gray-200 animate-pulse rounded" />
       </div>
     );
   }
@@ -101,16 +162,16 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
 
   return (
     <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-transparent overflow-hidden`}>
-      <div 
-        ref={containerRef} 
+      <img
+        src={qrDataUrl}
+        alt="QR Code"
+        className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
         style={{
-          width: size ? `${size}px` : '100%',
-          height: size ? `${size}px` : '100%',
-          maxWidth: '100%',
-          maxHeight: '100%',
-          aspectRatio: '1/1'
+          boxSizing: 'border-box',
+          objectFit: 'contain',
+          display: 'block',
         }}
-        className="flex items-center justify-center animate-none" 
+        referrerPolicy="no-referrer"
       />
     </div>
   );

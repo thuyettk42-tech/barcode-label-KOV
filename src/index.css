@@ -192,7 +192,7 @@
     height: var(--o-print-height, var(--o-h)) !important;
     min-height: var(--o-print-min-height, 0mm) !important;
     transform: var(--o-transform, none) !important;
-    transform-origin: top left !important;
+    transform-origin: var(--o-transform-origin, top left) !important;
     box-shadow: none !important;
     border: none !important;
     background: none !important;

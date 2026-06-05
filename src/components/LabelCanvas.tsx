@@ -1176,6 +1176,9 @@ export function LabelCanvas({
                                     transformOrigin: obj.angle
                                       ? "center center"
                                       : "top left",
+                                    "--o-transform-origin": obj.angle
+                                      ? "center center"
+                                      : "top left",
                                     "--o-x": `${obj.x}mm`,
                                     "--o-y": `${obj.y}mm`,
                                     "--o-w": `${obj.width}mm`,
@@ -1475,6 +1478,9 @@ export function LabelCanvas({
                                       : undefined,
                                   transform: finalTransform,
                                   transformOrigin: obj.angle
+                                    ? "center center"
+                                    : "top left",
+                                  "--o-transform-origin": obj.angle
                                     ? "center center"
                                     : "top left",
                                   "--o-x": `${obj.x}mm`,
@@ -1845,6 +1851,7 @@ export function LabelCanvas({
                     minHeight: obj.type === "text" ? `${hPct}%` : undefined,
                     transform: finalTransform,
                     transformOrigin: activeAngle ? "center center" : "top left",
+                    "--o-transform-origin": activeAngle ? "center center" : "top left",
                     // Standard inline properties as custom CSS variables for our print-stylesheet engine:
                     "--o-x": `${activeX}mm`,
                     "--o-y": `${activeY}mm`,
