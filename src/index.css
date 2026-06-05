@@ -1,0 +1,219 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-kiot-navy: #002248;
+  --color-kiot-cyan: #0EA5E9;
+  --color-kiot-cyan-accent: #3AE3FF;
+  --color-kiot-green: #54B200;
+  --color-kiot-bg: #F4F6F8;
+  --color-kiot-slate: #334155;
+  --color-kiot-charcoal: #1E293B;
+  --color-kiot-border: #E2E8F0;
+}
+
+/* Base Scrollbar custom styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Print Overrides and Engine positioning */
+@media print {
+  html,
+  body,
+  #root,
+  #root > div,
+  main,
+  .overflow-hidden,
+  .h-screen,
+  .w-screen,
+  .flex-1 {
+    display: block !important;
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide entire UI layout chrome */
+  header,
+  aside,
+  #sidebar-ui,
+  #workspace-toolbar,
+  #template-selector,
+  [id*="tick"],
+  [class*="Ruler"],
+  .no-print {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Keep ONLY the main editor container with print constraints */
+  #label-editor-workspace {
+    display: block !important;
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Redefine the thermal canvas in exact mm coordinates */
+  #thermal-label-canvas {
+    display: block !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    background-image: none !important;
+    width: var(--print-width, 100mm) !important;
+    height: var(--print-height, 75mm) !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+  }
+
+  /* Support multiple pages during batch thermal prints of spreadsheet rows */
+  .batch-print-page {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: var(--print-col-gap, 0mm) !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    width: var(--print-width, 100mm) !important;
+    height: var(--print-height, 75mm) !important;
+    page-break-inside: avoid !important;
+    page-break-after: always !important;
+  }
+
+  .batch-print-page:last-child {
+    page-break-after: avoid !important;
+  }
+
+  /* Each thermal cell inside the roll print page */
+  .batch-print-cell {
+    position: relative !important;
+    box-sizing: border-box !important;
+    width: var(--cell-w, 50mm) !important;
+    height: var(--cell-h, 30mm) !important;
+    overflow: hidden !important;
+    background: transparent !important;
+  }
+
+  /* Support multi-label sheet grid prints */
+  .office-print-page {
+    display: grid !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    background: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    
+    width: var(--print-width, 210mm) !important;
+    height: var(--print-height, 297mm) !important;
+    
+    padding-top: var(--sheet-m-top, 10mm) !important;
+    padding-bottom: var(--sheet-m-bottom, 10mm) !important;
+    padding-left: var(--sheet-m-left, 10mm) !important;
+    padding-right: var(--sheet-m-right, 10mm) !important;
+    
+    grid-template-columns: var(--sheet-grid-cols) !important;
+    grid-template-rows: var(--sheet-grid-rows) !important;
+    column-gap: var(--sheet-col-gap, 2mm) !important;
+    row-gap: var(--sheet-row-gap, 2mm) !important;
+    
+    page-break-inside: avoid !important;
+    page-break-after: always !important;
+  }
+  
+  .office-print-page:last-child {
+    page-break-after: avoid !important;
+  }
+  
+  /* Each label box inside the print sheet */
+  .office-print-cell {
+    position: relative !important;
+    box-sizing: border-box !important;
+    width: var(--cell-w, 50mm) !important;
+    height: var(--cell-h, 30mm) !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    
+    border: var(--cell-border, none) !important;
+    border-radius: var(--cell-radius, 0mm) !important;
+  }
+
+  /* Force thermal items to precise millimeter positions for printing machinery */
+  .object-print-class {
+    position: absolute !important;
+    left: var(--o-x) !important;
+    top: var(--o-y) !important;
+    width: var(--o-w) !important;
+    height: var(--o-print-height, var(--o-h)) !important;
+    min-height: var(--o-print-min-height, 0mm) !important;
+    transform: var(--o-transform, none) !important;
+    transform-origin: top left !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Dynamic page configuration */
+  @page {
+    size: var(--print-width, 100mm) var(--print-height, 75mm);
+    margin: 0 !important;
+  }
+}
+
+@media screen {
+  .app-scale-wrapper {
+    zoom: 0.85;
+    width: 117.647vw !important;
+    height: 117.647vh !important;
+  }
+}
+
+
