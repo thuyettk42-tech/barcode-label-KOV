@@ -86,7 +86,8 @@ export default function App() {
       barcodeFormat: "CODE128",
       displayValue: true,
       barcodeWidth: 1.4,
-      barcodeHeight: 11
+      barcodeHeight: 11,
+      textFlowOrigin: "center"
     },
     {
       id: "init-text-2",
@@ -654,7 +655,8 @@ export default function App() {
         barcodeFormat: "CODE128",
         displayValue: true,
         barcodeWidth: 1.5,
-        barcodeHeight: 15
+        barcodeHeight: 15,
+        textFlowOrigin: "center"
       };
     } else if (type === "qrcode") {
       newObject = {
@@ -664,7 +666,8 @@ export default function App() {
         y: cleanY,
         width: w,
         height: h,
-        content: customContent || "https://vi.wikipedia.org"
+        content: customContent || "https://vi.wikipedia.org",
+        textFlowOrigin: "center"
       };
     } else {
       // type === "image"

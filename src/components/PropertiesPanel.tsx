@@ -990,6 +990,34 @@ export function PropertiesPanel({
               </div>
             )}
 
+            {/* Điểm neo / Dòng chảy cho mã vạch */}
+            <div className="pt-2.5 border-t border-gray-200/65 pb-0.5 font-sans">
+              <label className="block text-[11px] text-slate-650 font-bold mb-1 flex items-center space-x-1">
+                <span>Điểm neo / Dòng chảy mã vạch</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="barcode-flow-origin-select"
+                  value={selectedObject.textFlowOrigin || "center"}
+                  onChange={(e) => {
+                    handleAttributeChange("textFlowOrigin", e.target.value as any);
+                  }}
+                  className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-bold text-slate-800 cursor-pointer appearance-none animate-none"
+                >
+                  <option value="top-left">Top Left (Trống trên góc Trái)</option>
+                  <option value="top-center">Top Center (Căn trên ở Giữa)</option>
+                  <option value="top-right">Top Right (Căn trên góc Phải)</option>
+                  <option value="center-left">Center Left (Chính giữa bên Trái)</option>
+                  <option value="center">Center (Chính giữa trung tâm)</option>
+                  <option value="center-right">Center Right (Chính giữa bên Phải)</option>
+                  <option value="bottom-left">Bottom Left (Căn dưới góc Trái)</option>
+                  <option value="bottom-center">Bottom Center (Căn dưới ở Giữa)</option>
+                  <option value="bottom-right">Bottom Right (Căn dưới góc Phải)</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              </div>
+            </div>
+
             {/* 5. Vị trí & Kích thước (Collapsible) at the end */}
             {renderPositionPanel()}
           </div>
@@ -1038,6 +1066,34 @@ export function PropertiesPanel({
 
             <div className="text-[11px] text-gray-600 font-bold leading-relaxed bg-slate-50 p-2 rounded-md border border-gray-200">
               💡 <strong>Mẹo:</strong> QR Code sẽ tự động tăng mật độ nén dựa trên độ dài dữ liệu để máy quét/camera nhận dạng nhanh nhất.
+            </div>
+
+            {/* Điểm neo / Dòng chảy cho QR Code */}
+            <div className="pt-2.5 border-t border-gray-200/65 pb-0.5 font-sans">
+              <label className="block text-[11px] text-slate-650 font-bold mb-1 flex items-center space-x-1">
+                <span>Điểm neo / Dòng chảy QR Code</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="qrcode-flow-origin-select"
+                  value={selectedObject.textFlowOrigin || "center"}
+                  onChange={(e) => {
+                    handleAttributeChange("textFlowOrigin", e.target.value as any);
+                  }}
+                  className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-bold text-slate-800 cursor-pointer appearance-none animate-none"
+                >
+                  <option value="top-left">Top Left (Trống trên góc Trái)</option>
+                  <option value="top-center">Top Center (Căn trên ở Giữa)</option>
+                  <option value="top-right">Top Right (Căn trên góc Phải)</option>
+                  <option value="center-left">Center Left (Chính giữa bên Trái)</option>
+                  <option value="center">Center (Chính giữa trung tâm)</option>
+                  <option value="center-right">Center Right (Chính giữa bên Phải)</option>
+                  <option value="bottom-left">Bottom Left (Căn dưới góc Trái)</option>
+                  <option value="bottom-center">Bottom Center (Căn dưới ở Giữa)</option>
+                  <option value="bottom-right">Bottom Right (Căn dưới góc Phải)</option>
+                </select>
+                <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              </div>
             </div>
 
             {/* Vị trí & Kích thước (Collapsible) */}

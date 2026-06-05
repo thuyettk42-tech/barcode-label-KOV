@@ -8,9 +8,10 @@ import { useEffect, useRef, useState, memo } from "react";
 interface QRCodeRendererProps {
   content: string;
   size?: number; // in pt
+  textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
 }
 
-export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120 }: QRCodeRendererProps) {
+export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120, textFlowOrigin = "center" }: QRCodeRendererProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,9 +78,39 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({ content, size = 120
     );
   }
 
+  const origin = textFlowOrigin || "center";
+  
+  let justifyClass = "justify-start";
+  if (origin.startsWith("top")) {
+    justifyClass = "justify-start";
+  } else if (origin.startsWith("center") || origin === "center") {
+    justifyClass = "justify-center";
+  } else if (origin.startsWith("bottom")) {
+    justifyClass = "justify-end";
+  }
+
+  let alignClass = "items-start";
+  if (origin.endsWith("left")) {
+    alignClass = "items-start";
+  } else if (origin === "center" || origin.endsWith("center")) {
+    alignClass = "items-center";
+  } else if (origin.endsWith("right")) {
+    alignClass = "items-end";
+  }
+
   return (
-    <div className="w-full h-full flex items-center justify-center p-0.5 bg-white overflow-hidden">
-      <div ref={containerRef} className="w-full h-full flex items-center justify-center" />
+    <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-white overflow-hidden`}>
+      <div 
+        ref={containerRef} 
+        style={{
+          width: size ? `${size}px` : '100%',
+          height: size ? `${size}px` : '100%',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          aspectRatio: '1/1'
+        }}
+        className="flex items-center justify-center animate-none" 
+      />
     </div>
   );
 });

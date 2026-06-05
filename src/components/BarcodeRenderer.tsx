@@ -21,6 +21,7 @@ interface BarcodeRendererProps {
   barcodeFontWeight?: 'normal' | 'bold';
   barcodeFontStyle?: 'normal' | 'italic';
   barcodeTextMargin?: number;
+  textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
 }
 
 export const BarcodeRenderer = memo(function BarcodeRenderer({
@@ -38,9 +39,11 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   barcodeFontWeight = "normal",
   barcodeFontStyle = "normal",
   barcodeTextMargin,
+  textFlowOrigin = "center",
 }: BarcodeRendererProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number } | null>(null);
 
   const showAbove = barcodeShowTextAbove;
   const showBelow = barcodeShowTextBelow ?? displayValue;
@@ -81,8 +84,8 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
     setError(null);
 
-    const finalPixelScale = pixelScale ?? 3.7795;
-    const actualHeight = Math.max(5, Math.round(barcodeHeight * finalPixelScale));
+    const baseScale = 3.7795; // Constant standard scale to construct the crisp reference vectors
+    const actualHeight = Math.max(5, Math.round(barcodeHeight * baseScale));
 
     try {
       JsBarcode(svgRef.current, cleanContent, {
@@ -100,11 +103,31 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
           }
         }
       });
+
+      // Transform the SVG to be scale-invariant and responsive with viewBox
+      if (svgRef.current) {
+        const rawWidth = svgRef.current.getAttribute("width");
+        const rawHeight = svgRef.current.getAttribute("height");
+        
+        if (rawWidth && rawHeight) {
+          const numWidth = parseFloat(rawWidth);
+          const numHeight = parseFloat(rawHeight);
+          
+          if (!isNaN(numWidth) && !isNaN(numHeight)) {
+            setNaturalDimensions({ width: numWidth, height: numHeight });
+            svgRef.current.setAttribute("viewBox", `0 0 ${numWidth} ${numHeight}`);
+            svgRef.current.removeAttribute("width");
+            svgRef.current.removeAttribute("height");
+            svgRef.current.style.width = "";
+            svgRef.current.style.height = "";
+          }
+        }
+      }
     } catch (err) {
       console.error("Barcode execution fail:", err);
       setError("Lỗi render mã vạch");
     }
-  }, [content, format, barcodeWidth, barcodeHeight, pixelScale]);
+  }, [content, format, barcodeWidth, barcodeHeight]);
 
   if (error) {
     return (
@@ -139,23 +162,60 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.3;
   const marginPx = marginMm * finalPixelScale;
 
+  const origin = textFlowOrigin || "center";
+  
+  let justifyClass = "justify-start";
+  if (origin.startsWith("top")) {
+    justifyClass = "justify-start";
+  } else if (origin.startsWith("center") || origin === "center") {
+    justifyClass = "justify-center";
+  } else if (origin.startsWith("bottom")) {
+    justifyClass = "justify-end";
+  }
+
+  let alignClass = "items-start";
+  let textalign = "left";
+  if (origin.endsWith("left")) {
+    alignClass = "items-start";
+    textalign = "left";
+  } else if (origin === "center" || origin.endsWith("center")) {
+    alignClass = "items-center";
+    textalign = "center";
+  } else if (origin.endsWith("right")) {
+    alignClass = "items-end";
+    textalign = "right";
+  }
+
+  const scaleMultiplier = finalPixelScale / 3.7795;
+  const displayWidth = naturalDimensions ? naturalDimensions.width * scaleMultiplier : undefined;
+  const displayHeight = naturalDimensions ? naturalDimensions.height * scaleMultiplier : undefined;
+
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden select-none">
+    <div className={`w-full h-full flex flex-col ${justifyClass} ${alignClass} overflow-hidden select-none`}>
       {showAbove && (
         <div 
-          style={{ ...textStyle, marginBottom: `${marginPx}px` }} 
-          className="leading-tight select-none truncate text-center max-w-full"
+          style={{ ...textStyle, marginBottom: `${marginPx}px`, textAlign: textalign as any }} 
+          className="leading-tight select-none truncate max-w-full w-full"
         >
           {content}
         </div>
       )}
-      <div className="flex items-center justify-center overflow-hidden">
-        <svg ref={svgRef} className="max-w-full max-h-full block" />
+      <div className={`flex-1 w-full min-h-0 flex items-center ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} overflow-hidden`}>
+        <svg 
+          ref={svgRef} 
+          style={naturalDimensions ? {
+            width: `${displayWidth}px`,
+            height: `${displayHeight}px`,
+            maxWidth: "100%",
+            maxHeight: "100%",
+          } : undefined}
+          className="block" 
+        />
       </div>
       {showBelow && (
         <div 
-          style={{ ...textStyle, marginTop: `${marginPx}px` }} 
-          className="leading-tight select-none truncate text-center max-w-full"
+          style={{ ...textStyle, marginTop: `${marginPx}px`, textAlign: textalign as any }} 
+          className="leading-tight select-none truncate max-w-full w-full"
         >
           {content}
         </div>

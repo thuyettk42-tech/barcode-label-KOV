@@ -931,6 +931,7 @@ export function LabelCanvas({
                                   barcodeFontWeight={obj.barcodeFontWeight}
                                   barcodeFontStyle={obj.barcodeFontStyle}
                                   barcodeTextMargin={obj.barcodeTextMargin}
+                                  textFlowOrigin={obj.textFlowOrigin}
                                 />
                               )}
 
@@ -938,6 +939,7 @@ export function LabelCanvas({
                                 <QRCodeRenderer
                                   content={obj.content}
                                   size={itemW * 0.9}
+                                  textFlowOrigin={obj.textFlowOrigin}
                                 />
                               )}
 
@@ -1154,6 +1156,7 @@ export function LabelCanvas({
                                   barcodeFontWeight={obj.barcodeFontWeight}
                                   barcodeFontStyle={obj.barcodeFontStyle}
                                   barcodeTextMargin={obj.barcodeTextMargin}
+                                  textFlowOrigin={obj.textFlowOrigin}
                                 />
                               )}
 
@@ -1161,6 +1164,7 @@ export function LabelCanvas({
                                 <QRCodeRenderer
                                   content={obj.content}
                                   size={itemW * 0.9}
+                                  textFlowOrigin={obj.textFlowOrigin}
                                 />
                               )}
 
@@ -1494,6 +1498,7 @@ export function LabelCanvas({
                     barcodeFontWeight={obj.barcodeFontWeight}
                     barcodeFontStyle={obj.barcodeFontStyle}
                     barcodeTextMargin={obj.barcodeTextMargin}
+                    textFlowOrigin={obj.textFlowOrigin}
                   />
                 )}
 
@@ -1501,6 +1506,7 @@ export function LabelCanvas({
                   <QRCodeRenderer
                     content={obj.content}
                     size={itemW * 0.9} // Take 90% space to fit beautifully
+                    textFlowOrigin={obj.textFlowOrigin}
                   />
                 )}
 
