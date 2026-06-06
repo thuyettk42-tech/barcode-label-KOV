@@ -185,6 +185,7 @@ export default function App() {
   const [excelColumns, setExcelColumns] = useState<string[]>([]); // Headers of spreadsheet
   const [currentExcelRowIndex, setCurrentExcelRowIndex] = useState<number>(0);
   const [excelFileName, setExcelFileName] = useState<string>("");
+  const [excelFileBase64, setExcelFileBase64] = useState<string>("");
   const [activeSidebarTab, setActiveSidebarTab] = useState<'layout' | 'design'>('layout');
   const [isExcelExpanded, setIsExcelExpanded] = useState<boolean>(false);
   const [sheetConfig, setSheetConfig] = useState<SheetLayoutConfig>({
@@ -394,6 +395,19 @@ export default function App() {
     if (!file) return;
     setExcelFileName(file.name);
 
+    // Read and save original Excel file base64 data to allow export backup inside .ktl
+    const b64Reader = new FileReader();
+    b64Reader.onload = (b64Evt) => {
+      try {
+        const b64Result = b64Evt.target?.result as string;
+        const base64Content = b64Result.split(",")[1] || b64Result;
+        setExcelFileBase64(base64Content);
+      } catch (errB64) {
+        console.error("FileReader base64 error:", errB64);
+      }
+    };
+    b64Reader.readAsDataURL(file);
+
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
@@ -458,6 +472,7 @@ export default function App() {
     setExcelColumns([]);
     setCurrentExcelRowIndex(0);
     setExcelFileName("");
+    setExcelFileBase64(""); // Clear base64 as well
     setPrintQuantityMode('constant');
     setPrintQuantityColumn("");
     setPrintCopies(24);
@@ -904,15 +919,153 @@ export default function App() {
     setObjectsWithHistory(scaledObjects);
   };
 
+  // Restores both label layout and packed compact spreadsheet rows securely
+  const restoreDesignAndExcel = (parsedData: any) => {
+    if (parsedData && parsedData.labelConfig && parsedData.objects) {
+      setLabelConfig(parsedData.labelConfig);
+      setObjects(parsedData.objects);
+      if (parsedData.sheetConfig) {
+        setSheetConfig(parsedData.sheetConfig);
+      }
+      
+      // Restore linked Excel spreadsheet if exists
+      if (parsedData.excelColumns && parsedData.excelColumns.length > 0) {
+        const cols = parsedData.excelColumns;
+        setExcelColumns(cols);
+        
+        let restoredData: any[] = [];
+        if (parsedData.excelRowsCompact && Array.isArray(parsedData.excelRowsCompact)) {
+          restoredData = parsedData.excelRowsCompact.map((rowArr: any[]) => {
+            const itemObj: any = {};
+            cols.forEach((colName: string, colIdx: number) => {
+              itemObj[colName] = rowArr[colIdx] !== undefined ? String(rowArr[colIdx]) : "";
+            });
+            return itemObj;
+          });
+        } else if (parsedData.excelData && Array.isArray(parsedData.excelData)) {
+          restoredData = parsedData.excelData;
+        }
+        
+        setExcelData(restoredData);
+        setExcelFileName(parsedData.excelFileName || "xlsx_linked_file.xlsx");
+        setExcelFileBase64(parsedData.excelOriginalBase64 || "");
+        
+        if (parsedData.printQuantityMode) {
+          setPrintQuantityMode(parsedData.printQuantityMode);
+        }
+        if (parsedData.printQuantityColumn) {
+          setPrintQuantityColumn(parsedData.printQuantityColumn);
+        }
+        setCurrentExcelRowIndex(0);
+        setIsExcelExpanded(true);
+      } else {
+        setExcelData([]);
+        setExcelColumns([]);
+        setExcelFileName("");
+        setExcelFileBase64("");
+      }
+
+      setSelectedId(null);
+      
+      let alertMsg = `Đã nạp thành công thiết kế "${parsedData.name || "Mẫu nhập"}" gồm ${parsedData.objects.length} phần tử và toàn bộ cài đặt khổ giấy!`;
+      if (parsedData.excelColumns && parsedData.excelColumns.length > 0) {
+        const rowCount = parsedData.excelRowsCompact?.length || parsedData.excelData?.length || 0;
+        alertMsg += `\n\n[Excel Linked] Đã tự động khôi phục dữ liệu Excel: "${parsedData.excelFileName || "xlsx_linked_file.xlsx"}" (${rowCount} dòng sản phẩm), sẵn sàng in hàng loạt ngay lập tức! Bạn có thể tải lại file này bất kỳ lúc nào để chỉnh sửa/làm mẫu.`;
+      }
+      alert(alertMsg);
+      return true;
+    }
+    return false;
+  };
+
+  // Generates or downloads the original linked Excel sheet
+  const handleDownloadExcelTemplate = () => {
+    try {
+      // Scenario 1: Original spreadsheet base64 is present
+      if (excelFileBase64) {
+        const byteCharacters = atob(excelFileBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = excelFileName || "excel_mau_lien_ket.xlsx";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        return;
+      }
+
+      // Scenario 2/3: Fallback rebuilding or default sample file generation
+      const exportCols = excelColumns.length > 0 ? excelColumns : ["Mã vạch", "Tên sản phẩm", "Giá bán", "Đơn vị tính", "Số lượng in"];
+      let exportRows: any[] = [];
+      
+      if (excelData.length > 0) {
+        exportRows = excelData;
+      } else {
+        exportRows = [
+          {
+            "Mã vạch": "VND-2026-06",
+            "Tên sản phẩm": "Mẫu Sản Phẩm Điện Tử A",
+            "Giá bán": "1500000",
+            "Đơn vị tính": "Cái",
+            "Số lượng in": "3"
+          },
+          {
+            "Mã vạch": "893000111222",
+            "Tên sản phẩm": "Mẫu Sản Phẩm Linh Kiện B",
+            "Giá bán": "450000",
+            "Đơn vị tính": "Hộp",
+            "Số lượng in": "2"
+          }
+        ];
+      }
+
+      // Build spreadsheet workbook safely
+      const ws = XLSX.utils.json_to_sheet(exportRows, { header: exportCols });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+      const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+      const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = excelFileName || "excel_mau_nhan_tem.xlsx";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert("Lỗi khi tải tệp Excel: " + err.message);
+    }
+  };
+
   // Save layout template in user local storage
   const handleSaveToLocalStorage = (customName?: string) => {
     const nameToSave = (customName || customSaveName).trim() || `Bản vẽ ${new Date().toLocaleDateString("vi-VN")}`;
+    
+    // Compress spreadsheet rows using a compact index array rather than repeating column names
+    const compactExcelRows = excelData.map((row) => {
+      return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
+    });
+
     const newRecord = {
       name: nameToSave,
       timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
       config: labelConfig,
       sheetConfig,
-      objects
+      objects,
+      // Lightweight optimized spreadsheet persistence block (no heavy base64 to protect 5MB local quota)
+      excelFileName,
+      excelColumns,
+      excelRowsCompact: compactExcelRows,
+      printQuantityMode,
+      printQuantityColumn,
     };
 
     const duplicateFiltered = savedDesigns.filter((d) => d.name !== nameToSave);
@@ -925,26 +1078,47 @@ export default function App() {
   };
 
   // Load previous design from local storage
-  const handleLoadSavedDesign = (saved: typeof savedDesigns[0] & { sheetConfig?: SheetLayoutConfig }) => {
-    setLabelConfig(saved.config);
-    setObjects(saved.objects);
-    if (saved.sheetConfig) {
-      setSheetConfig(saved.sheetConfig);
-    }
-    setSelectedId(null);
+  const handleLoadSavedDesign = (saved: any) => {
+    restoreDesignAndExcel({
+      name: saved.name,
+      labelConfig: saved.config,
+      sheetConfig: saved.sheetConfig,
+      objects: saved.objects,
+      excelFileName: saved.excelFileName,
+      excelColumns: saved.excelColumns,
+      excelRowsCompact: saved.excelRowsCompact,
+      excelData: saved.excelData, // Handle legacy format backward compatibility
+      printQuantityMode: saved.printQuantityMode,
+      printQuantityColumn: saved.printQuantityColumn,
+      excelOriginalBase64: "", // Rebuilt on demand dynamically to save quota space
+    });
     setShowSavedList(false);
   };
 
   // Export current design to a lightweight offline file (.ktl or .json)
   const handleExportToFile = (customName?: string, format: 'ktl' | 'json' = 'ktl') => {
     const nameToSave = (customName || customSaveName).trim() || labelConfig.name || "tem_thiet_ke";
-    const exportData = {
-      version: "2.4",
+    
+    // Strip redundant object names/keys to minimize plaintext weight dynamically matching spreadsheet rows
+    // This reduces file size structure by compressing excelData using index arrays instead of repeating JSON keys.
+    const compactExcelRows = excelData.map((row) => {
+      return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
+    });
+
+    const exportData: any = {
+      version: "2.5", // Upgraded version for complete nested excel linkage
       name: nameToSave,
       timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
       labelConfig,
       sheetConfig,
-      objects
+      objects,
+      // Lightweight, hyper-optimized spreadsheet persistence blocks 
+      excelFileName,
+      excelColumns,
+      excelRowsCompact: compactExcelRows,
+      excelOriginalBase64: excelFileBase64 || "", // High-fidelity original binary excel fallback backing
+      printQuantityMode,
+      printQuantityColumn,
     };
 
     try {
@@ -1014,15 +1188,8 @@ export default function App() {
           }
         }
 
-        if (parsedData && parsedData.labelConfig && parsedData.objects) {
-          setLabelConfig(parsedData.labelConfig);
-          setObjects(parsedData.objects);
-          if (parsedData.sheetConfig) {
-            setSheetConfig(parsedData.sheetConfig);
-          }
-          setSelectedId(null);
-          alert(`Đã nạp thành công thiết kế "${parsedData.name || "Mẫu nhập"}" gồm ${parsedData.objects.length} phần tử và toàn bộ cài đặt khổ giấy!`);
-        } else {
+        const restored = restoreDesignAndExcel(parsedData);
+        if (!restored) {
           alert("Nội dung tệp thiếu các thông số cấu trúc (labelConfig/objects). Vui lòng kiểm tra lại.");
         }
       } catch (err: any) {
@@ -1057,15 +1224,8 @@ export default function App() {
         }
       }
 
-      if (parsedData && parsedData.labelConfig && parsedData.objects) {
-        setLabelConfig(parsedData.labelConfig);
-        setObjects(parsedData.objects);
-        if (parsedData.sheetConfig) {
-          setSheetConfig(parsedData.sheetConfig);
-        }
-        setSelectedId(null);
-        alert(`Đã khôi phục thành công mã thiết kế "${parsedData.name || "Mẫu dán"}" gồm ${parsedData.objects.length} phần tử!`);
-      } else {
+      const restored = restoreDesignAndExcel(parsedData);
+      if (!restored) {
         alert("Thông tin cấu trúc không đầy đủ (thiếu thông số hoặc danh sách đối tượng mẫu).");
       }
     } catch (err: any) {
@@ -2419,7 +2579,7 @@ export default function App() {
                       {/* 1. EXCEL UPLOADER PORT */}
                       <section className="space-y-2.5">
                         {!excelFileName ? (
-                          <div className="relative">
+                          <div className="relative space-y-2">
                             <label 
                               htmlFor="excel-file-uploader-direct"
                               className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg p-4 bg-slate-50 cursor-pointer hover:bg-emerald-50/10 hover:border-emerald-300 transition text-center space-y-1.5"
@@ -2432,18 +2592,41 @@ export default function App() {
                                 </span>
                               </div>
                             </label>
+                            
+                            {/* Download static generic sample template so they don't start empty */}
+                            <div className="text-center pt-0.5">
+                              <button
+                                type="button"
+                                onClick={handleDownloadExcelTemplate}
+                                className="text-[11.5px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline inline-flex items-center gap-1 cursor-pointer transition select-none"
+                              >
+                                📥 Tải File Excel Mẫu để Điền Dữ Liệu
+                              </button>
+                            </div>
                           </div>
                         ) : (
-                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2">
+                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2 shadow-2xs">
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 pr-2">
                                 <p className="font-bold text-emerald-850 truncate text-[12.5px] flex items-center">
                                   <span className="mr-1 text-emerald-650">✓</span> Đã liên kết thành công
                                 </p>
                                 <p className="text-[11px] text-emerald-700 truncate font-bold font-mono mt-0.5">{excelFileName}</p>
-                                <p className="text-[11px] text-slate-600 font-bold mt-1">
+                                <p className="text-[11px] text-slate-650 font-bold mt-1">
                                   Sẵn sàng in hàng loạt: {excelData.length} dòng sản phẩm.
                                 </p>
+                                
+                                {/* Download active linked excel/restored template file easily */}
+                                <div className="mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleDownloadExcelTemplate}
+                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2 py-1 rounded inline-flex items-center gap-1 transition-all shadow-3xs cursor-pointer select-none"
+                                    title="Tải tệp Excel đang lưu trong mẫu tem này về máy để sửa nhanh"
+                                  >
+                                    <Download className="w-2.5 h-2.5" /> Tải Lại File Excel Đã Liên Kết
+                                  </button>
+                                </div>
                               </div>
                               <button
                                 onClick={handleClearExcel}

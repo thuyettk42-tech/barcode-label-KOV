@@ -172,7 +172,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
           boxSizing: 'border-box',
           objectFit: 'contain',
           display: 'block',
-          imageRendering: 'pixelated',
+          imageRendering: 'auto',
         }}
         referrerPolicy="no-referrer"
       />
