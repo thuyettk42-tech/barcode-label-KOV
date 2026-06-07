@@ -3,29 +3,13 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "electron-main.js",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build:desktop": "vite build",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit",
-    "electron:start": "npm run build && electron .",
-    "app:dist": "npm run build && electron-builder"
-  },
-  "build": {
-    "appId": "com.kiotviet.labelpro",
-    "productName": "LabelPro",
-    "directories": {
-      "output": "dist-desktop"
-    },
-    "files": [
-      "dist/**/*",
-      "electron-main.js"
-    ],
-    "win": {
-      "target": "portable"
-    }
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -48,8 +32,6 @@
     "@types/node": "^22.14.0",
     "@types/qrcode": "^1.5.6",
     "autoprefixer": "^10.4.21",
-    "electron": "^30.0.0",
-    "electron-builder": "^26.15.0",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

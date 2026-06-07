@@ -1249,13 +1249,15 @@ export default function App() {
       if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file_native) {
         // @ts-ignore
         window.pywebview.api.save_file_native(filename, fileContent)
-          .then((isSaved: boolean) => {
-            if (isSaved) {
-              alert(`Đã lưu thành công tệp tin thiết kế vào thiết bị của bạn!`);
+          .then((result: any) => {
+            if (result === "success" || result === true) {
+              alert(`Đã lưu thành công tệp tin thiết kế (.kvl) vào ổ cứng thiết bị của bạn!`);
+            } else if (typeof result === "string" && result.startsWith("error:")) {
+              alert(`Lỗi lưu tệp tin thông qua ứng dụng offline: ${result.substring(6)}`);
             }
           })
           .catch((err: any) => {
-            alert("Lỗi khi lưu tệp tin thông qua Python: " + err.message);
+            alert("Lỗi gọi API lưu tệp tin Python: " + err.message);
           });
         return;
       }
@@ -3765,7 +3767,7 @@ export default function App() {
                   </div>
                   <div>
                     <h4 className="text-[11.5px] font-extrabold text-slate-800">Bộ nhớ duyệt web</h4>
-                    <p className="text-[9.5px] text-slate-450 font-medium leading-normal mt-0.5">Lưu trữ cục bộ, an toàn trên trình duyệt máy bạn</p>
+                    <p className="text-[9.5px] text-slate-455 font-medium leading-normal mt-0.5">Lưu trữ cục bộ, an toàn trên trình duyệt máy bạn</p>
                   </div>
                 </button>
 
@@ -3784,7 +3786,7 @@ export default function App() {
                   </div>
                   <div>
                     <h4 className="text-[11.5px] font-extrabold text-slate-800">Bộ nhớ thiết bị</h4>
-                    <p className="text-[9.5px] text-slate-450 font-medium leading-normal mt-0.5">Tải file cấu hình offline (.kvl) về ổ cứng</p>
+                    <p className="text-[9.5px] text-slate-455 font-medium leading-normal mt-0.5">Tải file cấu hình offline (.kvl) về ổ cứng</p>
                   </div>
                 </button>
               </div>
@@ -3812,73 +3814,6 @@ export default function App() {
                   />
                 </div>
 
-                {/* Format selection (ONLY when saving for device/offline download) */}
-                {saveLocation === 'device' && (
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-slate-600">
-                      Chọn định dạng file:
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSaveFileFormat('kvl')}
-                        className={`py-1.5 px-2 border rounded-lg text-center text-[10.5px] font-bold cursor-pointer transition-all ${
-                          saveFileFormat === 'kvl'
-                            ? 'border-kiot-green bg-emerald-50 text-emerald-800'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        File .kvl (Khuyên dùng)
-                        <span className="block text-[8px] text-slate-400 font-normal">Base64 nhẹ & an toàn</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSaveFileFormat('json')}
-                        className={`py-1.5 px-2 border rounded-lg text-center text-[10.5px] font-bold cursor-pointer transition-all ${
-                          saveFileFormat === 'json'
-                            ? 'border-kiot-green bg-emerald-50 text-emerald-800'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50'
-                        }`}
-                      >
-                        File .json (Mã nguồn)
-                        <span className="block text-[8px] text-slate-400 font-normal">Định dạng JSON gốc</span>
-                      </button>
-                    </div>
-
-                    {/* Offline backup copy paste tooltip card */}
-                    <div className="mt-2.5 p-2 px-2.5 bg-sky-50/50 border border-sky-100 rounded-lg space-y-1.5 font-sans">
-                      <span className="block text-[9.5px] text-slate-550 font-semibold leading-relaxed">
-                        💡 <strong>Lưu ý bản Offline:</strong> Nếu bạn chạy bằng phần mềm cài đặt <strong>.exe (Python Desktop)</strong> và không thấy hội thoại tải lưu file, hãy bấm nút dưới đây để sao chép chuỗi mã cấu hình:
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nameToSave = saveTemplateName.trim() || `Bản vẽ ${new Date().toLocaleDateString("vi-VN")}`;
-                          const exportData = {
-                            version: "2.4",
-                            name: nameToSave,
-                            timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
-                            labelConfig,
-                            sheetConfig,
-                            objects
-                          };
-                          const jsonStr = JSON.stringify(exportData);
-                          let contentToCopy = jsonStr;
-                          if (saveFileFormat === 'kvl') {
-                            contentToCopy = btoa(unescape(encodeURIComponent(jsonStr)));
-                          }
-                          navigator.clipboard.writeText(contentToCopy)
-                            .then(() => alert("Đã sao chép mã thiết kế dạng text vào bộ nhớ tạm thành công! Hãy dán mã vào tài liệu để lưu lại."))
-                            .catch(err => alert("Không thể sao chép: " + err.message));
-                        }}
-                        className="w-full py-1 text-center bg-kiot-cyan text-white hover:bg-sky-650 rounded font-black text-[10px] uppercase cursor-pointer select-none shadow-sm transition"
-                      >
-                        🗊 Sao chép nhanh chuỗi .{saveFileFormat}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
                 {/* Footer confirm/save action */}
                 <div className="flex items-center space-x-2 pt-2">
                   <button
@@ -3887,7 +3822,7 @@ export default function App() {
                       setShowSaveDialog(false);
                       setSaveLocation(null);
                     }}
-                    className="flex-1 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 text-xs font-bold text-slate-500 transition cursor-pointer"
+                    className="flex-1 py-1.5 border border-slate-200 rounded-lg hover:bg-slate-50 text-xs font-bold text-slate-500 transition cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
@@ -3898,7 +3833,7 @@ export default function App() {
                       if (saveLocation === 'local') {
                         handleSaveToLocalStorage(finalName);
                       } else if (saveLocation === 'device') {
-                        handleExportToFile(finalName, saveFileFormat);
+                        handleExportToFile(finalName, 'kvl');
                       }
                       setCustomSaveName(finalName); // update state in header
                       setShowSaveDialog(false);

@@ -21,11 +21,13 @@ class DesktopApi:
     def save_file_native(self, filename, content_str):
         """Mở hộp thoại lưu tệp gốc (Native Save Dialog) của Windows/macOS/Linux và ghi file."""
         if not self.window:
-            return False
+            return "error: Cửa sổ chính chưa được khởi tạo"
             
         try:
-            # Sinh cấu hình bộ lọc loại tập tin
-            if filename.endswith('.ktl'):
+            # Sinh cấu hình bộ lọc loại tập tin hỗ trợ .kvl, .ktl, .json
+            if filename.endswith('.kvl'):
+                file_types = ('Bộ mẫu KVL (*.kvl)', 'Tất cả tập tin (*.*)')
+            elif filename.endswith('.ktl'):
                 file_types = ('Bộ mẫu KTL (*.ktl)', 'Tất cả tập tin (*.*)')
             elif filename.endswith('.json'):
                 file_types = ('Tệp cấu hình JSON (*.json)', 'Tất cả tập tin (*.*)')
@@ -40,14 +42,15 @@ class DesktopApi:
             )
             
             if file_path:
-                # Ghi nội dung chuỗi (đã decode UTF-8) vào đường dẫn người dùng chỉ định
+                # Ghi nội dung chuỗi vào đường dẫn người dùng chỉ định
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content_str)
-                return True
+                return "success"
+            else:
+                return "cancelled"
         except Exception as e:
             print(f"Lỗi khi thực hiện lưu tệp tin ngoại tuyến: {e}")
-            return False
-        return False
+            return f"error: {str(e)}"
 
 def get_resource_path(relative_path):
     """Lấy đường dẫn chính xác cho tài nguyên (Hỗ trợ cả khi chạy thường và khi đóng gói file .exe bằng PyInstaller)"""
