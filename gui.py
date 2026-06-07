@@ -2,9 +2,31 @@ import os
 import sys
 import threading
 import socket
+import traceback
+from datetime import datetime
 from http.server import SimpleHTTPRequestHandler
 from socketserver import TCPServer
 import webview
+
+def log_exception(exc_type, exc_value, exc_traceback):
+    """Ghi lỗi chưa được bắt vào tệp tin desktop_error_log.txt nằm cùng thư mục chạy ứng dụng."""
+    try:
+        # Đường dẫn tệp log nằm trong thư mục chạy tệp tin thực thi (.exe hoặc file .py)
+        exec_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+        log_file = os.path.join(exec_dir, "desktop_error_log.txt")
+        
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write("\n" + "="*80 + "\n")
+            f.write(f"Thời gian lỗi: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(f"Hệ điều hành: {sys.platform}\n")
+            f.write(f"Phiên bản Python: {sys.version}\n")
+            traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
+        print(f"[ERROR-LOGGER] Lỗi nghiêm trọng đã được ghi nhận vào: {log_file}")
+    except Exception as e:
+        print(f"Không thể ghi tệp nhật ký lỗi tự động: {e}")
+
+# Đăng ký hook gỡ lỗi toàn bộ Python thread
+sys.excepthook = log_exception
 
 # Thử cấu hình mã hóa ngõ ra là UTF-8 để khắc phục triệt để lỗi map kí tự ngoại tuyến (như cp1252 UnicodeEncodeError trên Windows)
 if sys.platform.startswith('win'):
@@ -16,11 +38,11 @@ if sys.platform.startswith('win'):
 
 class DesktopApi:
     def __init__(self):
-        self.window = None
+        self._window = None
 
     def save_file_native(self, filename, content_str):
         """Mở hộp thoại lưu tệp gốc (Native Save Dialog) của Windows/macOS/Linux và ghi file."""
-        if not self.window:
+        if not self._window:
             return "error: Cửa sổ chính chưa được khởi tạo"
             
         try:
@@ -35,7 +57,7 @@ class DesktopApi:
                 file_types = ('Tất cả tập tin (*.*)',)
                 
             # Hiển thị hội thoại lưu tệp chính thức của hệ điều hành
-            file_path = self.window.create_file_dialog(
+            file_path = self._window.create_file_dialog(
                 webview.SAVE_DIALOG,
                 save_filename=filename,
                 file_types=file_types
@@ -127,10 +149,10 @@ def main():
     )
     
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
-    api.window = win
+    api._window = win
 
-    # Chạy ứng dụng webview (Tự động tải tài nguyên cục bộ một cách tối ưu)
-    webview.start(private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
+    # Chạy ứng dụng webview (Bật debug=True để hiển thị Inspect Element xem log lỗi cụ thể và tăng độ tin cậy)
+    webview.start(debug=True, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
 
 if __name__ == "__main__":
     main()
