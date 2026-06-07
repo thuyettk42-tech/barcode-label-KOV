@@ -15,10 +15,13 @@ interface LabelCanvasProps {
   labelConfig: LabelConfig;
   objects: LabelObject[];
   selectedId: string | null;
+  selectedIds?: string[];
   pixelScale: number; // Pixels per millimeter (e.g., 4)
   gridSnapSize: number; // snappy size in mm (e.g., 1mm. 0 means none)
   onSelectObject: (id: string | null) => void;
+  onSelectObjectWithModifier?: (id: string | null, isMultiSelect: boolean) => void;
   onUpdateObjectCoordinates: (id: string, x: number, y: number) => void;
+  onUpdateMultipleObjectsCoordinates?: (coordsList: Array<{ id: string; x: number; y: number }>) => void;
   onUpdateObjectGeometry: (
     id: string,
     x: number,
@@ -273,10 +276,13 @@ export function LabelCanvas({
   labelConfig,
   objects,
   selectedId,
+  selectedIds = [],
   pixelScale,
   gridSnapSize,
   onSelectObject,
+  onSelectObjectWithModifier,
   onUpdateObjectCoordinates,
+  onUpdateMultipleObjectsCoordinates,
   onUpdateObjectGeometry,
   onDeleteObject,
   isBatchPrinting = false,
@@ -359,12 +365,17 @@ export function LabelCanvas({
     } else if (showThermalSheetGrid && sheetConfig) {
       const cols = sheetConfig.cols || 1;
       const colGap = sheetConfig.colGap || 0;
-      const backingWidth = cols * labelConfig.width + (cols - 1) * colGap;
+      const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+      const backingWidth = cols * labelConfig.width + (cols - 1) * colGap + rollSideMargin * 2;
       root.style.setProperty("--print-width", `${backingWidth}mm`);
       root.style.setProperty("--print-height", `${labelConfig.height}mm`);
+      root.style.setProperty("--print-padding-left", `${rollSideMargin}mm`);
+      root.style.setProperty("--print-padding-right", `${rollSideMargin}mm`);
     } else {
       root.style.setProperty("--print-width", `${labelConfig.width}mm`);
       root.style.setProperty("--print-height", `${labelConfig.height}mm`);
+      root.style.setProperty("--print-padding-left", "0mm");
+      root.style.setProperty("--print-padding-right", "0mm");
     }
   }, [
     labelConfig.width,
@@ -381,6 +392,7 @@ export function LabelCanvas({
     origY: number; // in mm
     startX: number; // clientX
     startY: number; // clientY
+    origPositions?: Array<{ id: string; x: number; y: number }>;
   } | null>(null);
 
   // Resizing event states
@@ -425,6 +437,11 @@ export function LabelCanvas({
     x: number;
     y: number;
   } | null>(null);
+  const [localDragCoordsList, setLocalDragCoordsList] = useState<Array<{
+    id: string;
+    x: number;
+    y: number;
+  }> | null>(null);
   const [localResizeDims, setLocalResizeDims] = useState<{
     id: string;
     x: number;
@@ -434,6 +451,9 @@ export function LabelCanvas({
   } | null>(null);
 
   const latestCoordsRef = useRef<{ id: string; x: number; y: number } | null>(
+    null,
+  );
+  const latestCoordsListRef = useRef<Array<{ id: string; x: number; y: number }> | null>(
     null,
   );
   const latestResizeRef = useRef<{
@@ -473,57 +493,47 @@ export function LabelCanvas({
           ? gridSnapSize
           : 0.5;
 
-      if (e.key === "ArrowLeft") {
+      const targetIds = selectedIds && selectedIds.length > 1 && selectedIds.includes(selectedId)
+        ? selectedIds
+        : [selectedId];
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
         e.preventDefault();
-        const coords = constrainCoordinates(
-          activeObj.x - increment,
-          activeObj.y,
-          activeObj.width,
-          activeObj.height,
-          labelConfig.width,
-          labelConfig.height,
-          gridSnapSize,
-        );
-        onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
-      } else if (e.key === "ArrowRight") {
-        e.preventDefault();
-        const coords = constrainCoordinates(
-          activeObj.x + increment,
-          activeObj.y,
-          activeObj.width,
-          activeObj.height,
-          labelConfig.width,
-          labelConfig.height,
-          gridSnapSize,
-        );
-        onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        const coords = constrainCoordinates(
-          activeObj.x,
-          activeObj.y - increment,
-          activeObj.width,
-          activeObj.height,
-          labelConfig.width,
-          labelConfig.height,
-          gridSnapSize,
-        );
-        onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault();
-        const coords = constrainCoordinates(
-          activeObj.x,
-          activeObj.y + increment,
-          activeObj.width,
-          activeObj.height,
-          labelConfig.width,
-          labelConfig.height,
-          gridSnapSize,
-        );
-        onUpdateObjectCoordinates(selectedId, coords.x, coords.y);
+        let dx = 0;
+        let dy = 0;
+        if (e.key === "ArrowLeft") dx = -increment;
+        if (e.key === "ArrowRight") dx = increment;
+        if (e.key === "ArrowUp") dy = -increment;
+        if (e.key === "ArrowDown") dy = increment;
+
+        const updatedCoords = targetIds.map(id => {
+          const obj = objects.find(o => o.id === id);
+          if (!obj) return null;
+
+          const coords = constrainCoordinates(
+            obj.x + dx,
+            obj.y + dy,
+            obj.width,
+            obj.height,
+            labelConfig.width,
+            labelConfig.height,
+            gridSnapSize,
+          );
+          return { id, x: coords.x, y: coords.y };
+        }).filter(Boolean) as Array<{ id: string; x: number; y: number }>;
+
+        if (updatedCoords.length > 0) {
+          if (onUpdateMultipleObjectsCoordinates) {
+            onUpdateMultipleObjectsCoordinates(updatedCoords);
+          } else {
+            updatedCoords.forEach(c => onUpdateObjectCoordinates(c.id, c.x, c.y));
+          }
+        }
       } else if (e.key === "Delete" || e.key === "Backspace") {
         // Only trigger delete if not typing in form
-        onDeleteObject(selectedId);
+        targetIds.forEach(id => {
+          onDeleteObject(id);
+        });
       }
     };
 
@@ -531,10 +541,12 @@ export function LabelCanvas({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     selectedId,
+    selectedIds,
     objects,
     labelConfig,
     gridSnapSize,
     onUpdateObjectCoordinates,
+    onUpdateMultipleObjectsCoordinates,
     onDeleteObject,
   ]);
 
@@ -549,7 +561,28 @@ export function LabelCanvas({
   const handleObjectMouseDown = (e: React.MouseEvent, obj: LabelObject) => {
     e.stopPropagation();
     e.preventDefault();
-    onSelectObject(obj.id);
+
+    // Check if Shift or Ctrl/Cmd is pressed
+    const isMultiSelectKey = e.ctrlKey || e.metaKey || e.shiftKey;
+
+    if (onSelectObjectWithModifier) {
+      onSelectObjectWithModifier(obj.id, isMultiSelectKey);
+    } else {
+      onSelectObject(obj.id);
+    }
+
+    const currentSelectedIds = selectedIds && selectedIds.includes(obj.id)
+      ? selectedIds
+      : [obj.id];
+
+    // If we just clicked with a multi-select modifier and the element wasn't originally selected, let's include it
+    const effectiveSelectedIds = isMultiSelectKey && !currentSelectedIds.includes(obj.id)
+      ? [...currentSelectedIds, obj.id]
+      : currentSelectedIds;
+
+    const origPositions = objects
+      .filter((o) => effectiveSelectedIds.includes(o.id))
+      .map((o) => ({ id: o.id, x: o.x, y: o.y }));
 
     setDragState({
       objectId: obj.id,
@@ -557,6 +590,7 @@ export function LabelCanvas({
       origY: obj.y,
       startX: e.clientX,
       startY: e.clientY,
+      origPositions,
     });
   };
 
@@ -575,13 +609,22 @@ export function LabelCanvas({
       const deltaXmm = deltaXpx / pixelScale;
       const deltaYmm = deltaYpx / pixelScale;
 
-      const newX = dragState.origX + deltaXmm;
-      const newY = dragState.origY + deltaYmm;
+      const origPositions = dragState.origPositions || [
+        { id: dragState.objectId, x: dragState.origX, y: dragState.origY },
+      ];
+      const mainOrigPos = origPositions.find((p) => p.id === dragState.objectId) || {
+        id: dragState.objectId,
+        x: dragState.origX,
+        y: dragState.origY,
+      };
+
+      const targetMainX = mainOrigPos.x + deltaXmm;
+      const targetMainY = mainOrigPos.y + deltaYmm;
 
       // Constrain inside label boundary with grid snapping
-      const coords = constrainCoordinates(
-        newX,
-        newY,
+      const mainCoords = constrainCoordinates(
+        targetMainX,
+        targetMainY,
         activeObj.width,
         activeObj.height,
         labelConfig.width,
@@ -589,27 +632,47 @@ export function LabelCanvas({
         gridSnapSize,
       );
 
-      latestCoordsRef.current = {
-        id: dragState.objectId,
-        x: coords.x,
-        y: coords.y,
-      };
-      setLocalDragCoords({ id: dragState.objectId, x: coords.x, y: coords.y });
+      // Snapped delta
+      const snappedDeltaX = mainCoords.x - mainOrigPos.x;
+      const snappedDeltaY = mainCoords.y - mainOrigPos.y;
+
+      const updatedList = origPositions.map((pos) => {
+        const item = objects.find((o) => o.id === pos.id);
+        const w = item ? item.width : 10;
+        const h = item ? item.height : 10;
+
+        let activeX = pos.x + snappedDeltaX;
+        let activeY = pos.y + snappedDeltaY;
+
+        // Constraint boundaries for each item
+        if (activeX < 0) activeX = 0;
+        if (activeY < 0) activeY = 0;
+        if (activeX + w > labelConfig.width) activeX = labelConfig.width - w;
+        if (activeY + h > labelConfig.height) activeY = labelConfig.height - h;
+
+        return {
+          id: pos.id,
+          x: Math.round(activeX * 10) / 10,
+          y: Math.round(activeY * 10) / 10,
+        };
+      });
+
+      latestCoordsListRef.current = updatedList;
+      setLocalDragCoordsList(updatedList);
     };
 
     const handleMouseUp = () => {
-      if (
-        latestCoordsRef.current &&
-        latestCoordsRef.current.id === dragState.objectId
-      ) {
-        onUpdateObjectCoordinates(
-          dragState.objectId,
-          latestCoordsRef.current.x,
-          latestCoordsRef.current.y,
-        );
+      if (latestCoordsListRef.current && latestCoordsListRef.current.length > 0) {
+        if (onUpdateMultipleObjectsCoordinates) {
+          onUpdateMultipleObjectsCoordinates(latestCoordsListRef.current);
+        } else {
+          latestCoordsListRef.current.forEach((c) => {
+            onUpdateObjectCoordinates(c.id, c.x, c.y);
+          });
+        }
       }
-      latestCoordsRef.current = null;
-      setLocalDragCoords(null);
+      latestCoordsListRef.current = null;
+      setLocalDragCoordsList(null);
       setDragState(null);
     };
 
@@ -627,6 +690,7 @@ export function LabelCanvas({
     gridSnapSize,
     labelConfig,
     onUpdateObjectCoordinates,
+    onUpdateMultipleObjectsCoordinates,
   ]);
 
   const handleResizeStart = (
@@ -1102,7 +1166,7 @@ export function LabelCanvas({
                               height: `${pxCellH}px`,
                               backgroundColor: labelConfig.bgColor || "#ffffff",
                               border: sheetConfig.showBorder
-                                ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)`
+                                ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
                                 : "none",
                               borderRadius: `${sheetConfig.borderRadius}mm`,
                               boxSizing: "border-box",
@@ -1110,7 +1174,7 @@ export function LabelCanvas({
                               "--cell-h": `${labelConfig.height}mm`,
                               "--cell-radius": `${sheetConfig.borderRadius}mm`,
                               "--cell-border": sheetConfig.showBorder
-                                ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.6)`
+                                ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
                                 : "none",
                             } as React.CSSProperties
                           }
@@ -1320,12 +1384,14 @@ export function LabelCanvas({
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
     const labelW = labelConfig.width;
     const labelH = labelConfig.height;
-    const backingWidth = cols * labelW + (cols - 1) * colGap;
+    const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+    const backingWidth = cols * labelW + (cols - 1) * colGap + rollSideMargin * 2;
 
     const pxBackingW = mmToPx(backingWidth, previewScale);
     const pxBackingH = mmToPx(labelH, previewScale);
     const pxColGap = mmToPx(colGap, previewScale);
     const pxRowGap = mmToPx(rowGap, previewScale);
+    const pxSideMargin = mmToPx(rollSideMargin, previewScale);
 
     const pxCellW = mmToPx(labelW, previewScale);
     const pxCellH = mmToPx(labelH, previewScale);
@@ -1391,6 +1457,10 @@ export function LabelCanvas({
                     "--print-width": `${backingWidth}mm`,
                     "--print-height": `${labelH}mm`,
                     "--print-col-gap": `${colGap}mm`,
+                    "--print-padding-left": `${rollSideMargin}mm`,
+                    "--print-padding-right": `${rollSideMargin}mm`,
+                    paddingLeft: `${pxSideMargin}px`,
+                    paddingRight: `${pxSideMargin}px`,
                   } as React.CSSProperties
                 }
               >
@@ -1412,7 +1482,7 @@ export function LabelCanvas({
                             backgroundColor: labelConfig.bgColor || "#ffffff",
                             boxSizing: "border-box",
                             border: sheetConfig.showBorder
-                              ? `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.45)`
+                              ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
                               : "none",
                             borderRadius: `${sheetConfig.borderRadius}mm`,
                             "--cell-w": `${labelConfig.width}mm`,
@@ -1778,21 +1848,23 @@ export function LabelCanvas({
           )}
           {/* Render individual items */}
           {objects.map((obj) => {
-            const isSelected = obj.id === selectedId;
-            const isDraggingThis =
-              localDragCoords && localDragCoords.id === obj.id;
+            const isSelected = selectedIds && selectedIds.length > 0 ? selectedIds.includes(obj.id) : (obj.id === selectedId);
+            const isPrimarySelected = obj.id === selectedId;
+
+            const dragItem = localDragCoordsList ? localDragCoordsList.find(c => c.id === obj.id) : null;
+            const isDraggingThis = dragItem ? true : !!(localDragCoords && localDragCoords.id === obj.id);
             const isResizingThis =
               localResizeDims && localResizeDims.id === obj.id;
 
             const activeX = isResizingThis
               ? localResizeDims.x
               : isDraggingThis
-                ? localDragCoords.x
+                ? (dragItem ? dragItem.x : localDragCoords!.x)
                 : obj.x;
             const activeY = isResizingThis
               ? localResizeDims.y
               : isDraggingThis
-                ? localDragCoords.y
+                ? (dragItem ? dragItem.y : localDragCoords!.y)
                 : obj.y;
             const activeW = isResizingThis ? localResizeDims.width : obj.width;
             const activeH = isResizingThis
@@ -1968,7 +2040,7 @@ export function LabelCanvas({
                 </div>
 
                 {/* Selection Border handles for a premium feel */}
-                {isSelected && (
+                {isPrimarySelected && (
                   <>
                     {/* Rotation line and handle */}
                     <div className="absolute top-0 left-1/2 w-[1.5px] h-8 bg-kiot-cyan -translate-x-1/2 -translate-y-full hover:scale-x-150 transition-all pointer-events-none no-print z-40" />

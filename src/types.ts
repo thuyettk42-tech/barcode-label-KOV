@@ -109,6 +109,8 @@ export interface SheetLayoutConfig {
   showBorder: boolean;
   borderWidth: number; // in px
   borderRadius: number; // in mm
+  borderColor?: string; // border color hex code
+  rollSideMargin?: number; // side margins in mm for thermal roll
 }
 
 export interface LabelTemplate {

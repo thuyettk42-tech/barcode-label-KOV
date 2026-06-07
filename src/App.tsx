@@ -48,7 +48,8 @@ import {
   Lock,
   Settings,
   Laptop,
-  Palette
+  Palette,
+  CheckSquare
 } from "lucide-react";
 
 export default function App() {
@@ -159,9 +160,38 @@ export default function App() {
 
   // 3. Selection state
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const handleSelectObject = (id: string | null, isMultiSelect = false) => {
+    if (id === null) {
+      setSelectedId(null);
+      setSelectedIds([]);
+    } else {
+      if (isMultiSelect) {
+        setSelectedIds((prev) => {
+          if (prev.includes(id)) {
+            const filtered = prev.filter((item) => item !== id);
+            const nextSelectedId = selectedId === id
+              ? (filtered.length > 0 ? filtered[filtered.length - 1] : null)
+              : selectedId;
+            setSelectedId(nextSelectedId);
+            return filtered;
+          } else {
+            setSelectedId(id);
+            return [...prev, id];
+          }
+        });
+      } else {
+        setSelectedId(id);
+        setSelectedIds([id]);
+      }
+    }
+  };
 
   // 4. Utility display settings
-  const [pixelScale, setPixelScale] = useState<number>(7.07625); // standard pixels per mm (8.325 * 0.85 = 7.07625)
+  // The user requested that the old 120% zoom (1.2 * 7.07625 = 8.4915) be the new 100% default scale.
+  // Standard pixels per mm is now 8.4915.
+  const [pixelScale, setPixelScale] = useState<number>(8.4915);
   const [gridSnapSize, setGridSnapSize] = useState<number>(1); // 1mm snapping by default
   const [customSaveName, setCustomSaveName] = useState<string>("");
   const [savedDesigns, setSavedDesigns] = useState<Array<{ name: string; timestamp: string; config: LabelConfig; sheetConfig?: SheetLayoutConfig; objects: LabelObject[] }>>([]);
@@ -204,7 +234,9 @@ export default function App() {
     colGap: 0,
     showBorder: true,
     borderWidth: 1,
-    borderRadius: 2
+    borderRadius: 2,
+    borderColor: '#9ca3af',
+    rollSideMargin: 1
   });
   const [officePreviewMode, setOfficePreviewMode] = useState<'design' | 'sheet'>('design');
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
@@ -222,12 +254,19 @@ export default function App() {
   const [marginBottomInput, setMarginBottomInput] = useState<string>("10");
   const [colGapOfficeInput, setColGapOfficeInput] = useState<string>("0");
   const [rowGapOfficeInput, setRowGapOfficeInput] = useState<string>("3");
-  const [desiredRollWidthInput, setDesiredRollWidthInput] = useState<string>("75");
+  const [desiredRollWidthInput, setDesiredRollWidthInput] = useState<string>("67");
   const [customWidthInput, setCustomWidthInput] = useState<string>("210");
   const [customHeightInput, setCustomHeightInput] = useState<string>("297");
   const [borderRadiusInput, setBorderRadiusInput] = useState<string>("2");
+  const [rollSideMarginInput, setRollSideMarginInput] = useState<string>("1");
 
   // Keep temporary inputs synchronized with main configurations from external updates
+  useEffect(() => {
+    if (document.activeElement?.id !== "roll-side-margin-input") {
+      setRollSideMarginInput(String(sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1));
+    }
+  }, [sheetConfig.rollSideMargin]);
+
   useEffect(() => {
     if (document.activeElement?.id !== "custom-width-input") {
       setCustomWidthInput(String(sheetConfig.customWidth || 210));
@@ -328,7 +367,7 @@ export default function App() {
     };
   }, [isSystemPrinting, wasDesignModeForPrint]);
 
-  const [desiredRollWidth, setDesiredRollWidth] = useState<number>(75);
+  const [desiredRollWidth, setDesiredRollWidth] = useState<number>(67);
   const [isQuickSizeOpen, setIsQuickSizeOpen] = useState<boolean>(false);
   const [printCopies, setPrintCopies] = useState<number>(24);
   const [printCopiesInput, setPrintCopiesInput] = useState<string>("24");
@@ -345,6 +384,19 @@ export default function App() {
       setDesiredRollWidthInput(String(desiredRollWidth));
     }
   }, [desiredRollWidth]);
+
+  // Forward computed roll width synchronization hook
+  useEffect(() => {
+    if (document.activeElement?.id !== "roll-width-input") {
+      const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
+      const sideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+      const computedW = (labelConfig.width * sheetConfig.cols) + colGaps + sideMargin * 2;
+      const roundedW = Math.round(computedW * 10) / 10;
+      if (desiredRollWidth !== roundedW) {
+        setDesiredRollWidth(roundedW);
+      }
+    }
+  }, [labelConfig.width, sheetConfig.cols, sheetConfig.colGap, sheetConfig.rollSideMargin]);
 
   useEffect(() => {
     if (document.activeElement?.id !== "col-gap-input") {
@@ -684,7 +736,7 @@ export default function App() {
       root.style.setProperty("--cell-h", `${labelConfig.height}mm`);
       
       if (sheetConfig.showBorder) {
-        root.style.setProperty("--cell-border", `${sheetConfig.borderWidth}px solid rgba(156, 163, 175, 0.6)`);
+        root.style.setProperty("--cell-border", `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`);
       } else {
         root.style.setProperty("--cell-border", "none");
       }
@@ -704,7 +756,7 @@ export default function App() {
   // Apply dimensions presets
   const applyPresetDimensions = (w: number, h: number, name: string) => {
     setLabelConfig({ width: w, height: h, name });
-    setSelectedId(null);
+    handleSelectObject(null);
     
     // Bounds check elements during resizing so they never fall outside boundaries
     setObjects(objects.map(obj => {
@@ -806,18 +858,75 @@ export default function App() {
     }
 
     setObjectsWithHistory([...objects, newObject]);
-    setSelectedId(timestampId);
+    handleSelectObject(timestampId);
   };
 
-  // Handle single object attribute updates in Properties Panel
+  // Handle single object attribute updates in Properties Panel with batch propagation
   const handleUpdateObject = (updated: LabelObject) => {
-    setObjectsWithHistory(objects.map((obj) => (obj.id === updated.id ? updated : obj)));
+    const original = objects.find((obj) => obj.id === updated.id);
+    if (!original) {
+      setObjectsWithHistory(objects.map((obj) => (obj.id === updated.id ? updated : obj)));
+      return;
+    }
+
+    // Detect keys that changed
+    const changedKeys: any = {};
+    (Object.keys(updated) as Array<keyof LabelObject>).forEach((key) => {
+      if (updated[key] !== original[key]) {
+        changedKeys[key] = updated[key];
+      }
+    });
+
+    // Keys deleted
+    const deletedKeys: string[] = [];
+    Object.keys(original).forEach((key) => {
+      if (!(key in updated)) {
+        deletedKeys.push(key);
+      }
+    });
+
+    // Exclude position/coordinate attributes from bulk updates
+    const excludedKeys = ["id", "x", "y"];
+    excludedKeys.forEach((k) => {
+      delete (changedKeys as any)[k];
+    });
+
+    if (selectedIds.length > 1 && selectedIds.includes(updated.id)) {
+      setObjectsWithHistory(
+        objects.map((obj) => {
+          if (selectedIds.includes(obj.id)) {
+            // Apply modifications
+            const copy = { ...obj, ...changedKeys };
+            deletedKeys.forEach((k) => {
+              if (!excludedKeys.includes(k)) {
+                delete (copy as any)[k];
+              }
+            });
+            return copy;
+          }
+          return obj;
+        })
+      );
+    } else {
+      setObjectsWithHistory(objects.map((obj) => (obj.id === updated.id ? updated : obj)));
+    }
   };
 
   // Drag and update coordinates
   const handleUpdateCoordinates = (id: string, x: number, y: number) => {
     setObjectsWithHistory(
       objects.map((obj) => (obj.id === id ? { ...obj, x, y } : obj))
+    );
+  };
+
+  // Batch update coordinate positions (for multi-dragging)
+  const handleUpdateMultipleObjectsCoordinates = (coordsList: Array<{ id: string; x: number; y: number }>) => {
+    const coordsMap = new Map(coordsList.map((c) => [c.id, c]));
+    setObjectsWithHistory(
+      objects.map((obj) => {
+        const match = coordsMap.get(obj.id);
+        return match ? { ...obj, x: match.x, y: match.y } : obj;
+      })
     );
   };
 
@@ -828,19 +937,21 @@ export default function App() {
     );
   };
 
-  // Delete specific object
+  // Delete specific object or multiple selected objects
   const handleDeleteObject = (id: string) => {
-    setObjectsWithHistory(objects.filter((obj) => obj.id !== id));
-    if (selectedId === id) {
+    const listToDelete = selectedIds.length > 1 && selectedIds.includes(id) ? selectedIds : [id];
+    setObjectsWithHistory(objects.filter((obj) => !listToDelete.includes(obj.id)));
+    if (listToDelete.includes(selectedId)) {
       setSelectedId(null);
     }
+    setSelectedIds((prev) => prev.filter((prevId) => !listToDelete.includes(prevId)));
   };
 
   // Clear everything (Start from blank, blank label canvas)
   const handleClearCanvas = () => {
     if (window.confirm("Bạn có chắc chắn muốn xóa tất cả các phần tử trên nhãn này?")) {
       setObjectsWithHistory([]);
-      setSelectedId(null);
+      handleSelectObject(null);
     }
   };
 
@@ -965,7 +1076,7 @@ export default function App() {
         setExcelFileBase64("");
       }
 
-      setSelectedId(null);
+      handleSelectObject(null);
       
       let alertMsg = `Đã nạp thành công thiết kế "${parsedData.name || "Mẫu nhập"}" gồm ${parsedData.objects.length} phần tử và toàn bộ cài đặt khổ giấy!`;
       if (parsedData.excelColumns && parsedData.excelColumns.length > 0) {
@@ -1247,7 +1358,7 @@ export default function App() {
   const handleSelectTemplate = (config: LabelConfig, templateObjects: LabelObject[]) => {
     setLabelConfig(config);
     setObjects(templateObjects);
-    setSelectedId(null);
+    handleSelectObject(null);
   };
 
   // Synchronise global hotkey intercept for Ctrl+P / Cmd+P
@@ -1281,7 +1392,7 @@ export default function App() {
 
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
-    setSelectedId(null); // Deselect so focused outline does not print
+    handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
     
     const wasDesign = officePreviewMode === 'design';
@@ -1715,6 +1826,124 @@ export default function App() {
                   </div>
                 </section>
 
+                {/* VIỀN TEM & BO GÓC */}
+                <section className="border-b border-gray-150 pb-4 space-y-3.5">
+                  <h2 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider flex items-center space-x-2 select-none">
+                    <CheckSquare className="w-3.5 h-3.5 text-kiot-cyan" />
+                    <span>Viền tem &amp; Bo góc</span>
+                  </h2>
+                  
+                  <div className="flex items-center space-x-2 text-xs">
+                    <input
+                      id="showBorderCheckbox"
+                      type="checkbox"
+                      checked={sheetConfig.showBorder}
+                      onChange={(e) => setSheetConfig(prev => ({ ...prev, showBorder: e.target.checked }))}
+                      className="w-4.5 h-4.5 text-kiot-cyan focus:ring-kiot-cyan/50 border-gray-300 rounded cursor-pointer"
+                    />
+                    <label htmlFor="showBorderCheckbox" className="font-bold text-[12.5px] text-slate-700 cursor-pointer select-none">
+                      In viền tem dán
+                    </label>
+                  </div>
+
+                  {sheetConfig.showBorder && (
+                    <div className="grid grid-cols-2 gap-3 text-xs pl-6 transition-all duration-150">
+                      <div>
+                        <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Hình dáng viền</label>
+                        <select
+                          value={sheetConfig.borderRadius === 0 ? "square" : "rounded"}
+                          onChange={(e) => setSheetConfig(prev => ({ ...prev, borderRadius: e.target.value === "square" ? 0 : 2 }))}
+                          className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none cursor-pointer text-slate-800 font-bold focus:border-kiot-cyan"
+                        >
+                          <option value="square">Vuông góc</option>
+                          <option value="rounded">Bo tròn</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Độ bo góc (Radius)</label>
+                        <input
+                          id="border-radius-input"
+                          type="text"
+                          disabled={sheetConfig.borderRadius === 0}
+                          value={borderRadiusInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setBorderRadiusInput(raw);
+                            const parsed = parseInt(raw, 10);
+                            if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
+                              setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
+                            }
+                          }}
+                          onBlur={() => {
+                            const parsed = parseInt(borderRadiusInput, 10);
+                            if (isNaN(parsed) || parsed < 0 || parsed > 15) {
+                              setSheetConfig(prev => ({ ...prev, borderRadius: 0 }));
+                              setBorderRadiusInput("0");
+                            } else {
+                              setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
+                              setBorderRadiusInput(String(parsed));
+                            }
+                          }}
+                          className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold disabled:opacity-50"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Màu đường viền</label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="color"
+                            value={sheetConfig.borderColor || "#9ca3af"}
+                            onChange={(e) => setSheetConfig(prev => ({ ...prev, borderColor: e.target.value }))}
+                            className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                          />
+                          <input
+                            type="text"
+                            value={sheetConfig.borderColor || "#9ca3af"}
+                            onChange={(e) => setSheetConfig(prev => ({ ...prev, borderColor: e.target.value }))}
+                            className="w-28 px-2 py-1.5 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                            placeholder="#9ca3af"
+                          />
+                          <div className="flex space-x-1">
+                            {[
+                              "#9ca3af",
+                              "#000000",
+                              "#ff0000",
+                              "#008000",
+                              "#0000ff"
+                            ].map((hex) => (
+                              <button
+                                key={hex}
+                                type="button"
+                                onClick={() => setSheetConfig(prev => ({ ...prev, borderColor: hex }))}
+                                className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                                style={{ backgroundColor: hex }}
+                                title={hex}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Độ dày nét kẻ viền (px)</label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={4}
+                          step={1}
+                          value={sheetConfig.borderWidth}
+                          onChange={(e) => setSheetConfig(prev => ({ ...prev, borderWidth: parseInt(e.target.value) || 1 }))}
+                          className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-1"
+                        />
+                        <div className="flex justify-between text-[10.5px] text-gray-500 font-bold mt-1 select-none">
+                          <span>Mỏng (1px)</span>
+                          <span>Dày ({sheetConfig.borderWidth}px)</span>
+                          <span>Dày nhất (4px)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
                 {/* 1. PRINT MODE SELECTOR */}
                 <section className="border-b border-gray-150 pb-4 space-y-2.5">
                   <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center space-x-1.5 select-none mb-1">
@@ -2121,86 +2350,6 @@ export default function App() {
                       </div>
                     </section>
 
-                    {/* 6. STYLE VIỀN NHÃN */}
-                    <section className="border-b border-gray-150 pb-4 space-y-3.5">
-                      <h2 className="text-[12.5px] font-black text-[#475569] uppercase tracking-wider select-none">
-                        Viền tem &amp; Bo góc
-                      </h2>
-                      
-                      <div className="flex items-center space-x-2 text-xs">
-                        <input
-                          id="showBorderCheckbox"
-                          type="checkbox"
-                          checked={sheetConfig.showBorder}
-                          onChange={(e) => setSheetConfig(prev => ({ ...prev, showBorder: e.target.checked }))}
-                          className="w-4.5 h-4.5 text-kiot-cyan focus:ring-kiot-cyan/50 border-gray-300 rounded cursor-pointer"
-                        />
-                        <label htmlFor="showBorderCheckbox" className="font-bold text-[12.5px] text-slate-700 cursor-pointer select-none">
-                          In viền tem dán
-                        </label>
-                      </div>
-
-                      {sheetConfig.showBorder && (
-                        <div className="grid grid-cols-2 gap-3 text-xs pl-6 transition-all duration-150">
-                          <div>
-                            <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Hình dáng viền</label>
-                            <select
-                              value={sheetConfig.borderRadius === 0 ? "square" : "rounded"}
-                              onChange={(e) => setSheetConfig(prev => ({ ...prev, borderRadius: e.target.value === "square" ? 0 : 2 }))}
-                              className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none cursor-pointer text-slate-800 font-bold focus:border-kiot-cyan"
-                            >
-                              <option value="square">Vuông góc</option>
-                              <option value="rounded">Bo tròn</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Độ bo góc ( Radius - mm)</label>
-                            <input
-                              id="border-radius-input"
-                              type="text"
-                              disabled={sheetConfig.borderRadius === 0}
-                              value={borderRadiusInput}
-                              onChange={(e) => {
-                                const raw = e.target.value;
-                                setBorderRadiusInput(raw);
-                                const parsed = parseInt(raw, 10);
-                                if (!isNaN(parsed) && parsed >= 0 && parsed <= 15) {
-                                  setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
-                                }
-                              }}
-                              onBlur={() => {
-                                const parsed = parseInt(borderRadiusInput, 10);
-                                if (isNaN(parsed) || parsed < 0 || parsed > 15) {
-                                  setSheetConfig(prev => ({ ...prev, borderRadius: 0 }));
-                                  setBorderRadiusInput("0");
-                                } else {
-                                  setSheetConfig(prev => ({ ...prev, borderRadius: parsed }));
-                                  setBorderRadiusInput(String(parsed));
-                                }
-                              }}
-                              className="w-full bg-white border border-gray-300 rounded-lg p-1.5 text-sm outline-none font-mono focus:border-kiot-cyan text-slate-800 font-bold disabled:opacity-50"
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <label className="block text-[11.5px] text-slate-500 font-bold mb-1">Độ dày nét kẻ viền (px)</label>
-                            <input
-                              type="range"
-                              min={1}
-                              max={4}
-                              step={1}
-                              value={sheetConfig.borderWidth}
-                              onChange={(e) => setSheetConfig(prev => ({ ...prev, borderWidth: parseInt(e.target.value) || 1 }))}
-                              className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer mt-1"
-                            />
-                            <div className="flex justify-between text-[10.5px] text-gray-500 font-bold mt-1 select-none">
-                              <span>Mỏng (1px)</span>
-                              <span>Dày ({sheetConfig.borderWidth}px)</span>
-                              <span>Dày nhất (4px)</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </section>
                   </>
                 ) : (
                   <div className="space-y-4">
@@ -2216,8 +2365,9 @@ export default function App() {
 
                     {/* SET TARGET ROLL WIDTH */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
-                        Bề rộng cuộn tem
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex justify-between">
+                        <span>Bề rộng cuộn tem</span>
+                        <span className="text-kiot-cyan select-none capitalize">Tính ngược lề</span>
                       </label>
                       <input
                         id="roll-width-input"
@@ -2226,26 +2376,75 @@ export default function App() {
                         onChange={(e) => {
                           const s = e.target.value;
                           setDesiredRollWidthInput(s);
-                          const w = parseInt(s);
+                          const w = parseFloat(s);
                           if (!isNaN(w) && w >= 10) {
-                            setDesiredRollWidth(Math.min(w, 500));
+                            const val = Math.min(w, 500);
+                            setDesiredRollWidth(val);
+                            // Reverse calculation: Lề 2 bên = (Bề rộng cuộn - dán tem - khoảng hở) / 2
+                            const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
+                            let computedSideMargin = (val - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
+                            computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
+                            setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
                           }
                         }}
                         onBlur={() => {
-                          const w = parseInt(desiredRollWidthInput);
+                          let w = parseFloat(desiredRollWidthInput);
                           if (isNaN(w) || w < 10) {
-                            setDesiredRollWidth(10);
-                            setDesiredRollWidthInput("10");
+                            w = 10;
                           } else if (w > 500) {
-                            setDesiredRollWidth(500);
-                            setDesiredRollWidthInput("500");
+                            w = 500;
                           }
+                           setDesiredRollWidth(w);
+                           setDesiredRollWidthInput(String(w));
+                           const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
+                           let computedSideMargin = (w - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
+                           computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
+                           setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
                         }}
                         className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
                         placeholder="Ví dụ: 75, 110..."
                       />
                       <span className="block text-[9px] text-gray-400 select-none">
-                        Tổng chiều rộng thực tế của cuộn giấy (bao gồm các cột tem và khoảng hở) để tự động căn chỉnh kích thước nhãn.
+                        Tổng chiều rộng của cuộn giấy. Khi nhập số này, lề 2 bên sẽ tự động tính toán ngược lại.
+                      </span>
+                    </div>
+
+                    {/* SET ROLL SIDE MARGIN */}
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
+                        Lề 2 bên (mm)
+                      </label>
+                      <input
+                        id="roll-side-margin-input"
+                        type="text"
+                        value={rollSideMarginInput}
+                        onChange={(e) => {
+                          const s = e.target.value;
+                          setRollSideMarginInput(s);
+                          const m = parseFloat(s);
+                          if (!isNaN(m) && m >= 0) {
+                            setSheetConfig(prev => ({ ...prev, rollSideMargin: Math.min(m, 50) }));
+                          }
+                        }}
+                        onBlur={() => {
+                          const m = parseFloat(rollSideMarginInput);
+                          if (isNaN(m) || m < 0) {
+                            setSheetConfig(prev => ({ ...prev, rollSideMargin: 0 }));
+                            setRollSideMarginInput("0");
+                          } else if (m > 50) {
+                            setSheetConfig(prev => ({ ...prev, rollSideMargin: 50 }));
+                            setRollSideMarginInput("50");
+                          } else {
+                            const rounded = Math.round(m * 10) / 10;
+                            setSheetConfig(prev => ({ ...prev, rollSideMargin: rounded }));
+                            setRollSideMarginInput(String(rounded));
+                          }
+                        }}
+                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
+                        placeholder="Ví dụ: 1.5, 2, 5..."
+                      />
+                      <span className="block text-[9px] text-gray-400 select-none">
+                        Khoảng trống lề từ hai viền mép ngoài của phôi cuộn giấy đến viền ngoài của tem dán.
                       </span>
 
                       {/* WARNING BADGE IF ROLL WIDTH IS SMALLER THAN LABELS */}
@@ -2404,8 +2603,9 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => {
-                        const totalColGaps = (sheetConfig.cols - 1) * sheetConfig.colGap;
-                        const optW = (desiredRollWidth - totalColGaps) / sheetConfig.cols;
+                        const colGaps = (sheetConfig.cols - 1) * sheetConfig.colGap;
+                        const sideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+                        const optW = (desiredRollWidth - colGaps - (sideMargin * 2)) / sheetConfig.cols;
                         
                         applyPresetDimensions(
                           Math.max(10, Math.floor(optW * 10) / 10),
@@ -2996,17 +3196,23 @@ export default function App() {
               {/* Header Taskbar of the properties sidebar column */}
               <div className="h-[36px] border-b border-gray-200 bg-slate-50 px-3 flex items-center justify-between select-none shrink-0">
                 <div className="flex items-center space-x-1.5 text-kiot-navy">
-                  <span className="font-extrabold text-[11px] uppercase text-kiot-navy tracking-wider select-none">
+                  <span className="font-extrabold text-[11px] uppercase text-kiot-navy tracking-wider select-none shrink-0">
                     THUỘC TÍNH
                   </span>
-                  <span className="text-[9px] bg-sky-50 text-kiot-cyan border border-kiot-cyan/20 font-extrabold px-1.5 py-0.5 rounded-md uppercase shrink-0">
-                    {selectedObject.type === 'text' ? 'Văn bản' : selectedObject.type === 'barcode' ? 'Mã vạch' : selectedObject.type === 'qrcode' ? 'QR Code' : 'Hình ảnh'}
-                  </span>
+                  {selectedIds.length > 1 ? (
+                    <span className="text-[9.5px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.5 rounded-md uppercase shrink-0 animate-pulse">
+                      Đã chọn {selectedIds.length} phần tử (Ctrl+Click)
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-sky-50 text-kiot-cyan border border-kiot-cyan/20 font-extrabold px-1.5 py-0.5 rounded-md uppercase shrink-0">
+                      {selectedObject.type === 'text' ? 'Văn bản' : selectedObject.type === 'barcode' ? 'Mã vạch' : selectedObject.type === 'qrcode' ? 'QR Code' : 'Hình ảnh'}
+                    </span>
+                  )}
                 </div>
                 
                 <button
                   type="button"
-                  onClick={() => setSelectedId(null)}
+                  onClick={() => handleSelectObject(null)}
                   className="p-0.5 px-2 bg-white hover:bg-slate-100 border border-gray-200 hover:border-red-300 text-slate-500 hover:text-red-600 font-extrabold text-[10px] rounded-md transition duration-150 flex items-center justify-center space-x-1 cursor-pointer shadow-xs focus:outline-none"
                   title="Đóng thuộc tính"
                 >
@@ -3075,18 +3281,18 @@ export default function App() {
                 <span className="text-[10.5px] text-gray-400 font-extrabold uppercase select-none tracking-wider">Zoom</span>
                 <button
                   type="button"
-                  onClick={() => setPixelScale(Math.max(1.41525, pixelScale - 0.707625))}
+                  onClick={() => setPixelScale(Math.max(1.6983, pixelScale - 0.84915))}
                   className="p-1 rounded hover:bg-white text-gray-500 hover:text-gray-700 transition cursor-pointer"
                   title="Thu nhỏ phôi dán"
                 >
                   <ZoomOut className="w-3.5 h-3.5" />
                 </button>
                 <span className="text-[12px] font-mono text-center w-11 text-gray-700 font-bold">
-                  {Math.round((pixelScale / 7.07625) * 100)}%
+                  {Math.round((pixelScale / 8.4915) * 100)}%
                 </span>
                 <button
                   type="button"
-                  onClick={() => setPixelScale(Math.min(21.22875, pixelScale + 0.707625))}
+                  onClick={() => setPixelScale(Math.min(25.4745, pixelScale + 0.84915))}
                   className="p-1 rounded hover:bg-white text-gray-500 hover:text-gray-700 transition cursor-pointer"
                   title="Phóng to phôi dán"
                 >
@@ -3220,10 +3426,13 @@ export default function App() {
             labelConfig={labelConfig}
             objects={displayObjects}
             selectedId={selectedId}
+            selectedIds={selectedIds}
             pixelScale={pixelScale}
             gridSnapSize={gridSnapSize}
-            onSelectObject={setSelectedId}
+            onSelectObject={(id) => handleSelectObject(id, false)}
+            onSelectObjectWithModifier={handleSelectObject}
             onUpdateObjectCoordinates={handleUpdateCoordinates}
+            onUpdateMultipleObjectsCoordinates={handleUpdateMultipleObjectsCoordinates}
             onUpdateObjectGeometry={handleUpdateGeometry}
             onDeleteObject={handleDeleteObject}
             isBatchPrinting={isBatchPrinting}
