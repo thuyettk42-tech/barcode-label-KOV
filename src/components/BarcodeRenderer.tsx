@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState, memo } from "react";
+import JsBarcode from "jsbarcode";
 
 interface BarcodeRendererProps {
   content: string;
@@ -180,7 +181,6 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     if (!svgRef.current) return;
     if (!validation.valid || !effectiveContent) return;
 
-    const JsBarcode = (window as any).JsBarcode;
     if (!JsBarcode) {
       setRenderError("Thư viện JsBarcode chưa được tải.");
       return;

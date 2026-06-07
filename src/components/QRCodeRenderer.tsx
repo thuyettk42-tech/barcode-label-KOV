@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState, memo } from "react";
+import QRCode from "qrcode";
 
 interface QRCodeRendererProps {
   content: string;
@@ -28,12 +29,6 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
       return;
     }
 
-    const QRCodeLib = (window as any).QRCode;
-    if (!QRCodeLib) {
-      setError("Thư viện QRCode chưa được tải từ CDN.");
-      return;
-    }
-
     setError(null);
 
     // Make sure we have high definition rendering for print. High DPI printing requires a large source image
@@ -41,89 +36,22 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
     // Any size from 600px to 1200px provides ultra-high resolution without slowing down the DOM.
     const renderSize = Math.max(800, Math.min(1500, Math.round(size * 6)));
 
-    // Create an off-screen container to isolate the rendering process
-    const tempDiv = document.createElement("div");
-    tempDiv.style.width = `${renderSize}px`;
-    tempDiv.style.height = `${renderSize}px`;
-    tempDiv.style.position = "absolute";
-    tempDiv.style.left = "-9999px";
-    tempDiv.style.top = "-9999px";
-    tempDiv.style.visibility = "hidden";
-    tempDiv.style.pointerEvents = "none";
-    document.body.appendChild(tempDiv);
-
-    try {
-      new QRCodeLib(tempDiv, {
-        text: cleanContent,
-        width: renderSize,
-        height: renderSize,
-        colorDark: color || "#000000",
-        colorLight: "#ffffff", // Pure white light background for flawless scan/print contrast
-        correctLevel: QRCodeLib.CorrectLevel ? QRCodeLib.CorrectLevel.H : 3, // High error correction
-      });
-
-      const checkForImage = () => {
-        const imgs = tempDiv.getElementsByTagName("img");
-        const canvases = tempDiv.getElementsByTagName("canvas");
-
-        if (imgs.length > 0 && imgs[0].src && imgs[0].src.startsWith("data:image")) {
-          setQrDataUrl(imgs[0].src);
-          cleanup();
-          return true;
-        } else if (canvases.length > 0) {
-          const canvas = canvases[0] as HTMLCanvasElement;
-          try {
-            const dataUrl = canvas.toDataURL("image/png");
-            if (dataUrl && dataUrl.startsWith("data:image")) {
-              setQrDataUrl(dataUrl);
-              cleanup();
-              return true;
-            }
-          } catch (canvasErr) {
-            console.error("Canvas conversion error:", canvasErr);
-          }
-        }
-        return false;
-      };
-
-      const cleanup = () => {
-        try {
-          if (tempDiv.parentNode) {
-            document.body.removeChild(tempDiv);
-          }
-        } catch (e) {
-          // Ignore
-        }
-      };
-
-      // Try immediately since standard qrcode.js rendering is fully synchronous
-      if (!checkForImage()) {
-        // Fallback polling just in case of any loading delays in some runtime environments
-        let attempts = 0;
-        const intervalId = setInterval(() => {
-          attempts++;
-          if (checkForImage() || attempts > 15) {
-            clearInterval(intervalId);
-            if (attempts > 15) {
-              cleanup();
-              setError("Lỗi trích xuất hình ảnh QR Code");
-            }
-          }
-        }, 20);
-        return () => {
-          clearInterval(intervalId);
-          cleanup();
-        };
-      }
-    } catch (err) {
+    QRCode.toDataURL(cleanContent, {
+      width: renderSize,
+      margin: 0,
+      color: {
+        dark: color || "#000000",
+        light: "#ffffff",
+      },
+      errorCorrectionLevel: 'H'
+    })
+    .then((url) => {
+      setQrDataUrl(url);
+    })
+    .catch((err) => {
       console.error("QR Code execution failed:", err);
       setError("Lỗi render QR Code");
-      try {
-        if (tempDiv.parentNode) {
-          document.body.removeChild(tempDiv);
-        }
-      } catch (e) {}
-    }
+    });
   }, [content, size, color]);
 
   if (error) {
