@@ -201,7 +201,7 @@ export default function App() {
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
   const [saveLocation, setSaveLocation] = useState<'local' | 'device' | null>(null);
   const [saveTemplateName, setSaveTemplateName] = useState<string>("");
-  const [saveFileFormat, setSaveFileFormat] = useState<'ktl' | 'json'>('ktl');
+  const [saveFileFormat, setSaveFileFormat] = useState<'kvl' | 'json'>('kvl');
 
   // Google Drive integration states removed for lightweight offline operations
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
@@ -464,10 +464,10 @@ export default function App() {
     reader.onload = (evt) => {
       try {
         const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array" });
+        const workbook = XLSX.read(data, { type: "array", cellDates: true, cellNF: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+        const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false });
         
         if (rawData.length < 1) {
           alert("Tệp Excel rỗng hoặc không chứa bảng dữ liệu!");
@@ -1206,8 +1206,8 @@ export default function App() {
     setShowSavedList(false);
   };
 
-  // Export current design to a lightweight offline file (.ktl or .json)
-  const handleExportToFile = (customName?: string, format: 'ktl' | 'json' = 'ktl') => {
+  // Export current design to a lightweight offline file (.kvl or .json)
+  const handleExportToFile = (customName?: string, format: 'kvl' | 'json' = 'kvl') => {
     const nameToSave = (customName || customSaveName).trim() || labelConfig.name || "tem_thiet_ke";
     
     // Strip redundant object names/keys to minimize plaintext weight dynamically matching spreadsheet rows
@@ -1238,9 +1238,9 @@ export default function App() {
       let filename = `${nameToSave.toLowerCase().replace(/[^a-z0-9_\-]/g, "_")}.json`;
       let mimeType = "application/json;charset=utf-8";
 
-      if (format === 'ktl') {
+      if (format === 'kvl') {
         fileContent = btoa(unescape(encodeURIComponent(jsonStr)));
-        filename = `${nameToSave.toLowerCase().replace(/[^a-z0-9_\-]/g, "_")}.ktl`;
+        filename = `${nameToSave.toLowerCase().replace(/[^a-z0-9_\-]/g, "_")}.kvl`;
         mimeType = "text/plain;charset=utf-8";
       }
       
@@ -1275,7 +1275,7 @@ export default function App() {
     }
   };
 
-  // Import design from file (.ktl or .json)
+  // Import design from file (.kvl, .ktl, or .json)
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1295,7 +1295,7 @@ export default function App() {
             const decodedStr = decodeURIComponent(escape(atob(rawContent.trim())));
             parsedData = JSON.parse(decodedStr);
           } catch (b64Err) {
-            throw new Error("Định dạng file không hợp lệ. Vui lòng nạp file .ktl (Base64) hoặc .json chính xác.");
+            throw new Error("Định dạng file không hợp lệ. Vui lòng nạp file .kvl/.ktl hoặc .json chính xác.");
           }
         }
 
@@ -1311,37 +1311,6 @@ export default function App() {
       e.target.value = "";
     };
     reader.readAsText(file);
-  };
-
-  // Import design from pasted raw text (Base64 .ktl string or .json text)
-  const handleImportFromPaste = () => {
-    const code = prompt("Vui lòng dán chuỗi cấu hình (.ktl đã sao chép hoặc nội dung JSON) vào đây để khôi phục:");
-    if (!code || !code.trim()) return;
-
-    try {
-      let parsedData: any = null;
-      const stripped = code.trim();
-
-      // 1. Try parsing as Standard JSON text first
-      try {
-        parsedData = JSON.parse(stripped);
-      } catch (jsonErr) {
-        // 2. Try Base64 DECODE
-        try {
-          const decodedStr = decodeURIComponent(escape(atob(stripped)));
-          parsedData = JSON.parse(decodedStr);
-        } catch (b64Err) {
-          throw new Error("Định dạng mã dán vào không hợp lệ. Vui lòng dán đúng chuỗi .ktl (Base64) hoặc JSON của mẫu.");
-        }
-      }
-
-      const restored = restoreDesignAndExcel(parsedData);
-      if (!restored) {
-        alert("Thông tin cấu trúc không đầy đủ (thiếu thông số hoặc danh sách đối tượng mẫu).");
-      }
-    } catch (err: any) {
-      alert("Lỗi khi khôi phục thiết kế: " + err.message);
-    }
   };
 
   // Delete saved design from database
@@ -1361,7 +1330,7 @@ export default function App() {
     handleSelectObject(null);
   };
 
-  // Synchronise global hotkey intercept for Ctrl+P / Cmd+P
+  // Synchronise global hotkey intercept for Ctrl+P, Ctrl+S, Ctrl+O, etc.
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -1371,9 +1340,17 @@ export default function App() {
         activeEl.tagName === "SELECT"
       );
 
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
         e.preventDefault();
         handlePrintLabel();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setSaveTemplateName(customSaveName || labelConfig.name || "");
+        setSaveLocation(null);
+        setShowSaveDialog(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
+        e.preventDefault();
+        document.getElementById("file-import-input")?.click();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         if (!isEditingInput) {
           e.preventDefault();
@@ -1388,7 +1365,21 @@ export default function App() {
     };
     window.addEventListener("keydown", handleGlobalKeyDown);
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [objects, labelConfig, selectedId, handleUndo, handleRedo]);
+  }, [
+    objects,
+    labelConfig,
+    sheetConfig,
+    excelFileName,
+    excelColumns,
+    excelData,
+    excelFileBase64,
+    printQuantityMode,
+    printQuantityColumn,
+    selectedId,
+    customSaveName,
+    handleUndo,
+    handleRedo
+  ]);
 
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
@@ -1518,43 +1509,36 @@ export default function App() {
           {/* Simplified save trigger and file import */}
           <div className="flex items-center space-x-1.5 shrink-0">
             <button
+              type="button"
               onClick={() => {
                 setSaveTemplateName(customSaveName || labelConfig.name || "");
                 setSaveLocation(null);
                 setShowSaveDialog(true);
               }}
-              className="h-7 px-3 bg-kiot-green hover:bg-emerald-600 text-white transition rounded-md text-[11px] font-extrabold uppercase flex items-center space-x-1 cursor-pointer shadow-md shadow-kiot-green/10 shrink-0"
-              title="Lưu trữ thiết kế này (Cục bộ hoặc Thiết bị)"
+              className="h-7 px-3 bg-indigo-600 hover:bg-indigo-750 text-white transition rounded-md text-[11px] font-extrabold uppercase flex items-center space-x-1 cursor-pointer shadow-md shadow-indigo-600/10 shrink-0"
+              title="Mở bảng lựa chọn lưu trữ thiết kế (Phím tắt: Ctrl + S)"
             >
-              <Save className="w-3.5 h-3.5 mr-1" />
-              <span>Lưu thiết kế</span>
+              <Save className="w-3.5 h-3.5 mr-0.5" />
+              <span>Lưu mẫu <kbd className="ml-1 bg-indigo-850 px-1 py-0.5 rounded text-[8px] font-mono normal-case">Ctrl+S</kbd></span>
             </button>
           </div>
 
           {/* Offline Import File Group (Export button removed per request) */}
           <div className="flex items-center space-x-1 border-l border-gray-150 pl-2">
             <label
-              className="h-7 px-2.5 rounded bg-white hover:bg-indigo-50 text-[11px] font-bold text-indigo-750 tracking-wide flex items-center space-x-1 border border-indigo-200 hover:border-indigo-400 transition cursor-pointer shadow-xs shrink-0"
-              title="Nhập thiết kế và cấu hình khổ giấy từ tệp offline (.ktl hoặc .json)"
+              className="h-7 px-2.5 rounded bg-white hover:bg-emerald-50 text-[11px] font-bold text-emerald-850 tracking-wide flex items-center space-x-1 border border-emerald-250 hover:border-emerald-350 transition cursor-pointer shadow-xs shrink-0"
+              title="Chọn file thiết kế .kvl hoặc .ktl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu (Phím tắt: Ctrl + O)"
             >
-              <Upload className="w-3.5 h-3.5 text-indigo-550 shrink-0" />
-              <span>Nhập File</span>
+              <Upload className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Import File <kbd className="ml-1 bg-slate-100 border border-slate-250/65 text-slate-500 px-1 py-0.5 rounded text-[8px] font-mono normal-case">Ctrl+O</kbd></span>
               <input
+                id="file-import-input"
                 type="file"
-                accept=".ktl,.json,.labelpro"
+                accept=".kvl,.ktl,.json,.labelpro"
                 onChange={handleImportFile}
                 className="hidden"
               />
             </label>
-            <button
-              type="button"
-              onClick={handleImportFromPaste}
-              className="h-7 px-2.5 rounded bg-white hover:bg-sky-50 text-[11px] font-bold text-sky-850 tracking-wide flex items-center space-x-1 border border-sky-200 hover:border-sky-350 transition cursor-pointer shadow-xs shrink-0"
-              title="Dán nhanh chuỗi mã thiết kế .ktl hoặc nội dung JSON đã sao chép"
-            >
-              <FileText className="w-3.5 h-3.5 text-sky-550 shrink-0" />
-              <span>Dán mã lưu</span>
-            </button>
           </div>
 
           {/* Quick instructions toggle */}
@@ -2805,32 +2789,47 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg space-y-2 shadow-2xs">
+                          <div className="p-3 bg-emerald-50 border border-emerald-250/70 rounded-lg space-y-3 shadow-2xs">
                             <div className="flex items-start justify-between">
-                              <div className="min-w-0 pr-2">
-                                <p className="font-bold text-emerald-850 truncate text-[12.5px] flex items-center">
-                                  <span className="mr-1 text-emerald-650">✓</span> Đã liên kết thành công
+                              <div className="min-w-0 pr-2 flex-1">
+                                <p className="font-extrabold text-emerald-900 truncate text-[13px] flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                                  <span>Đã liên kết dữ liệu Excel</span>
                                 </p>
-                                <p className="text-[11px] text-emerald-700 truncate font-bold font-mono mt-0.5">{excelFileName}</p>
-                                <p className="text-[11px] text-slate-650 font-bold mt-1">
-                                  Sẵn sàng in hàng loạt: {excelData.length} dòng sản phẩm.
+                                <p className="text-[11.5px] text-emerald-850 truncate font-extrabold font-mono mt-1 border-b border-emerald-200/50 pb-1.5">{excelFileName}</p>
+                                <p className="text-[11.5px] text-slate-600 font-bold mt-1.5">
+                                  Sẵn sàng in hàng loạt: <span className="text-emerald-700 font-extrabold font-mono">{excelData.length} dòng dữ liệu</span>.
                                 </p>
                                 
-                                {/* Download active linked excel/restored template file easily */}
-                                <div className="mt-2">
+                                <div className="flex flex-wrap gap-2 mt-2.5">
+                                  {/* Download active linked excel/restored template file easily */}
                                   <button
                                     type="button"
                                     onClick={handleDownloadExcelTemplate}
-                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2 py-1 rounded inline-flex items-center gap-1 transition-all shadow-3xs cursor-pointer select-none"
+                                    className="text-[10px] bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold px-2 py-1.5 rounded inline-flex items-center gap-1 transition-all shadow-3xs cursor-pointer select-none"
                                     title="Tải tệp Excel đang lưu trong mẫu tem này về máy để sửa nhanh"
                                   >
-                                    <Download className="w-2.5 h-2.5" /> Tải Lại File Excel Đã Liên Kết
+                                    <Download className="w-2.5 h-2.5" /> Tải tệp đang chạy
                                   </button>
+
+                                  {/* Quick Sync / Re-upload button that preserves all linkages */}
+                                  <button
+                                    type="button"
+                                    onClick={() => document.getElementById("excel-file-uploader-direct")?.click()}
+                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1.5 rounded inline-flex items-center gap-1 transition-all shadow-2xs hover:shadow-sm cursor-pointer select-none"
+                                    title="Chọn tệp Excel đã sửa đổi từ máy tính để đồng bộ lại dữ liệu mà không làm mất liên kết tem"
+                                  >
+                                    <RefreshCw className="w-2.5 h-2.5 animate-[spin_5s_linear_infinite]" /> Đồng bộ / Cập nhật File mới
+                                  </button>
+                                </div>
+
+                                <div className="mt-2.5 pt-2 border-t border-emerald-200/50 text-[10.5px] leading-relaxed font-medium text-slate-500">
+                                  <span className="text-emerald-700 font-bold">💡 Mẹo giữ liên kết:</span> Khi thông tin trong file Excel của bạn có thay đổi, hãy sửa trực tiếp trên file đó rồi nhấn nút <strong className="text-emerald-800">Đồng bộ / Cập nhật File mới</strong> ở trên. Hệ thống sẽ cập nhật dữ liệu mới <span className="font-semibold text-emerald-700">và giữ nguyên 100% tất cả các liên kết trường dữ liệu</span> đã thiết lập trước đó!
                                 </div>
                               </div>
                               <button
                                 onClick={handleClearExcel}
-                                className="p-1 hover:bg-emerald-100 text-emerald-700 hover:text-red-650 rounded transition shrink-0 cursor-pointer"
+                                className="p-1 hover:bg-emerald-100 text-emerald-700 hover:text-red-650 rounded transition shrink-0 cursor-pointer ml-1"
                                 title="Hủy kết nối file Excel hiện tại"
                               >
                                 <X className="w-4 h-4" />
@@ -3377,43 +3376,43 @@ export default function App() {
                 </button>
                 
                 <div className="flex items-center space-x-2 pb-0.5 border-b border-slate-100">
-                  <span className="text-[12px] font-black text-slate-800 uppercase tracking-widest">📌 LỘ TRÌNH THIẾT KẾ & IN TEM CHUẨN</span>
+                  <span className="text-[12px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
                   <span className="text-[10px] bg-sky-50 text-kiot-cyan font-black px-2 py-0.5 rounded-lg uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Step 1 */}
                   <div className="bg-slate-50/55 p-2.5 rounded-xl border border-slate-100 flex items-start space-x-3 transition-all hover:bg-slate-100/40">
-                    <span className="w-5.5 h-5.5 rounded-lg bg-sky-100 text-sky-700 font-black text-xs flex items-center justify-center shrink-0 shadow-xs border border-sky-200">1</span>
+                    <span className="px-2 h-5.5 rounded-lg bg-sky-100 text-sky-700 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-sky-200">BƯỚC 1</span>
                     <div className="text-[11.5px] leading-relaxed">
-                      <p className="font-extrabold text-[#0F172A] mb-0.5">Bước 1: Xác định khổ tem</p>
+                      <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
                       <p className="text-slate-500 font-medium text-[11px] leading-snug">Cấu hình kích thước nhãn thực tế (Chiều rộng x Chiều cao) ở cột bên trái.</p>
                     </div>
                   </div>
 
                   {/* Step 2 */}
                   <div className="bg-slate-50/55 p-2.5 rounded-xl border border-slate-100 flex items-start space-x-3 transition-all hover:bg-slate-100/40">
-                    <span className="w-5.5 h-5.5 rounded-lg bg-indigo-100 text-[#4338CA] font-black text-xs flex items-center justify-center shrink-0 shadow-xs border border-indigo-200">2</span>
+                    <span className="px-2 h-5.5 rounded-lg bg-indigo-100 text-[#4338CA] font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-indigo-200">BƯỚC 2</span>
                     <div className="text-[11.5px] leading-relaxed">
-                      <p className="font-extrabold text-[#0F172A] mb-0.5">Bước 2: Thiết lập máy/khổ giấy</p>
+                      <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy/khổ giấy</p>
                       <p className="text-slate-500 font-medium text-[11px] leading-snug">Chọn máy in (đơn cuộn hoặc nhiều tem/A4/A5), số hàng/cột và căn lề giấy phù hợp.</p>
                     </div>
                   </div>
 
                   {/* Step 3 */}
                   <div className="bg-slate-50/55 p-2.5 rounded-xl border border-slate-100 flex items-start space-x-3 transition-all hover:bg-slate-100/40">
-                    <span className="w-5.5 h-5.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-xs flex items-center justify-center shrink-0 shadow-xs border border-emerald-200">3</span>
+                    <span className="px-2 h-5.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-emerald-200">BƯỚC 3</span>
                     <div className="text-[11.5px] leading-relaxed">
-                      <p className="font-extrabold text-[#0F172A] mb-0.5">Bước 3: Thiết kế mẫu tem</p>
+                      <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
                       <p className="text-slate-500 font-medium text-[11px] leading-snug">Thêm văn bản (tên, giá), mã vạch, mã QR. Nhấp chọn đối tượng để căn chỉnh chi tiết.</p>
                     </div>
                   </div>
 
                   {/* Step 4 */}
                   <div className="bg-slate-50/55 p-2.5 rounded-xl border border-slate-100 flex items-start space-x-3 transition-all hover:bg-slate-100/40">
-                    <span className="w-5.5 h-5.5 rounded-lg bg-amber-100 text-amber-800 font-black text-xs flex items-center justify-center shrink-0 shadow-xs border border-amber-200">4</span>
+                    <span className="px-2 h-5.5 rounded-lg bg-amber-100 text-amber-800 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-amber-200">BƯỚC 4</span>
                     <div className="text-[11.5px] leading-relaxed">
-                      <p className="font-extrabold text-[#0F172A] mb-0.5">Bước 4: Chọn số lượng & In</p>
+                      <p className="font-extrabold text-[#0F172A] mb-0.5">Chọn số lượng & In</p>
                       <p className="text-slate-500 font-medium text-[11px] leading-snug">Nhập số bản in và click nút <strong className="text-slate-700">IN NHÃN (Ctrl+P)</strong> ở góc dưới bên trái màn hình.</p>
                     </div>
                   </div>
@@ -3785,7 +3784,7 @@ export default function App() {
                   </div>
                   <div>
                     <h4 className="text-[11.5px] font-extrabold text-slate-800">Bộ nhớ thiết bị</h4>
-                    <p className="text-[9.5px] text-slate-450 font-medium leading-normal mt-0.5">Tải file cấu hình offline (.ktl) về ổ cứng</p>
+                    <p className="text-[9.5px] text-slate-450 font-medium leading-normal mt-0.5">Tải file cấu hình offline (.kvl) về ổ cứng</p>
                   </div>
                 </button>
               </div>
@@ -3822,14 +3821,14 @@ export default function App() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
-                        onClick={() => setSaveFileFormat('ktl')}
+                        onClick={() => setSaveFileFormat('kvl')}
                         className={`py-1.5 px-2 border rounded-lg text-center text-[10.5px] font-bold cursor-pointer transition-all ${
-                          saveFileFormat === 'ktl'
+                          saveFileFormat === 'kvl'
                             ? 'border-kiot-green bg-emerald-50 text-emerald-800'
                             : 'border-slate-200 text-slate-500 hover:bg-slate-50'
                         }`}
                       >
-                        File .ktl (Khuyên dùng)
+                        File .kvl (Khuyên dùng)
                         <span className="block text-[8px] text-slate-400 font-normal">Base64 nhẹ & an toàn</span>
                       </button>
                       <button
@@ -3865,7 +3864,7 @@ export default function App() {
                           };
                           const jsonStr = JSON.stringify(exportData);
                           let contentToCopy = jsonStr;
-                          if (saveFileFormat === 'ktl') {
+                          if (saveFileFormat === 'kvl') {
                             contentToCopy = btoa(unescape(encodeURIComponent(jsonStr)));
                           }
                           navigator.clipboard.writeText(contentToCopy)
