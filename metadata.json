@@ -1,6 +1,6 @@
 {
-  "name": "Barcode Label Designer \u0026 Printer (Copy)",
-  "description": "An interactive web application for designing and printing custom barcode and QR code labels with real-time scaling and precise print layout templates.",
+  "name": "KiotLabel Designer",
+  "description": "An interactive desktop and web application for designing and printing custom barcode and QR code labels with real-time scaling, Excel import, and precise print layout templates.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

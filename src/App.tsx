@@ -447,7 +447,7 @@ export default function App() {
     if (!file) return;
     setExcelFileName(file.name);
 
-    // Read and save original Excel file base64 data to allow export backup inside .ktl
+    // Read and save original Excel file base64 data to allow export backup inside .kvl
     const b64Reader = new FileReader();
     b64Reader.onload = (b64Evt) => {
       try {
@@ -1277,7 +1277,7 @@ export default function App() {
     }
   };
 
-  // Import design from file (.kvl, .ktl, or .json)
+  // Import design from file (.kvl or .json)
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1297,7 +1297,7 @@ export default function App() {
             const decodedStr = decodeURIComponent(escape(atob(rawContent.trim())));
             parsedData = JSON.parse(decodedStr);
           } catch (b64Err) {
-            throw new Error("Định dạng file không hợp lệ. Vui lòng nạp file .kvl/.ktl hoặc .json chính xác.");
+            throw new Error("Định dạng file không hợp lệ. Vui lòng nạp file .kvl hoặc .json chính xác.");
           }
         }
 
@@ -1429,9 +1429,29 @@ export default function App() {
       <header id="app-header" className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-3 shrink-0 z-40 no-print text-kiot-navy shadow-sm">
         <div className="flex items-center space-x-3">
           <svg viewBox="0 0 326 92" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto shrink-0 select-none" id="kiotviet-svg-logo">
+            {/* Background barcode pattern inside logo wrapper on header */}
+            <g opacity="0.12">
+              <rect x="2" y="8" width="3" height="76" fill="#000000"/>
+              <rect x="8" y="8" width="5" height="76" fill="#000000"/>
+              <rect x="16" y="8" width="2" height="76" fill="#000000"/>
+              <rect x="21" y="8" width="4" height="76" fill="#000000"/>
+              <rect x="28" y="8" width="2" height="76" fill="#000000"/>
+              <rect x="33" y="8" width="5" height="76" fill="#000000"/>
+              <rect x="41" y="8" width="2" height="76" fill="#000000"/>
+              <rect x="46" y="8" width="4" height="76" fill="#000000"/>
+              <rect x="53" y="8" width="3" height="76" fill="#000000"/>
+              <rect x="59" y="8" width="5" height="76" fill="#000000"/>
+              <rect x="67" y="8" width="2" height="76" fill="#000000"/>
+              <rect x="72" y="8" width="4" height="76" fill="#000000"/>
+              <rect x="79" y="8" width="3" height="76" fill="#000000"/>
+              <rect x="85" y="8" width="5" height="76" fill="#000000"/>
+            </g>
             <path fillRule="evenodd" clipRule="evenodd" d="M28.2727 2.98791C11.8294 10.3389 0.371094 26.8343 0.371094 46.003C0.371094 65.1691 11.8294 81.6619 28.2727 89.0142C32.3642 90.8114 34.8979 91.2578 37.0608 91.2578C45.2554 91.2578 49.0083 65.0212 49.0083 46.0017C49.0083 26.9797 45.2567 0.741699 37.0608 0.741699C34.8979 0.741699 32.3642 1.19068 28.2727 2.98533V2.98791Z" fill="url(#paint0_radial_1960_1122)"/>
             <path fillRule="evenodd" clipRule="evenodd" d="M76.5424 20.3537L55.1653 41.7134C53.7733 43.1044 52.8599 44.462 52.8599 46.0564C52.8599 47.6523 53.7733 49.0068 55.1653 50.3978L76.5424 71.7576C77.8777 73.0962 79.0747 73.6689 80.698 73.6689C86.4346 73.6689 92.3952 59.4251 92.3952 46.0564C92.3952 32.6862 86.4361 18.4453 80.698 18.4453C79.0733 18.4453 77.8777 19.018 76.5424 20.3552V20.3537Z" fill="url(#paint1_radial_1960_1122)"/>
-            <path fillRule="evenodd" clipRule="evenodd" d="M160.225 34.3109C157.647 34.3109 155.558 32.3187 155.558 29.8584C155.558 27.3969 157.648 25.4048 160.225 25.4048C162.801 25.4048 164.891 27.3969 164.891 29.8584C164.891 32.3187 162.801 34.3109 160.225 34.3109ZM156.008 64.7495V37.5786C156.008 37.5786 157.45 38.5134 160.174 38.5134C162.899 38.5134 164.341 37.5786 164.341 37.5786V64.7495H156.008ZM260.675 37.5786V64.7495H260.676H269.01V37.5786C269.01 37.5786 267.567 38.5134 264.843 38.5134C262.117 38.5134 260.675 37.5786 260.675 37.5786ZM264.89 34.3109C262.313 34.3109 260.225 32.3187 260.225 29.8584C260.225 27.3969 262.312 25.4048 264.89 25.4048C267.468 25.4048 269.557 27.3969 269.557 29.8584C269.557 32.3187 267.467 34.3109 264.89 34.3109ZM246.242 64.7495L259.006 26.262H250.131L240.455 57.8394L230.769 26.262H221.905L234.668 64.7495H246.242ZM190.788 50.1693C190.788 44.9427 188.319 41.915 184.05 41.915C179.839 41.915 177.37 44.9427 177.37 50.1693C177.37 55.3971 179.839 58.4236 184.05 58.4236C188.319 58.4236 190.788 55.3958 190.788 50.1693ZM169.341 50.1693C169.341 40.9788 175.347 34.7626 184.05 34.7626C192.809 34.7626 198.816 40.9801 198.816 50.1693C198.816 59.3572 192.808 65.5773 184.05 65.5773C175.348 65.5773 169.341 59.3585 169.341 50.1693ZM214.022 55.0847V42.2683H214.024H221.068V36.2817H214.024V26.2328H208.207L206.125 36.2817H201.315V42.2683H206.235V56.1688C206.235 62.9347 209.392 65.5761 215.917 65.5761C218.572 65.5761 221.066 65.0889 221.066 65.0889V58.4097H217.675C214.925 58.4097 214.022 57.5118 214.022 55.0847ZM317.229 42.2683V55.0847C317.229 57.5118 318.132 58.4097 320.882 58.4097H324.273V65.0889C324.273 65.0889 321.781 65.5761 319.125 65.5761C312.599 65.5761 309.441 62.9347 309.441 56.1688V42.2683H304.523V36.2817H309.333L311.415 26.2328H317.229V36.2817H324.273V42.2683H317.229ZM288.097 41.3653C291.748 41.3653 293.939 43.4021 294.218 46.9235H282.092C282.371 43.5667 284.786 41.3653 288.097 41.3653ZM288.042 34.7639C279.788 34.7639 274.005 41.0911 274.005 50.1706C274.005 59.4134 279.789 65.5761 288.212 65.5761C293.825 65.5761 298.204 63.3773 301.07 58.9746L295.397 54.6281C293.32 57.5985 291.13 58.9746 288.212 58.9746C284.56 58.9746 282.315 56.6075 282.092 52.4803H301.918C301.918 52.4803 302.021 51.4039 302.021 50.1706C302.021 40.9649 296.351 34.7639 288.042 34.7639ZM130.967 64.7506H122.634V26.2338H130.967V64.7506ZM144.799 64.7506H154.341L141.217 44.5548L153.687 26.2312H144.656L133.041 43.787C132.768 44.1811 132.634 44.6352 132.636 45.0892C132.637 45.5445 132.775 45.9985 133.05 46.3901L144.799 64.7506Z" fill="#002248"/>
+            
+            {/* Elegant "KiotLabel" Text replaces original "KiotViet" text path */}
+            <text x="106" y="62" fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif" fontWeight="900" fontSize="42" fill="#002248" letterSpacing="-1">KiotLabel</text>
+            
             <defs>
               <radialGradient id="paint0_radial_1960_1122" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(-11.3026 46.014) scale(66.031 95.596)">
                 <stop stopColor="#3AE3FF"/>
@@ -1539,14 +1559,14 @@ export default function App() {
           <div className="flex items-center space-x-1 border-l border-gray-150 pl-2">
             <label
               className="h-7 px-2.5 rounded bg-white hover:bg-emerald-50 text-[11px] font-bold text-emerald-850 tracking-wide flex items-center space-x-1 border border-emerald-250 hover:border-emerald-350 transition cursor-pointer shadow-xs shrink-0"
-              title="Chọn file thiết kế .kvl hoặc .ktl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu (Phím tắt: Ctrl + O)"
+              title="Chọn file thiết kế .kvl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu (Phím tắt: Ctrl + O)"
             >
               <Upload className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Import File <kbd className="ml-1 bg-slate-100 border border-slate-250/65 text-slate-500 px-1 py-0.5 rounded text-[8px] font-mono normal-case">Ctrl+O</kbd></span>
               <input
                 id="file-import-input"
                 type="file"
-                accept=".kvl,.ktl,.json,.labelpro"
+                accept=".kvl,.json"
                 onChange={handleImportFile}
                 className="hidden"
               />

@@ -46,11 +46,9 @@ class DesktopApi:
             return "error: Cửa sổ chính chưa được khởi tạo"
             
         try:
-            # Sinh cấu hình bộ lọc loại tập tin hỗ trợ .kvl, .ktl, .json
+            # Sinh cấu hình bộ lọc loại tập tin hỗ trợ .kvl, .json
             if filename.endswith('.kvl'):
                 file_types = ('Bộ mẫu KVL (*.kvl)', 'Tất cả tập tin (*.*)')
-            elif filename.endswith('.ktl'):
-                file_types = ('Bộ mẫu KTL (*.ktl)', 'Tất cả tập tin (*.*)')
             elif filename.endswith('.json'):
                 file_types = ('Tệp cấu hình JSON (*.json)', 'Tất cả tập tin (*.*)')
             else:
@@ -95,6 +93,42 @@ def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('127.0.0.1', 0))
         return s.getsockname()[1]
+
+def configure_devtools(window):
+    """
+    Tìm kiếm và bật tính năng DevTools (F12, chuột phải Inspect) của WebView2 một cách thông minh mà không tự động mở cửa sổ DevTools lúc bắt đầu.
+    """
+    def run_config():
+        import time
+        # Thử cấu hình tối đa 100 lần (khoảng 10 giây)
+        for _ in range(100):
+            try:
+                native_window = getattr(window, 'native', None)
+                if not native_window:
+                    time.sleep(0.1)
+                    continue
+                browser = getattr(native_window, 'browser', None)
+                if not browser:
+                    time.sleep(0.1)
+                    continue
+                web_view = getattr(browser, 'web_view', None)
+                if not web_view:
+                    time.sleep(0.1)
+                    continue
+                
+                # Khi WebView2 đã khởi tạo xong hoàn toàn
+                if hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
+                    settings = web_view.CoreWebView2.Settings
+                    settings.AreDevToolsEnabled = True
+                    settings.AreDefaultContextMenusEnabled = True
+                    print("[DESKTOP] Đã kích hoạt F12 và Chuột phải Inspect thành công!")
+                    break
+            except Exception as e:
+                print(f"[DESKTOP] Đang dò tìm WebView2: {e}")
+            time.sleep(0.1)
+
+    # Chạy ngầm trong Thread để không gây lag/đơ cửa sổ UI chính lúc mở
+    threading.Thread(target=run_config, daemon=True).start()
 
 def run_server(directory, port):
     """Khởi chạy nền máy chủ HTTP để tránh lỗi CORS cho ES Modules trong môi trường cục bộ"""
@@ -145,21 +179,25 @@ def main():
     # pywebview tự động sử dụng nền tảng WebView2 hiện đại nhất trên Windows hoặc WebKit trên macOS/Linux.
     # Dữ liệu Lưu trữ cục bộ (localStorage, cookies) sẽ tự động lưu và ghi nhớ trên máy của người dùng.
     win = webview.create_window(
-        title="LabelPro Designer - Công Cụ Thiết Kế Và In Nhãn Offline",
+        title="KiotLabel Designer - Công Cụ Thiết Kế Và In Nhãn Offline",
         url=local_url,
         width=1350,
         height=850,
         min_size=(1024, 700),
         text_select=True, # Cho phép bôi đen copy nội dung
         zoomable=True,    # Cho phép lăn chuột phóng to thu nhỏ
-        js_api=api        # Truyền API bridge sang môi trường JS/React
+        js_api=api,       # Truyền API bridge sang môi trường JS/React
+        icon=get_resource_path("logo.svg") # Gán biểu tượng KiotLabel làm icon cửa sổ ứng dụng
     )
     
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
     api._window = win
 
-    # Chạy ứng dụng webview (Bật debug=True để hiển thị Inspect Element xem log lỗi cụ thể và tăng độ tin cậy)
-    webview.start(debug=True, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
+    # Đăng ký tự động cấu hình và bật DevTools trong nền khi cửa sổ xuất hiện
+    win.events.shown += lambda: configure_devtools(win)
+
+    # Chạy ứng dụng webview (Đặt debug=False để tránh tự động bùng màn hình DevTools lúc khởi động)
+    webview.start(debug=False, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
 
 if __name__ == "__main__":
     main()

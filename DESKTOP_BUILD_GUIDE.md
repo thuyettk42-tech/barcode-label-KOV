@@ -1,4 +1,4 @@
-# Hướng Dẫn Đóng Gói Ứng Dụng LabelPro Designer Thành App Desktop (.exe)
+## Hướng Dẫn Đóng Gói Ứng Dụng KiotLabel Designer Thành App Desktop (.exe)
 
 Tệp hướng dẫn này giúp bạn tự chạy biên dịch ứng dụng web React + Vite hiện tại sang một ứng dụng chạy trực tiếp trên máy tính (`.exe` cho Windows hoặc `.app` cho macOS) bằng ngôn ngữ **Python** một cách cực kỳ đơn giản.
 
@@ -7,7 +7,7 @@ Tệp hướng dẫn này giúp bạn tự chạy biên dịch ứng dụng web 
 ## 🛠️ Bước 1: Tải Code về máy tính học tập và làm việc
 1. Trên giao diện Google AI Studio, góc trên bên phải màn hình, chọn **Settings** hoặc menu cấu hình.
 2. Tại đây có tùy chọn **Export to ZIP** (Xuất ứng dụng thành file nén `.zip`).
-3. Chọn tải xuống và giải nén thư mục này ra một vị trí dễ nhớ (Ví dụ: `C:\LabelProDesigner` hoặc Desktop).
+3. Chọn tải xuống và giải nén thư mục này ra một vị trí dễ nhớ (Ví dụ: `C:\KiotLabelDesigner` hoặc Desktop).
 
 ---
 
@@ -69,16 +69,17 @@ Khi muốn tạo một tệp phần mềm duy nhất chạy trực tiếp không
 
 1. Chạy dòng lệnh đóng gói chuyên nghiệp sau trong CMD:
    ```cmd
-   pyinstaller --noconsole --onefile --add-data "dist;dist" --name "LabelProDesigner" gui.py
+   pyinstaller --noconsole --onefile --add-data "dist;dist" --add-data "logo.svg;." --icon="logo.svg" --name "KiotLabelDesigner" gui.py
    ```
    *Mách nhỏ cho bạn:*
-   - Trên hệ điều hành macOS, ta đổi chuỗi dữ liệu thành dấu hai chấm: `--add-data "dist:dist"`.
+   - Trên hệ điều hành macOS, ta đổi chuỗi dữ liệu thành dấu hai chấm: `--add-data "dist:dist"` và `--add-data "logo.svg:."`.
    - `--noconsole`: Giảm thiểu tối đa hiện tượng nháy màn hình đen (cửa sổ console dòng lệnh) khi mở ứng dụng cửa sổ.
-   - `--onefile`: Gộp toàn bộ tài nguyên web tĩnh trong `dist/`, thư viện `pywebview`, và môi trường Python vào một tệp khởi chạy `.exe` duy nhất.
+   - `--onefile`: Gộp toàn bộ tài nguyên web tĩnh trong `dist/`, icon ứng dụng `logo.svg`, thư viện `pywebview`, và môi trường Python vào một tệp khởi chạy `.exe` duy nhất.
+   - `--icon`: Gán tệp ảnh logo thương hiệu riêng làm biểu tượng đại diện cực đẹp cho file chạy `.exe` của bạn!
    - **Tối ưu hóa máy chủ phụ trợ (Cú hích cực lớn):** Tệp `gui.py` đã được tích hợp một máy chủ HTTP mini (chạy ngầm thông qua thư viện tiêu chuẩn của Python). Cơ chế này giúp giải quyết triệt để lỗi chặn tài nguyên ES Modules (`CORS Policy`) khi chạy các liên kết tệp cục bộ (`file://`) thường thấy ở các nền tảng Web-to-Desktop, đảm bảo ứng dụng luôn chạy mượt mà 100% trên mọi dòng máy tính Windows!
 
 2. **Nhận kết quả**:
-   - Chờ trong giây lát, bạn sẽ thấy thư mục `dist` chứa tệp `LabelProDesigner.exe` xuất hiện ngoài thư mục chính.
+   - Chờ trong giây lát, bạn sẽ thấy thư mục `dist` chứa tệp `KiotLabelDesigner.exe` đại diện bởi logo mới xuất hiện ngoài thư mục chính.
 
 ---
 
