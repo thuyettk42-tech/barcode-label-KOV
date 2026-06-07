@@ -67,16 +67,27 @@ Hãy kiểm tra xem ứng dụng đã hoạt động trơn tru chưa trước kh
 ## 📦 Bước 5: Đóng gói thành file `.exe` chạy trực tiếp bằng 1 cú nhấp chuột
 Khi muốn tạo một tệp phần mềm duy nhất chạy trực tiếp không cần cài đặt rườm rà:
 
-1. Chạy dòng lệnh đóng gói chuyên nghiệp sau trong CMD:
-   ```cmd
-   pyinstaller --noconsole --onefile --add-data "dist;dist" --add-data "logo.svg;." --icon="logo.svg" --name "KiotLabelDesigner" gui.py
-   ```
-   *Mách nhỏ cho bạn:*
-   - Trên hệ điều hành macOS, ta đổi chuỗi dữ liệu thành dấu hai chấm: `--add-data "dist:dist"` và `--add-data "logo.svg:."`.
-   - `--noconsole`: Giảm thiểu tối đa hiện tượng nháy màn hình đen (cửa sổ console dòng lệnh) khi mở ứng dụng cửa sổ.
-   - `--onefile`: Gộp toàn bộ tài nguyên web tĩnh trong `dist/`, icon ứng dụng `logo.svg`, thư viện `pywebview`, và môi trường Python vào một tệp khởi chạy `.exe` duy nhất.
-   - `--icon`: Gán tệp ảnh logo thương hiệu riêng làm biểu tượng đại diện cực đẹp cho file chạy `.exe` của bạn!
-   - **Tối ưu hóa máy chủ phụ trợ (Cú hích cực lớn):** Tệp `gui.py` đã được tích hợp một máy chủ HTTP mini (chạy ngầm thông qua thư viện tiêu chuẩn của Python). Cơ chế này giúp giải quyết triệt để lỗi chặn tài nguyên ES Modules (`CORS Policy`) khi chạy các liên kết tệp cục bộ (`file://`) thường thấy ở các nền tảng Web-to-Desktop, đảm bảo ứng dụng luôn chạy mượt mà 100% trên mọi dòng máy tính Windows!
+> **⚠️ LƯU Ý QUAN TRỌNG VỀ ICON TRÊN WINDOWS:**
+> Quy định của hệ điều hành Windows là chỉ chấp nhận định dạng **`.ico`** làm biểu tượng hình ảnh đại diện (Icon) của tệp tin chạy `.exe`. Định dạng `.svg` không thể hoạt động làm icon hệ thống Windows được. Vì thế khi bạn chạy PyInstaller bằng tệp `.svg`, Windows sẽ tự động bỏ qua và hiển thị biểu tượng ứng dụng mặc định (hoặc gây lỗi).
+> 
+> **Cách tạo tệp `logo.ico` từ `logo.svg` cực đơn giản:**
+> 1. Bạn hãy sao chép hoặc tải ảnh `logo.svg` từ thư mục này về máy.
+> 2. Sử dụng trình duyệt truy cập một dịch vụ chuyển đổi ảnh trực tuyến miễn phí (Ví dụ: tìm kiếm `"SVG to ICO converter online"` hoặc truy cập trang web như `ezgif.com/svg-to-ico` hay `convertio.co/svg-ico/`).
+> 3. Tải tệp `logo.svg` lên để chuyển đổi thành một tệp tin icon Microsoft có tên là **`logo.ico`**.
+> 4. Lưu tệp mới tải xuống vào và đặt cùng thư mục dự án với tên lưu là **`logo.ico`**.
+
+Khi đã có tệp **`logo.ico`** ở thư mục dự án, hãy chạy dòng lệnh đóng gói chuyên nghiệp sau trong CMD:
+
+```cmd
+pyinstaller --noconsole --onefile --add-data "dist;dist" --add-data "logo.svg;." --icon="logo.ico" --name "KiotLabelDesigner" gui.py
+```
+
+*Mách nhỏ cho bạn:*
+- Trên hệ điều hành macOS, ta đổi chuỗi dữ liệu thành dấu hai chấm và sử dụng tệp định dạng `.icns` làm icon đại diện: `--add-data "dist:dist"` và `--add-data "logo.svg:."` với `--icon="logo.icns"`.
+- `--noconsole`: Giảm thiểu tối đa hiện tượng nháy màn hình đen (cửa sổ console dòng lệnh) khi mở ứng dụng cửa sổ.
+- `--onefile`: Gộp toàn bộ tài nguyên web tĩnh trong `dist/`, icon ứng dụng `logo.svg`, thư viện `pywebview`, và môi trường Python vào một tệp khởi chạy `.exe` duy nhất.
+- `--icon="logo.ico"`: Gán biểu tượng logo thương hiệu chính thức KiotLabel (định dạng `.ico`) làm icon đại diện cực kỳ chuyên nghiệp và bắt mắt cho tệp tin chạy `.exe` của bạn!
+- **Tối ưu hóa máy chủ phụ trợ (Cú hích cực lớn):** Tệp `gui.py` đã được tích hợp một máy chủ HTTP mini (chạy ngầm thông qua thư viện tiêu chuẩn của Python). Cơ chế này giúp giải quyết triệt để lỗi chặn tài nguyên ES Modules (`CORS Policy`) khi chạy các liên kết tệp cục bộ (`file://`) thường thấy ở các nền tảng Web-to-Desktop, đảm bảo ứng dụng luôn chạy mượt mà 100% trên mọi dòng máy tính Windows!
 
 2. **Nhận kết quả**:
    - Chờ trong giây lát, bạn sẽ thấy thư mục `dist` chứa tệp `KiotLabelDesigner.exe` đại diện bởi logo mới xuất hiện ngoài thư mục chính.

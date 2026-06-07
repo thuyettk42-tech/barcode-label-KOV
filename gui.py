@@ -186,8 +186,7 @@ def main():
         min_size=(1024, 700),
         text_select=True, # Cho phép bôi đen copy nội dung
         zoomable=True,    # Cho phép lăn chuột phóng to thu nhỏ
-        js_api=api,       # Truyền API bridge sang môi trường JS/React
-        icon=get_resource_path("logo.svg") # Gán biểu tượng KiotLabel làm icon cửa sổ ứng dụng
+        js_api=api        # Truyền API bridge sang môi trường JS/React
     )
     
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
