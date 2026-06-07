@@ -64,6 +64,13 @@ class DesktopApi:
             )
             
             if file_path:
+                if isinstance(file_path, (tuple, list)):
+                    if len(file_path) > 0:
+                        file_path = file_path[0]
+                    else:
+                        file_path = None
+            
+            if file_path:
                 # Ghi nội dung chuỗi vào đường dẫn người dùng chỉ định
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content_str)
