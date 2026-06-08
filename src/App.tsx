@@ -2037,35 +2037,35 @@ export default function App() {
         </div>
 
         {/* TOP QUICK DESIGNS BUTTONS */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2 bg-slate-50/50 p-1 rounded-xl border border-slate-100/60 shadow-3xs">
           {/* Preset Template Selector */}
           <div className="relative group">
             <button
-              className="h-10 px-3.5 rounded-lg bg-white hover:bg-amber-50 text-[12.5px] font-extrabold text-amber-800 tracking-wide flex items-center space-x-2 border border-amber-300 hover:border-amber-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
+              className="h-7 px-2 rounded-lg bg-white hover:bg-amber-50 text-[11px] font-black text-amber-850 tracking-wide flex items-center space-x-1.5 border border-amber-300 hover:border-amber-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
               title="Chọn mẫu thiết kế ứng dụng có sẵn"
             >
-              <BookOpen className="w-4 h-4 text-amber-600 shrink-0" />
+              <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Chọn Mẫu có sẵn</span>
-              <span className="text-[9.5px] bg-amber-150/60 text-amber-900 px-1.5 py-0.5 rounded font-mono font-black">Preset</span>
+              <span className="text-[8.5px] bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono font-black">Preset</span>
             </button>
-            <div className="absolute right-0 mt-1.5 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 text-slate-800 hidden group-hover:block hover:block z-50 text-left">
+            <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 text-slate-800 hidden group-hover:block hover:block z-50 text-left">
               <TemplateSelector onSelectTemplate={handleSelectTemplate} />
             </div>
           </div>
 
           {/* Load layouts storage */}
-          <div className="relative border-r border-gray-150 pr-3">
+          <div className="relative border-r border-gray-150 pr-2">
             <button
               onClick={() => setShowSavedList(!showSavedList)}
-              className="h-10 px-3.5 rounded-lg bg-white hover:bg-emerald-50 text-[12.5px] font-extrabold text-emerald-800 tracking-wide flex items-center space-x-2 border border-emerald-300 hover:border-emerald-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
+              className="h-7 px-2 rounded-lg bg-white hover:bg-emerald-50 text-[11px] font-black text-emerald-850 tracking-wide flex items-center space-x-1.5 border border-emerald-300 hover:border-emerald-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
               title="Danh sách thiết kế của bạn đã lưu"
             >
-              <FolderHeart className="w-4 h-4 text-rose-500" />
+              <FolderHeart className="w-3.5 h-3.5 text-rose-500" />
               <span>Mẫu đã lưu ({savedDesigns.length})</span>
             </button>
             
             {showSavedList && (
-              <div className="absolute right-0 mt-2.5 w-76 bg-white text-slate-800 rounded-lg shadow-2xl border border-gray-200/85 p-3 z-50 text-left max-h-[300px] overflow-y-auto animate-fadeIn">
+              <div className="absolute right-0 mt-2 w-76 bg-white text-slate-800 rounded-lg shadow-2xl border border-gray-200/85 p-3 z-50 text-left max-h-[300px] overflow-y-auto animate-fadeIn">
                 <h4 className="font-extrabold text-xs pb-2 border-b border-gray-150 text-kiot-navy uppercase tracking-wider flex items-center space-x-1.5">
                   <FolderHeart className="w-4 h-4 text-rose-500" />
                   <span>Bộ sưu tập mẫu đã lưu</span>
@@ -2081,8 +2081,8 @@ export default function App() {
                         className="p-2 hover:bg-slate-50 rounded-md cursor-pointer transition flex items-center justify-between"
                       >
                         <div className="min-w-0 pr-2">
-                          <p className="font-bold text-xs text-slate-800 truncate">{sd.name}</p>
-                          <p className="text-[10px] text-gray-450 font-mono mt-0.5">{sd.config.width}x{sd.config.height}mm • {sd.timestamp}</p>
+                           <p className="font-bold text-xs text-slate-800 truncate">{sd.name}</p>
+                           <p className="text-[10px] text-gray-450 font-mono mt-0.5">{sd.config.width}x{sd.config.height}mm • {sd.timestamp}</p>
                         </div>
                         <button
                           onClick={(e) => handleDeleteSavedDesign(e, i)}
@@ -2100,7 +2100,7 @@ export default function App() {
           </div>
 
           {/* Simplified save trigger and file import */}
-          <div className="flex items-center space-x-2 shrink-0">
+          <div className="flex items-center space-x-1.5 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -2108,19 +2108,19 @@ export default function App() {
                 setSaveLocation(null);
                 setShowSaveDialog(true);
               }}
-              className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white transition rounded-lg text-xs font-black uppercase flex items-center space-x-1.5 cursor-pointer shadow-md shadow-indigo-600/20 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+              className="h-7 px-2 bg-indigo-600 hover:bg-indigo-700 text-white transition rounded-lg text-[11px] font-black uppercase flex items-center space-x-1 cursor-pointer shadow-md shadow-indigo-600/20 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
               title="Lưu bản thiết kế này sang loại khác hoặc tên mới hoàn toàn (Save As)"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-3.5 h-3.5" />
               <span>Save As...</span>
             </button>
           </div>
 
           {/* Offline Import File Group (Export button removed per request) */}
-          <div className="flex items-center space-x-2 border-l border-gray-150 pl-3">
+          <div className="flex items-center space-x-1.5 border-l border-gray-150 pl-2">
             <label
-              className="h-10 px-4 rounded-lg bg-white hover:bg-emerald-50 text-[12.5px] font-extrabold text-emerald-900 tracking-wide flex items-center space-x-2 border border-emerald-300 hover:border-emerald-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-              title="Chọn file thiết kế .kvl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu (Phím tắt: Ctrl + O)"
+              className="h-7 px-2 rounded-lg bg-white hover:bg-emerald-50 text-[11px] font-black text-emerald-900 tracking-wide flex items-center space-x-1.5 border border-emerald-300 hover:border-emerald-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+              title="Chọn file thiết kế .kvl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu"
               onClick={(e) => {
                 // @ts-ignore
                 if (window.pywebview && window.pywebview.api && window.pywebview.api.load_file_native) {
@@ -2129,8 +2129,8 @@ export default function App() {
                 }
               }}
             >
-              <Upload className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Import File <kbd className="ml-1 bg-slate-100 border border-slate-250/65 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-mono normal-case">Ctrl+O</kbd></span>
+              <Upload className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>Open File</span>
               <input
                 id="file-import-input"
                 type="file"
@@ -2142,14 +2142,14 @@ export default function App() {
           </div>
 
           {/* Quick instructions toggle */}
-          <div className="flex items-center space-x-2 border-l border-gray-150 pl-3 font-sans">
+          <div className="flex items-center space-x-1.5 border-l border-gray-150 pl-2 font-sans">
             <button
               type="button"
               onClick={() => setShowHowToUse(true)}
-              className="h-10 px-3.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[12.5px] font-extrabold tracking-wide flex items-center space-x-2 border border-amber-300 hover:border-amber-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+              className="h-7 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-950 text-[11px] font-black tracking-wide flex items-center space-x-1.5 border border-amber-300 hover:border-amber-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
               title="Xem hướng dẫn các bước tạo mẫu tem"
             >
-              <Info className="w-4 h-4 text-amber-600 shrink-0" />
+              <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Hướng dẫn</span>
             </button>
           </div>
@@ -3945,23 +3945,6 @@ export default function App() {
                 </button>
               </div>
 
-              {/* Grid Snapping Picker */}
-              <div className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 space-x-1.5 font-sans">
-                <Grid3X3 className="w-4 h-4 text-blue-500" />
-                <span className="text-[10.5px] text-gray-400 font-extrabold uppercase select-none tracking-wider">Hít lưới</span>
-                <select
-                  value={gridSnapSize}
-                  onChange={(e) => setGridSnapSize(parseFloat(e.target.value))}
-                  className="bg-white border border-gray-200 outline-none text-[11px] py-0.5 px-1 text-gray-700 cursor-pointer rounded font-medium"
-                >
-                  <option value={0}>Tắt</option>
-                  <option value={0.5}>Mịn (0.5mm)</option>
-                  <option value={1}>Mặc định (1mm)</option>
-                  <option value={2}>Thô (2mm)</option>
-                  <option value={5}>Lớn (5mm)</option>
-                </select>
-              </div>
-
             </div>
             <div className="flex items-center space-x-3.5">
               {/* Undo Button */}
@@ -4026,59 +4009,79 @@ export default function App() {
                   <span className="text-[9.5px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-stretch">
-                  {/* CỘT 1: HẠNG MỤC (DÒNG 1 & DÒNG 2) */}
-                  <div className="md:col-span-3 flex flex-row md:flex-col gap-2">
-                    {/* Hạng mục 1 */}
-                    <div className="flex-1 bg-gradient-to-r md:bg-gradient-to-br from-blue-50/90 to-sky-50/30 border border-blue-100/70 rounded-xl p-2 flex items-center md:flex-col md:justify-center text-left md:text-center shadow-4xs">
-                      <div className="w-4.5 h-4.5 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1">1</div>
-                      <span className="text-[10px] font-extrabold text-blue-900 tracking-wider uppercase font-sans leading-none">KHỔ GIẤY IN</span>
-                    </div>
-                    {/* Hạng mục 2 */}
-                    <div className="flex-1 bg-gradient-to-r md:bg-gradient-to-br from-emerald-50/90 to-teal-50/30 border border-emerald-100/70 rounded-xl p-2 flex items-center md:flex-col md:justify-center text-left md:text-center shadow-4xs">
-                      <div className="w-4.5 h-4.5 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1">2</div>
-                      <span className="text-[10px] font-extrabold text-emerald-950 tracking-wider uppercase font-sans leading-none">THIẾT KẾ TEM</span>
+                <div className="space-y-1.5">
+                  {/* DÒNG HÀNG 1: KHỔ TEM & GIẤY IN (LIÊN KẾT BƯỚC 1 & BƯỚC 2) */}
+                  <div className="flex flex-col md:flex-row items-stretch border border-blue-200/90 rounded-xl bg-white overflow-hidden shadow-xs hover:shadow-sm transition-all duration-200">
+                    {/* Nút KHỔ GIẤY IN - Solid Blue Left Anchor */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveSidebarTab('layout')}
+                      className="w-full md:w-[130px] text-white bg-[#0070F4] hover:bg-[#0062d6] font-black py-2.5 px-2.5 flex items-center justify-center md:flex-col md:justify-center text-left md:text-center cursor-pointer transition-all active:scale-[0.99] border-0 outline-none shrink-0 rounded-t-xl md:rounded-tr-none md:rounded-l-xl rounded-b-none"
+                      title="Chuyển sang tab Thiết lập Khổ tem & Giấy"
+                    >
+                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#0070F4] font-black text-[9px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">1</div>
+                      <div className="flex flex-col md:items-center">
+                        <span className="text-[10.5px] font-black tracking-wider uppercase font-sans leading-none">KHỔ GIẤY IN</span>
+                        <span className="text-[8px] text-sky-100 font-bold normal-case leading-none mt-0.5 md:mt-1">Thiết lập khổ</span>
+                      </div>
+                    </button>
+
+                    {/* Bước 1 & Bước 2 (Không còn viền lùi vào trong, sát lề cạnh) */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 items-stretch bg-white rounded-b-xl md:rounded-bl-none md:rounded-r-xl">
+                      {/* Bước 1 */}
+                      <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-sky-100 text-sky-700 font-extrabold text-[10px] tracking-wide shrink-0 border border-sky-200">BƯỚC 1</span>
+                        <div className="text-[12.5px] leading-snug flex-1">
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
+                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Cấu hình cỡ nhãn thực tế (Rộng x Cao) ở cột bên trái.</p>
+                        </div>
+                      </div>
+
+                      {/* Bước 2 */}
+                      <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50 border-t md:border-t-0 md:border-l border-blue-100/60">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[10px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
+                        <div className="text-[12.5px] leading-snug flex-1">
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy / hàng cột</p>
+                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề giấy phù hợp.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* CỘT 2: BƯỚC 1 & BƯỚC 3 */}
-                  <div className="md:col-span-4 flex flex-col gap-2">
-                    {/* Bước 1 */}
-                    <div className="flex-1 bg-sky-50/25 p-2 rounded-xl border border-sky-100/40 flex items-start space-x-2 transition-all hover:bg-sky-100/20">
-                      <span className="px-1 py-[1px] rounded bg-sky-100 text-sky-700 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-sky-200">BƯỚC 1</span>
-                      <div className="text-[10.5px] leading-normal">
-                        <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
-                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Cấu hình cỡ nhãn thực tế (Rộng x Cao) ở cột trái.</p>
+                  {/* DÒNG HÀNG 2: THIẾT KẾ & IN TEM (LIÊN KẾT BƯỚC 3 & BƯỚC 4) */}
+                  <div className="flex flex-col md:flex-row items-stretch border border-emerald-200/90 rounded-xl bg-white overflow-hidden shadow-xs hover:shadow-sm transition-all duration-200">
+                    {/* Nút THIẾT KẾ TEM - Solid Emerald Left Anchor */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveSidebarTab('design')}
+                      className="w-full md:w-[130px] text-white bg-[#00B63E] hover:bg-[#009e35] font-black py-2 px-2.5 flex items-center justify-center md:flex-col md:justify-center text-left md:text-center cursor-pointer transition-all active:scale-[0.99] border-0 outline-none shrink-0 rounded-t-xl md:rounded-tr-none md:rounded-l-xl rounded-b-none"
+                      title="Chuyển sang tab Thiết kế tem"
+                    >
+                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#00B63E] font-black text-[9px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">2</div>
+                      <div className="flex flex-col md:items-center">
+                        <span className="text-[10.5px] font-black tracking-wider uppercase font-sans leading-none">THIẾT KẾ TEM</span>
+                        <span className="text-[8px] text-emerald-100 font-bold normal-case leading-none mt-0.5 md:mt-1 font-sans">Vẽ & chỉnh sửa</span>
                       </div>
-                    </div>
+                    </button>
 
-                    {/* Bước 3 */}
-                    <div className="flex-1 bg-emerald-50/15 p-2 rounded-xl border border-emerald-100/25 flex items-start space-x-2 transition-all hover:bg-emerald-100/10">
-                      <span className="px-1 py-[1px] rounded bg-emerald-100 text-emerald-800 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-emerald-200">BƯỚC 3</span>
-                      <div className="text-[10.5px] leading-normal">
-                        <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
-                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Thêm nội dung, mã vạch, QR. Nhấp chọn để chỉnh tọa độ.</p>
+                    {/* Bước 3 & Bước 4 (Không còn viền lùi vào trong, sát lề cạnh) */}
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 items-stretch bg-white rounded-b-xl md:rounded-bl-none md:rounded-r-xl">
+                      {/* Bước 3 */}
+                      <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold text-[10px] tracking-wide shrink-0 border border-emerald-200">BƯỚC 3</span>
+                        <div className="text-[12.5px] leading-snug flex-1">
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
+                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Thêm nội dung, mã vạch, QR. Nhấp chọn để chỉnh tọa độ.</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* CỘT 3: BƯỚC 2 & BƯỚC 4 */}
-                  <div className="md:col-span-5 flex flex-col gap-2">
-                    {/* Bước 2 */}
-                    <div className="flex-1 bg-indigo-50/15 p-2 rounded-xl border border-indigo-100/25 flex items-start space-x-2 transition-all hover:bg-indigo-100/10">
-                      <span className="px-1 py-[1px] rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[8.5px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
-                      <div className="text-[10.5px] leading-normal">
-                        <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy / hàng cột</p>
-                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề phù hợp.</p>
-                      </div>
-                    </div>
-
-                    {/* Bước 4 */}
-                    <div className="flex-1 bg-amber-50/15 p-2 rounded-xl border border-amber-100/25 flex items-start space-x-2 transition-all hover:bg-amber-100/10">
-                      <span className="px-1 py-[1px] rounded bg-amber-100 text-amber-800 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
-                      <div className="text-[10.5px] leading-normal">
-                        <p className="font-extrabold text-[#0F172A] mb-0.5">In nhãn tem</p>
-                        <p className="text-slate-500 font-medium text-[10px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN (Ctrl+P)</strong> ở góc trái bên dưới.</p>
+                      {/* Bước 4 */}
+                      <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50 border-t md:border-t-0 md:border-l border-emerald-100/60">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[10px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
+                        <div className="text-[12.5px] leading-snug flex-1">
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">In nhãn tem</p>
+                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN</strong> hoặc <strong className="text-slate-700">Ctrl+P</strong> ở góc trái.</p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4113,6 +4116,7 @@ export default function App() {
             currentFilePath={currentFilePath}
             currentLocalStorageKey={currentLocalStorageKey}
             saveLogs={saveLogs}
+            onUpdateGridSnapSize={setGridSnapSize}
           />
 
         </main>

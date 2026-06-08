@@ -46,6 +46,7 @@ interface LabelCanvasProps {
   currentFilePath?: string | null;
   currentLocalStorageKey?: string | null;
   saveLogs?: Array<{ time: string; path: string; type: 'save' | 'import' | 'quick-save' }>;
+  onUpdateGridSnapSize?: (size: number) => void;
 }
 
 const getRotatedCursor = (
@@ -409,6 +410,7 @@ export function LabelCanvas({
   currentFilePath,
   currentLocalStorageKey,
   saveLogs,
+  onUpdateGridSnapSize,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -2282,7 +2284,7 @@ export function LabelCanvas({
 
       {/* Grid Alignment Status and helpful guides */}
       <div className="absolute bottom-4 left-6 right-6 flex justify-between text-[11px] text-gray-500 pointer-events-none font-sans no-print">
-        <div className="flex items-center space-x-3 bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-2.5 rounded-full">
+        <div className="flex items-center space-x-3 bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-2.5 rounded-full pointer-events-auto">
           <span className="flex items-center space-x-1">
             <LayoutGrid className="w-3.5 h-3.5 text-kiot-cyan" />
             <span>
@@ -2294,14 +2296,21 @@ export function LabelCanvas({
           </span>
           <span>•</span>
           <span>Tỷ lệ hiển thị: 1mm = {pixelScale}px</span>
-          {gridSnapSize > 0 && (
-            <>
-              <span>•</span>
-              <span className="text-kiot-navy font-bold bg-sky-50 px-1.5 py-0.2 rounded-full whitespace-nowrap border border-kiot-cyan/20">
-                Hút lưới (Snap): {gridSnapSize}mm
-              </span>
-            </>
-          )}
+          <span>•</span>
+          <span className="flex items-center space-x-1.5">
+            <span>Hút lưới (Snap):</span>
+            <select
+              value={gridSnapSize}
+              onChange={(e) => onUpdateGridSnapSize?.(parseFloat(e.target.value))}
+              className="bg-sky-50 border border-kiot-cyan/20 outline-none text-[11px] py-px px-1.5 text-kiot-navy font-bold rounded-full cursor-pointer hover:bg-sky-100 transition"
+            >
+              <option value={0}>Tắt</option>
+              <option value={0.5}>Mịn (0.5mm)</option>
+              <option value={1}>1.0 mm (Mặc định)</option>
+              <option value={2}>2.0 mm (Thô)</option>
+              <option value={5}>5.0 mm (Lớn)</option>
+            </select>
+          </span>
         </div>
 
         <div className="flex items-center space-x-2">
