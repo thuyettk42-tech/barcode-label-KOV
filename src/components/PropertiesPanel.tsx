@@ -450,22 +450,22 @@ export function PropertiesPanel({
                 <textarea
                   rows={2}
                   value={selectedObject.content}
-                  disabled={!!selectedObject.excelColumn}
+                  disabled={excelColumns.length > 0 && !!selectedObject.excelColumn}
                   onChange={(e) =>
                     handleAttributeChange("content", e.target.value)
                   }
                   className={`w-full p-2 text-xs border border-gray-200 rounded-md font-sans focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none ${
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? "bg-gray-100 text-gray-500 select-none cursor-not-allowed font-bold italic"
                       : "bg-white text-slate-800 font-extrabold"
                   }`}
                   placeholder={
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? `Lấy cột động: [${selectedObject.excelColumn}]`
                       : "Nhập chữ hiển thị..."
                   }
                 />
-                {selectedObject.excelColumn && (
+                {(excelColumns.length > 0 && selectedObject.excelColumn) && (
                   <p className="text-[10.5px] text-amber-600 font-bold mt-0.5">
                     ⚠️ Đang nối Excel. Chữ cố định bị tắt.
                   </p>
@@ -681,6 +681,165 @@ export function PropertiesPanel({
                   >
                     <Strikethrough className="w-3.5 h-3.5" />
                   </button>
+                </div>
+              </div>
+
+              {/* Định dạng dữ liệu */}
+              <div className="pt-2 border-t border-gray-250/60 pb-1">
+                <span className="block text-[11px] text-slate-650 font-bold mb-1.5 uppercase tracking-wider text-kiot-navy">
+                  Định dạng dữ liệu
+                </span>
+                <div className="space-y-2 font-sans text-xs">
+                  {/* Select Format Type */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-slate-500 font-medium">Loại định dạng:</span>
+                    <select
+                      value={selectedObject.dataFormatType || "general"}
+                      onChange={(e) =>
+                        handleAttributeChange("dataFormatType", e.target.value)
+                      }
+                      className="w-40 px-2 py-1 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white text-slate-705"
+                    >
+                      <option value="general">Mặc định (General)</option>
+                      <option value="number">Số (Number)</option>
+                      <option value="datetime">Ngày / Giờ (Date/Time)</option>
+                    </select>
+                  </div>
+
+                  {/* If Number format chosen */}
+                  {selectedObject.dataFormatType === "number" && (
+                    <div className="p-2 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-200">
+                      {/* Decimal Separator */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">Ngăn thập phân:</span>
+                        <div className="flex items-center bg-gray-150 p-0.5 rounded gap-1">
+                          {[
+                            { value: ",", label: "Dấu phẩy (,)" },
+                            { value: ".", label: "Dấu chấm (.)" },
+                          ].map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() =>
+                                handleAttributeChange("numberDecimalSeparator", opt.value)
+                              }
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition ${
+                                (selectedObject.numberDecimalSeparator || ".") === opt.value
+                                  ? "bg-white text-kiot-navy shadow-sm ring-1 ring-kiot-cyan/20"
+                                  : "text-gray-500 hover:text-gray-800"
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Thousands Separator checkbox */}
+                      <div className="flex items-center">
+                        <input
+                          id="numberThousandsSeparator"
+                          type="checkbox"
+                          checked={selectedObject.numberThousandsSeparator ?? false}
+                          onChange={(e) =>
+                            handleAttributeChange("numberThousandsSeparator", e.target.checked)
+                          }
+                          className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2"
+                        />
+                        <label htmlFor="numberThousandsSeparator" className="text-[11px] text-slate-650 cursor-pointer select-none">
+                          Phân cách hàng ngàn, triệu...
+                        </label>
+                      </div>
+
+                      {/* Decimal Places */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">Chữ số thập phân:</span>
+                        <select
+                          value={selectedObject.numberDecimalPlaces === undefined ? "auto" : selectedObject.numberDecimalPlaces.toString()}
+                          onChange={(e) =>
+                            handleAttributeChange(
+                              "numberDecimalPlaces",
+                              e.target.value === "auto" ? undefined : parseInt(e.target.value, 10)
+                            )
+                          }
+                          className="w-24 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-medium text-slate-700"
+                        >
+                          <option value="auto">Tự động</option>
+                          <option value="0">0 chữ số</option>
+                          <option value="1">1 chữ số</option>
+                          <option value="2">2 chữ số</option>
+                          <option value="3">3 chữ số</option>
+                          <option value="4">4 chữ số</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* If DateTime format chosen */}
+                  {selectedObject.dataFormatType === "datetime" && (
+                    <div className="p-2 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-200">
+                      {/* Format presets select */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">Định dạng mẫu:</span>
+                        <select
+                          value={
+                            ["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "")
+                              ? selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"
+                              : "custom"
+                          }
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              handleAttributeChange("datetimeFormat", e.target.value);
+                            } else {
+                              if (!selectedObject.datetimeFormat) {
+                                handleAttributeChange("datetimeFormat", "DD/MM/YYYY HH:mm");
+                              }
+                            }
+                          }}
+                          className="w-40 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-700"
+                        >
+                          <option value="DD/MM/YYYY">Ngày/Tháng/Năm (DD/MM/YYYY)</option>
+                          <option value="DD/MM/YYYY HH:mm">Ngày/Tháng/Năm Giờ:Phút (DD/MM/YYYY HH:mm)</option>
+                          <option value="HH:mm">Giờ:Phút (HH:mm)</option>
+                          <option value="DD-MM-YYYY">Ngày-Tháng-Năm (DD-MM-YYYY)</option>
+                          <option value="YYYY-MM-DD">Năm-Tháng-Ngày (YYYY-MM-DD)</option>
+                          <option value="custom">Tùy chọn tự nhập</option>
+                        </select>
+                      </div>
+
+                      {/* Custom DateTime Format text input */}
+                      {(!["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "") ||
+                        selectedObject.datetimeFormat === "") && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-slate-500">Chuỗi định dạng:</span>
+                          <input
+                            type="text"
+                            value={selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"}
+                            onChange={(e) => handleAttributeChange("datetimeFormat", e.target.value)}
+                            placeholder="Ví dụ: DD/MM/YYYY HH:mm"
+                            className="w-40 px-2 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-700 font-mono"
+                          />
+                        </div>
+                      )}
+
+                      {/* Choose System Time Checkbox */}
+                      <div className="flex items-center pt-1">
+                        <input
+                          id="useSystemTime"
+                          type="checkbox"
+                          checked={selectedObject.useSystemTime ?? false}
+                          onChange={(e) =>
+                            handleAttributeChange("useSystemTime", e.target.checked)
+                          }
+                          className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2 font-bold cursor-pointer"
+                        />
+                        <label htmlFor="useSystemTime" className="text-[11px] text-slate-650 cursor-pointer select-none font-medium flex items-center gap-1">
+                          <span>Chọn giờ hệ thống</span>
+                          <span className="text-[9px] text-slate-400 font-normal italic">(Lấy giờ computer)</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1105,22 +1264,22 @@ export function PropertiesPanel({
                 <input
                   type="text"
                   value={selectedObject.content}
-                  disabled={!!selectedObject.excelColumn}
+                  disabled={excelColumns.length > 0 && !!selectedObject.excelColumn}
                   onChange={(e) =>
                     handleAttributeChange("content", e.target.value)
                   }
                   className={`w-full p-2 text-xs border border-gray-200 rounded-md font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none ${
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? "bg-gray-100 text-gray-450 select-none cursor-not-allowed font-bold italic"
                       : "bg-white text-slate-800 font-bold"
                   }`}
                   placeholder={
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? `Lấy mã vạch từ cột [${selectedObject.excelColumn}]`
                       : "Ví dụ: CODE128, EAN13..."
                   }
                 />
-                {selectedObject.excelColumn && (
+                {(excelColumns.length > 0 && selectedObject.excelColumn) && (
                   <p className="text-[10.5px] text-amber-600 font-bold mt-0.5">
                     ⚠️ Đang nối Excel. Giá trị mã vạch bị ẩn.
                   </p>
@@ -1536,22 +1695,22 @@ export function PropertiesPanel({
                 <textarea
                   rows={2}
                   value={selectedObject.content}
-                  disabled={!!selectedObject.excelColumn}
+                  disabled={excelColumns.length > 0 && !!selectedObject.excelColumn}
                   onChange={(e) =>
                     handleAttributeChange("content", e.target.value)
                   }
                   className={`w-full p-2 text-xs border border-gray-200 rounded-md font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none ${
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? "bg-gray-100 text-gray-450 select-none cursor-not-allowed font-semibold italic"
                       : "bg-white text-slate-800 font-bold"
                   }`}
                   placeholder={
-                    selectedObject.excelColumn
+                    (excelColumns.length > 0 && selectedObject.excelColumn)
                       ? `Lấy dữ liệu QR từ cột [${selectedObject.excelColumn}]`
                       : "Ví dụ: URL, số tài khoản, chuỗi mã hóa..."
                   }
                 />
-                {selectedObject.excelColumn && (
+                {(excelColumns.length > 0 && selectedObject.excelColumn) && (
                   <p className="text-[10.5px] text-amber-600 font-bold mt-0.5">
                     ⚠️ Đang nối Excel. Nội dung QR bị ẩn.
                   </p>

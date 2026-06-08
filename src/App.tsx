@@ -2160,45 +2160,45 @@ export default function App() {
       <div className="flex-1 flex overflow-hidden min-h-0">
         
         {/* SIDEBAR ON THE LEFT - SLIMMER DESIGN TAB HEIGHT & WIDTH (Optimized for small screens) */}
-        <aside id="sidebar-ui" className="w-[20%] min-w-[305px] max-w-[380px] bg-white border-r border-gray-200 flex flex-col shrink-0 no-print text-kiot-slate shadow-sm z-10 font-sans">
+        <aside id="sidebar-ui" className="w-[25%] min-w-[330px] max-w-[420px] bg-white border-r border-gray-200 flex flex-col shrink-0 no-print text-kiot-slate shadow-sm z-10 font-sans">
           
           {/* TAB BAR HEADER */}
-          <div className="flex border-b border-gray-200 select-none bg-slate-50 shrink-0 tracking-wider">
+          <div className="flex select-none bg-slate-100 p-2 gap-2 shrink-0 tracking-wider border-b border-gray-200">
             <button
               onClick={() => setActiveSidebarTab('layout')}
-              className={`flex-1 py-1.5 text-center transition flex flex-col items-center justify-center space-y-0.5 border-b-[3px] cursor-pointer ${
+              className={`flex-1 py-2.5 md:py-3.5 text-center transition-all duration-150 flex flex-col items-center justify-center space-y-1.5 rounded-xl cursor-pointer ${
                 activeSidebarTab === 'layout'
-                  ? 'border-kiot-cyan text-kiot-navy bg-sky-50/70 font-extrabold shadow-sm'
-                  : 'border-transparent text-gray-400 hover:text-kiot-navy hover:bg-slate-100/60'
+                  ? 'text-white bg-[#0070F4] font-black shadow-md shadow-blue-500/20'
+                  : 'text-slate-700 bg-[#ecf2fa]/90 hover:bg-[#dfeaf7] hover:text-[#0070F4]'
               }`}
             >
-              <div className="flex items-center space-x-1.5">
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9.5px] font-black transition-all ${
+              <div className="flex items-center space-x-2">
+                <span className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[11.5px] font-black transition-all ${
                   activeSidebarTab === 'layout'
-                    ? 'bg-kiot-cyan text-white ring-4 ring-cyan-100'
-                    : 'bg-gray-200 text-gray-400'
+                    ? 'bg-white text-[#0070F4] ring-4 ring-white/10 scale-105'
+                    : 'bg-sky-200 text-sky-850 font-black'
                 }`}>1</span>
-                <span className={`text-[12px] font-black tracking-wide ${activeSidebarTab === 'layout' ? 'text-[#0F172A]' : 'text-gray-400'}`}>KHỔ GIẤY</span>
+                <span className={`text-[13.5px] md:text-[14.5px] font-black tracking-wide leading-none ${activeSidebarTab === 'layout' ? 'text-white' : 'text-slate-750 font-black'}`}>KHỔ TEM & GIẤY</span>
               </div>
-              <span className="text-[9.5px] text-slate-400 font-semibold normal-case">Thiết lập khổ tem in</span>
+              <span className={`text-[10.5px] font-extrabold normal-case leading-none mt-0.5 ${activeSidebarTab === 'layout' ? 'text-sky-100' : 'text-slate-500'}`}>Thiết lập khổ tem in</span>
             </button>
             <button
               onClick={() => setActiveSidebarTab('design')}
-              className={`flex-1 py-1.5 text-center transition flex flex-col items-center justify-center space-y-0.5 border-b-[3px] cursor-pointer ${
+              className={`flex-1 py-2.5 md:py-3.5 text-center transition-all duration-150 flex flex-col items-center justify-center space-y-1.5 rounded-xl cursor-pointer ${
                 activeSidebarTab === 'design'
-                  ? 'border-kiot-cyan text-kiot-navy bg-sky-50/70 font-extrabold shadow-sm'
-                  : 'border-transparent text-gray-400 hover:text-kiot-navy hover:bg-slate-100/60'
+                  ? 'text-white bg-[#00B63E] font-black shadow-md shadow-emerald-500/20'
+                  : 'text-slate-700 bg-[#edf6ee]/90 hover:bg-[#e0efe2] hover:text-[#00B63E]'
               }`}
             >
-              <div className="flex items-center space-x-1.5">
-                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[9.5px] font-black transition-all ${
+              <div className="flex items-center space-x-2">
+                <span className={`w-5.5 h-5.5 rounded-full flex items-center justify-center text-[11.5px] font-black transition-all ${
                   activeSidebarTab === 'design'
-                    ? 'bg-kiot-cyan text-white ring-4 ring-cyan-100'
-                    : 'bg-gray-200 text-gray-400'
+                    ? 'bg-white text-[#00B63E] ring-4 ring-white/10 scale-105'
+                    : 'bg-emerald-200 text-emerald-850 font-black'
                 }`}>2</span>
-                <span className={`text-[12px] font-black tracking-wide ${activeSidebarTab === 'design' ? 'text-[#0F172A]' : 'text-gray-400'}`}>THIẾT KẾ TEM</span>
+                <span className={`text-[13.5px] md:text-[14.5px] font-black tracking-wide leading-none ${activeSidebarTab === 'design' ? 'text-white' : 'text-slate-750 font-black'}`}>THIẾT KẾ TEM</span>
               </div>
-              <span className="text-[9.5px] text-slate-400 font-semibold normal-case">Vẽ &amp; chỉnh sửa chi tiết</span>
+              <span className={`text-[10.5px] font-extrabold normal-case leading-none mt-0.5 ${activeSidebarTab === 'design' ? 'text-emerald-100' : 'text-slate-500'}`}>Vẽ &amp; chỉnh sửa chi tiết</span>
             </button>
           </div>
 
@@ -3796,7 +3796,7 @@ export default function App() {
                       </>
                     ) : (
                       <div className="text-[10px] font-semibold text-yellow-850 bg-yellow-50 border border-yellow-250 p-1.5 rounded-md leading-normal">
-                        Cần liên kết file dữ liệu trước trong tab <strong>"KHỔ GIẤY"</strong>.
+                        Cần liên kết file dữ liệu trước trong tab <strong>"KHỔ TEM & GIẤY"</strong>.
                       </div>
                     )}
                   </div>

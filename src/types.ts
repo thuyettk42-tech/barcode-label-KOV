@@ -69,6 +69,14 @@ export interface LabelObject {
    // Excel integration attributes
   excelColumn?: string;
 
+  // Data Formatting attributes
+  dataFormatType?: 'general' | 'number' | 'datetime';
+  numberDecimalSeparator?: '.' | ',';
+  numberThousandsSeparator?: boolean;
+  numberDecimalPlaces?: number;
+  datetimeFormat?: string;
+  useSystemTime?: boolean;
+
   // Custom styling colors
   color?: string; // Text color, QR code color, or Barcode lines color
   barcodeTextColor?: string; // Specific color for the barcode label text

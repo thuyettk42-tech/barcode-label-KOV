@@ -106,7 +106,115 @@ const getRotatedCursor = (
   }
 };
 
+const parseFormattedDate = (val: string): Date | null => {
+  if (!val) return null;
+  const parsed = Date.parse(val);
+  if (!isNaN(parsed)) {
+    return new Date(parsed);
+  }
+  const dmYRegex = /^(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?$/;
+  const match = val.trim().match(dmYRegex);
+  if (match) {
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10) - 1;
+    let year = parseInt(match[3], 10);
+    if (year < 100) {
+      year += year < 50 ? 2000 : 1900;
+    }
+    const hour = match[4] ? parseInt(match[4], 10) : 0;
+    const minute = match[5] ? parseInt(match[5], 10) : 0;
+    const second = match[6] ? parseInt(match[6], 10) : 0;
+    const d = new Date(year, month, day, hour, minute, second);
+    if (!isNaN(d.getTime())) {
+      return d;
+    }
+  }
+  return null;
+};
+
+const formatLabelDateTime = (date: Date, format: string): string => {
+  const pad = (num: number, size: number = 2) => {
+    let s = num.toString();
+    while (s.length < size) s = "0" + s;
+    return s;
+  };
+  const day = date.getDate();
+  const month = date.getMonth() + 1;
+  const year = date.getFullYear();
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const seconds = date.getSeconds();
+
+  let formatted = format;
+  formatted = formatted.replace(/YYYY/g, year.toString());
+  formatted = formatted.replace(/YY/g, (year % 100).toString().padStart(2, "0"));
+  formatted = formatted.replace(/MM/g, pad(month));
+  formatted = formatted.replace(/DD/g, pad(day));
+  formatted = formatted.replace(/HH/g, pad(hours));
+  formatted = formatted.replace(/mm/g, pad(minutes));
+  formatted = formatted.replace(/ss/g, pad(seconds));
+  formatted = formatted.replace(/D/g, day.toString());
+  formatted = formatted.replace(/M/g, month.toString());
+  return formatted;
+};
+
+const formatLabelNumber = (
+  num: number,
+  decimalSeparator: "." | "," = ".",
+  useThousands: boolean = false,
+  decimalPlaces?: number,
+): string => {
+  const decPlaces = decimalPlaces !== undefined ? decimalPlaces : (num % 1 === 0 ? 0 : 2);
+  let formatted = num.toFixed(decPlaces);
+  const parts = formatted.split(".");
+  let integerPart = parts[0];
+  const decimalPart = parts[1];
+
+  if (useThousands) {
+    const thousandsSeparator = decimalSeparator === "." ? "," : ".";
+    integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandsSeparator);
+  }
+
+  if (decimalPart !== undefined && decimalPart.length > 0) {
+    return integerPart + decimalSeparator + decimalPart;
+  }
+  return integerPart;
+};
+
+export const formatLabelText = (obj: LabelObject): string => {
+  if (obj.dataFormatType === "datetime" && obj.useSystemTime) {
+    const now = new Date();
+    return formatLabelDateTime(now, obj.datetimeFormat || "DD/MM/YYYY HH:mm");
+  }
+
+  let rawValue = obj.content;
+  if (!rawValue) return "";
+
+  if (obj.dataFormatType === "number") {
+    // Keep prefix/suffix cleaner by removing non-numeric chars for the internal parsed decimal formatter
+    const cleanStr = rawValue.replace(/[^\d.-]/g, "");
+    const num = parseFloat(cleanStr);
+    if (!isNaN(num)) {
+      return formatLabelNumber(
+        num,
+        obj.numberDecimalSeparator || ".",
+        obj.numberThousandsSeparator ?? false,
+        obj.numberDecimalPlaces,
+      );
+    }
+  } else if (obj.dataFormatType === "datetime") {
+    const date = parseFormattedDate(rawValue);
+    if (date) {
+      return formatLabelDateTime(date, obj.datetimeFormat || "DD/MM/YYYY HH:mm");
+    }
+  }
+
+  return rawValue;
+};
+
 const renderTextElement = (obj: LabelObject, pixelScale: number) => {
+  const displayContent = formatLabelText(obj);
+
   const resolveFontFamily = (family: string | undefined) => {
     if (family === "Arial") return "Arial, Helvetica, sans-serif";
     if (family === "Times New Roman") return "'Times New Roman', Times, serif";
@@ -224,7 +332,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
             obj.prefixTextSuperSub,
           )}
         {renderSegment(
-          obj.content,
+          displayContent,
           obj.fontSize,
           obj.fontFamily,
           obj.fontWeight,
