@@ -239,7 +239,7 @@ export default function App() {
     cols: 1,
     rowGap: 3,
     colGap: 0,
-    showBorder: true,
+    showBorder: false,
     borderWidth: 1,
     borderRadius: 2,
     borderColor: '#9ca3af',
@@ -2426,7 +2426,7 @@ export default function App() {
                       className="w-4.5 h-4.5 text-kiot-cyan focus:ring-kiot-cyan/50 border-gray-300 rounded cursor-pointer"
                     />
                     <label htmlFor="showBorderCheckbox" className="font-bold text-[12.5px] text-slate-700 cursor-pointer select-none">
-                      In viền tem dán
+                      Viền tem nhãn
                     </label>
                   </div>
 
