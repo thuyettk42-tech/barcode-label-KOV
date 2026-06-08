@@ -4011,72 +4011,74 @@ export default function App() {
           {/* 3. INTERACTIVE CANVAS GRID PORTAL */}
           {showHowToUse && (
             <div className="w-full flex justify-center px-4 mt-3 select-none no-print animate-fadeIn">
-              <div className="max-w-[720px] w-full p-4 bg-white border border-slate-200 rounded-2xl shadow-md flex flex-col space-y-3 relative font-sans animate-fadeIn">
+              <div className="max-w-[840px] w-full p-3 bg-white border border-slate-200 rounded-2xl shadow-md flex flex-col space-y-2 relative font-sans animate-fadeIn">
                 <button 
                   type="button" 
                   onClick={() => setShowHowToUse(false)}
-                  className="absolute top-3 right-3 p-1.5 hover:bg-slate-100 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
+                  className="absolute top-2.5 right-2.5 p-1 hover:bg-slate-100 text-slate-400 hover:text-red-500 rounded-lg transition-colors cursor-pointer"
                   title="Đóng bảng hướng dẫn"
                 >
                   <X className="w-4 h-4" />
                 </button>
                 
-                <div className="flex items-center space-x-2 pb-0.5 border-b border-slate-100">
-                  <span className="text-[12px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
-                  <span className="text-[10px] bg-sky-50 text-kiot-cyan font-black px-2 py-0.5 rounded-lg uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
+                <div className="flex items-center space-x-2 pb-1 border-b border-slate-100">
+                  <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
+                  <span className="text-[9.5px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
                 </div>
 
-                <div className="space-y-4">
-                  {/* PHẦN KHỔ TEM VÀ GIẤY IN */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-blue-50/90 to-sky-50/30 border border-blue-100/80 rounded-xl shadow-4xs mb-2.5">
-                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-[11px] shadow-sm shrink-0">1</div>
-                      <span className="text-[11.5px] font-black text-blue-900 tracking-wider uppercase font-sans">PHẦN KHỔ TEM VÀ GIẤY IN</span>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 items-stretch">
+                  {/* CỘT 1: HẠNG MỤC (DÒNG 1 & DÒNG 2) */}
+                  <div className="md:col-span-3 flex flex-row md:flex-col gap-2">
+                    {/* Hạng mục 1 */}
+                    <div className="flex-1 bg-gradient-to-r md:bg-gradient-to-br from-blue-50/90 to-sky-50/30 border border-blue-100/70 rounded-xl p-2 flex items-center md:flex-col md:justify-center text-left md:text-center shadow-4xs">
+                      <div className="w-4.5 h-4.5 rounded-full bg-blue-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1">1</div>
+                      <span className="text-[10px] font-extrabold text-blue-900 tracking-wider uppercase font-sans leading-none">KHỔ GIẤY IN</span>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Step 1 */}
-                      <div className="bg-sky-50/25 p-2.5 rounded-xl border border-sky-100/40 flex items-start space-x-3 transition-all hover:bg-sky-100/20">
-                        <span className="px-2 h-5.5 rounded-lg bg-sky-100 text-sky-700 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-sky-200">BƯỚC 1</span>
-                        <div className="text-[11.5px] leading-relaxed">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
-                          <p className="text-slate-500 font-medium text-[11px] leading-snug">Cấu hình kích thước nhãn thực tế (Chiều rộng x Chiều cao) ở cột bên trái.</p>
-                        </div>
-                      </div>
+                    {/* Hạng mục 2 */}
+                    <div className="flex-1 bg-gradient-to-r md:bg-gradient-to-br from-emerald-50/90 to-teal-50/30 border border-emerald-100/70 rounded-xl p-2 flex items-center md:flex-col md:justify-center text-left md:text-center shadow-4xs">
+                      <div className="w-4.5 h-4.5 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-[10px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1">2</div>
+                      <span className="text-[10px] font-extrabold text-emerald-950 tracking-wider uppercase font-sans leading-none">THIẾT KẾ TEM</span>
+                    </div>
+                  </div>
 
-                      {/* Step 2 */}
-                      <div className="bg-indigo-50/15 p-2.5 rounded-xl border border-indigo-100/25 flex items-start space-x-3 transition-all hover:bg-indigo-100/10">
-                        <span className="px-2 h-5.5 rounded-lg bg-indigo-100 text-[#4338CA] font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-indigo-200">BƯỚC 2</span>
-                        <div className="text-[11.5px] leading-relaxed">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy/khổ giấy</p>
-                          <p className="text-slate-500 font-medium text-[11px] leading-snug">Chọn máy in (đơn cuộn hoặc nhiều tem/A4/A5), số hàng/cột và căn lề giấy phù hợp.</p>
-                        </div>
+                  {/* CỘT 2: BƯỚC 1 & BƯỚC 3 */}
+                  <div className="md:col-span-4 flex flex-col gap-2">
+                    {/* Bước 1 */}
+                    <div className="flex-1 bg-sky-50/25 p-2 rounded-xl border border-sky-100/40 flex items-start space-x-2 transition-all hover:bg-sky-100/20">
+                      <span className="px-1 py-[1px] rounded bg-sky-100 text-sky-700 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-sky-200">BƯỚC 1</span>
+                      <div className="text-[10.5px] leading-normal">
+                        <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
+                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Cấu hình cỡ nhãn thực tế (Rộng x Cao) ở cột trái.</p>
+                      </div>
+                    </div>
+
+                    {/* Bước 3 */}
+                    <div className="flex-1 bg-emerald-50/15 p-2 rounded-xl border border-emerald-100/25 flex items-start space-x-2 transition-all hover:bg-emerald-100/10">
+                      <span className="px-1 py-[1px] rounded bg-emerald-100 text-emerald-800 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-emerald-200">BƯỚC 3</span>
+                      <div className="text-[10.5px] leading-normal">
+                        <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
+                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Thêm nội dung, mã vạch, QR. Nhấp chọn để chỉnh tọa độ.</p>
                       </div>
                     </div>
                   </div>
 
-                  {/* PHẦN THIẾT KẾ TEM NHÃN */}
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-emerald-50/90 to-teal-50/30 border border-emerald-100/80 rounded-xl shadow-4xs mb-2.5">
-                      <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center text-white font-black text-[11px] shadow-sm shrink-0">2</div>
-                      <span className="text-[11.5px] font-black text-emerald-950 tracking-wider uppercase font-sans">PHẦN THIẾT KẾ TEM NHÃN</span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Step 3 */}
-                      <div className="bg-emerald-50/20 p-2.5 rounded-xl border border-emerald-100/30 flex items-start space-x-3 transition-all hover:bg-emerald-100/10">
-                        <span className="px-2 h-5.5 rounded-lg bg-emerald-100 text-emerald-800 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-emerald-200">BƯỚC 3</span>
-                        <div className="text-[11.5px] leading-relaxed">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
-                          <p className="text-slate-500 font-medium text-[11px] leading-snug">Thêm văn bản (tên, giá), mã vạch, mã QR. Nhấp chọn đối tượng để căn chỉnh chi tiết.</p>
-                        </div>
+                  {/* CỘT 3: BƯỚC 2 & BƯỚC 4 */}
+                  <div className="md:col-span-5 flex flex-col gap-2">
+                    {/* Bước 2 */}
+                    <div className="flex-1 bg-indigo-50/15 p-2 rounded-xl border border-indigo-100/25 flex items-start space-x-2 transition-all hover:bg-indigo-100/10">
+                      <span className="px-1 py-[1px] rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[8.5px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
+                      <div className="text-[10.5px] leading-normal">
+                        <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy / hàng cột</p>
+                        <p className="text-slate-500 font-medium text-[10px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề phù hợp.</p>
                       </div>
+                    </div>
 
-                      {/* Step 4 */}
-                      <div className="bg-amber-50/20 p-2.5 rounded-xl border border-amber-100/30 flex items-start space-x-3 transition-all hover:bg-amber-100/10">
-                        <span className="px-2 h-5.5 rounded-lg bg-amber-100 text-amber-800 font-black text-[10px] tracking-wide flex items-center justify-center shrink-0 shadow-3xs border border-amber-200">BƯỚC 4</span>
-                        <div className="text-[11.5px] leading-relaxed">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Chọn số lượng & In</p>
-                          <p className="text-slate-500 font-medium text-[11px] leading-snug">Nhập số bản in và click nút <strong className="text-slate-700">IN NHÃN (Ctrl+P)</strong> ở góc dưới bên trái màn hình.</p>
-                        </div>
+                    {/* Bước 4 */}
+                    <div className="flex-1 bg-amber-50/15 p-2 rounded-xl border border-amber-100/25 flex items-start space-x-2 transition-all hover:bg-amber-100/10">
+                      <span className="px-1 py-[1px] rounded bg-amber-100 text-amber-800 font-extrabold text-[8.5px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
+                      <div className="text-[10.5px] leading-normal">
+                        <p className="font-extrabold text-[#0F172A] mb-0.5">In nhãn tem</p>
+                        <p className="text-slate-500 font-medium text-[10px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN (Ctrl+P)</strong> ở góc trái bên dưới.</p>
                       </div>
                     </div>
                   </div>
