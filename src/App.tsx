@@ -202,6 +202,10 @@ export default function App() {
   const [saveLocation, setSaveLocation] = useState<'local' | 'device' | null>(null);
   const [saveTemplateName, setSaveTemplateName] = useState<string>("");
   const [saveFileFormat, setSaveFileFormat] = useState<'kvl' | 'json'>('kvl');
+  const [currentFilePath, setCurrentFilePath] = useState<string | null>(null);
+  const [currentLocalStorageKey, setCurrentLocalStorageKey] = useState<string | null>(null);
+  const [activeFileHandle, setActiveFileHandle] = useState<any>(null);
+  const [saveLogs, setSaveLogs] = useState<Array<{ time: string; path: string; type: 'save' | 'import' | 'quick-save' }>>([]);
 
   // Google Drive integration states removed for lightweight offline operations
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
@@ -216,6 +220,9 @@ export default function App() {
   const [currentExcelRowIndex, setCurrentExcelRowIndex] = useState<number>(0);
   const [excelFileName, setExcelFileName] = useState<string>("");
   const [excelFileBase64, setExcelFileBase64] = useState<string>("");
+  const [excelFilePath, setExcelFilePath] = useState<string | null>(null);
+  const [excelFileHandle, setExcelFileHandle] = useState<any | null>(null);
+  const [excelUploadMode, setExcelUploadMode] = useState<'sync' | 'new'>('new');
   const [activeSidebarTab, setActiveSidebarTab] = useState<'layout' | 'design'>('layout');
   const [isExcelExpanded, setIsExcelExpanded] = useState<boolean>(false);
   const [sheetConfig, setSheetConfig] = useState<SheetLayoutConfig>({
@@ -441,13 +448,92 @@ export default function App() {
     setIsBatchPrinting(excelData.length > 0);
   }, [excelData]);
 
-  // Parse Excel file upload with XLSX (SheetJS)
+  // Helper to convert ArrayBuffer to Base64
+  const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+    let binary = "";
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  };
+
+  // Central processor to import & parse Excel data from binary array buffer
+  const processExcelBinary = (dataArrayBuffer: ArrayBuffer, fileName: string, isNewFile: boolean): boolean => {
+    try {
+      const data = new Uint8Array(dataArrayBuffer);
+      const workbook = XLSX.read(data, { type: "array", cellDates: true, cellNF: true });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false });
+      
+      if (rawData.length < 1) {
+        alert("Tệp Excel rỗng hoặc không chứa bảng dữ liệu!");
+        return false;
+      }
+
+      // Header row (first row of Excel file)
+      const headers = (rawData[0] as any[]).map(h => String(h || "").trim()).filter(h => h !== "");
+      
+      if (headers.length === 0) {
+        alert("Không tìm thấy tiêu đề cột hợp lệ nào ở dòng thứ nhất!");
+        return false;
+      }
+
+      // Mappings items by header
+      const items: any[] = [];
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i] as any[];
+        if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || cell === "")) {
+          continue; // Skip blank lines
+        }
+        const itemObj: any = {};
+        headers.forEach((header, colIdx) => {
+          itemObj[header] = row[colIdx] !== undefined ? String(row[colIdx]) : "";
+        });
+        items.push(itemObj);
+      }
+
+      if (items.length === 0) {
+        alert("Nhập tệp Excel thành công nhưng không có các dòng dữ liệu từ dòng số 2 để liên kết.");
+        return false;
+      }
+
+      setExcelFileName(fileName);
+      setExcelColumns(headers);
+      setExcelData(items);
+      setPrintCopies(1);
+      setCurrentExcelRowIndex(0);
+      setIsExcelExpanded(true);
+
+      if (isNewFile) {
+        // If a new different file is selected, clear all associations/mappings
+        setObjects(prevObjects => prevObjects.map(obj => {
+          const copy = { ...obj };
+          delete copy.excelColumn;
+          return copy;
+        }));
+      }
+
+      setTimeout(() => {
+        document.getElementById("excel-section-header")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+
+      return true;
+    } catch (err: any) {
+      console.error("XLSX parse error: ", err);
+      alert("Nạp tệp Excel thất bại. Vui lòng kiểm tra lại định dạng tệp .xlsx hoặc .xls.");
+      return false;
+    }
+  };
+
+  // Standard manual <input type="file"> event handler (Fallback source)
   const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setExcelFileName(file.name);
 
-    // Read and save original Excel file base64 data to allow export backup inside .kvl
+    // Convert to base64 for design storage (.kvl mapping retention)
     const b64Reader = new FileReader();
     b64Reader.onload = (b64Evt) => {
       try {
@@ -462,61 +548,150 @@ export default function App() {
 
     const reader = new FileReader();
     reader.onload = (evt) => {
-      try {
-        const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: "array", cellDates: true, cellNF: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1, raw: false });
-        
-        if (rawData.length < 1) {
-          alert("Tệp Excel rỗng hoặc không chứa bảng dữ liệu!");
-          return;
-        }
-
-        // Header row (first row of Excel file)
-        const headers = (rawData[0] as any[]).map(h => String(h || "").trim()).filter(h => h !== "");
-        
-        if (headers.length === 0) {
-          alert("Không tìm thấy tiêu đề cột hợp lệ nào ở dòng thứ nhất!");
-          return;
-        }
-
-        // Mappings items by header
-        const items: any[] = [];
-        for (let i = 1; i < rawData.length; i++) {
-          const row = rawData[i] as any[];
-          if (!row || row.length === 0 || row.every(cell => cell === null || cell === undefined || cell === "")) {
-            continue; // Skip blank lines
-          }
-          const itemObj: any = {};
-          headers.forEach((header, colIdx) => {
-            itemObj[header] = row[colIdx] !== undefined ? String(row[colIdx]) : "";
-          });
-          items.push(itemObj);
-        }
-
-        if (items.length === 0) {
-          alert("Nhập tệp Excel thành công nhưng không có các dòng dữ liệu từ dòng số 2 để liên kết.");
-          return;
-        }
-
-        setExcelColumns(headers);
-        setExcelData(items);
-        setPrintCopies(1);
-        setCurrentExcelRowIndex(0);
-        setIsExcelExpanded(true);
-        setTimeout(() => {
-          document.getElementById("excel-section-header")?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
-      } catch (err) {
-        console.error("XLSX parse error: ", err);
-        alert("Nạp tệp Excel thất bại. Vui lòng kiểm tra lại định dạng tệp .xlsx hoặc .xls.");
+      if (evt.target?.result) {
+        processExcelBinary(evt.target.result as ArrayBuffer, file.name, excelUploadMode === 'new');
       }
     };
     reader.readAsArrayBuffer(file);
-    // Reset file input target value so the same file can be structural re-uploaded
     e.target.value = "";
+  };
+
+  // Combined trigger to launch native file selectors across all target runtime frames
+  const triggerExcelLoadDialog = async (modeOverride?: 'new' | 'sync') => {
+    const activeMode = modeOverride || excelUploadMode;
+    // @ts-ignore
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.load_excel_native) {
+      try {
+        // @ts-ignore
+        const response = await window.pywebview.api.load_excel_native();
+        if (response && response.status === "success" && response.base64) {
+          setExcelFilePath(response.file_path);
+          
+          // Match array bounds
+          const binaryStr = atob(response.base64);
+          const len = binaryStr.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          
+          const ok = processExcelBinary(bytes.buffer, response.filename, activeMode === 'new');
+          if (ok) {
+            setExcelFileBase64(response.base64);
+          }
+        } else if (response && response.status === "error") {
+          alert("Lỗi mở file thông qua hệ điều hành: " + response.message);
+        }
+      } catch (err: any) {
+        alert("Lỗi khởi tạo hộp thoại chọn file hệ thống: " + err.message);
+      }
+    } else if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+      try {
+        // @ts-ignore
+        const [handle] = await window.showOpenFilePicker({
+          types: [
+            {
+              description: 'Tệp Excel (*.xlsx, *.xls)',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+                'application/vnd.ms-excel': ['.xls']
+              }
+            }
+          ],
+          multiple: false
+        });
+        
+        const file = await handle.getFile();
+        const arrayBuffer = await file.arrayBuffer();
+        const ok = processExcelBinary(arrayBuffer, file.name, activeMode === 'new');
+        if (ok) {
+          setExcelFileHandle(handle);
+          const base64Str = arrayBufferToBase64(arrayBuffer);
+          setExcelFileBase64(base64Str);
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          alert("Lỗi nạp Excel: " + err.message);
+        }
+      }
+    } else {
+      // Standard local <input> tag fallback
+      setExcelUploadMode(activeMode);
+      setTimeout(() => {
+        document.getElementById("excel-file-uploader-direct")?.click();
+      }, 50);
+    }
+  };
+
+  // COMPLETELY SYSTEM-HIDDEN BACKGROUND EXCEL HOT UPDATE Worker
+  const handleDirectExcelSync = async () => {
+    // 1. Pywebview native background update path (completely silent!)
+    // @ts-ignore
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.read_file_base64_direct && excelFilePath) {
+      try {
+        // @ts-ignore
+        const response = await window.pywebview.api.read_file_base64_direct(excelFilePath);
+        if (response && response.status === "success" && response.base64) {
+          // Convert base64 back to ArrayBuffer
+          const binaryStr = atob(response.base64);
+          const len = binaryStr.length;
+          const bytes = new Uint8Array(len);
+          for (let i = 0; i < len; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+          const ok = processExcelBinary(bytes.buffer, response.filename, false); // Always sync mode (preserve mappings)
+          if (ok) {
+            setExcelFileBase64(response.base64);
+            alert(`[ĐỒNG BỘ CHẠY NGẦM THÀNH CÔNG]\nHệ thống đã tự động quét và làm mới dữ liệu từ đường dẫn:\n"${excelFilePath}"\n\n✓ Giữ nguyên 100% tất cả các liên kết trường dữ liệu.`);
+          }
+        } else if (response && response.status === "error") {
+          // If the file was moved or is inaccessible, offer standard re-picking fallback
+          alert(`Không thể tự động đồng bộ ẩn: ${response.message}\n\nHệ thống sẽ hiển thị hộp thoại chọn lại file để khôi phục.`);
+          triggerExcelLoadDialog('sync');
+        }
+      } catch (err: any) {
+        alert("Lỗi đồng bộ chạy ngầm: " + err.message);
+        triggerExcelLoadDialog('sync');
+      }
+    }
+    // 2. Modern browser File Access handle updates (completely silent if permission still granted!)
+    else if (excelFileHandle) {
+      try {
+        const opt = { mode: 'read' as const };
+        let permissionGranted = false;
+        
+        const currentPermission = await excelFileHandle.queryPermission(opt);
+        if (currentPermission === 'granted') {
+          permissionGranted = true;
+        } else {
+          const requestPermission = await excelFileHandle.requestPermission(opt);
+          if (requestPermission === 'granted') {
+            permissionGranted = true;
+          }
+        }
+        
+        if (permissionGranted) {
+          const file = await excelFileHandle.getFile();
+          const arrayBuffer = await file.arrayBuffer();
+          const ok = processExcelBinary(arrayBuffer, file.name, false); // Always sync mode (preserve mappings)
+          if (ok) {
+            const base64Str = arrayBufferToBase64(arrayBuffer);
+            setExcelFileBase64(base64Str);
+            alert(`[ĐỒNG BỘ CHẠY NGẦM THÀNH CÔNG]\nĐã cập nhật dữ liệu tự động từ file: "${file.name}"\n\n✓ Giữ nguyên 100% tất cả các liên kết trường dữ liệu.`);
+          }
+        } else {
+          // If permission is denied, fall back transparently
+          triggerExcelLoadDialog('sync');
+        }
+      } catch (err: any) {
+        console.warn("Silent file handle refresh failed, promoting to dialog:", err);
+        triggerExcelLoadDialog('sync');
+      }
+    }
+    // 3. Fallback path: standard web upload dialog
+    else {
+      triggerExcelLoadDialog('sync');
+    }
   };
 
   const handleClearExcel = () => {
@@ -525,6 +700,8 @@ export default function App() {
     setCurrentExcelRowIndex(0);
     setExcelFileName("");
     setExcelFileBase64(""); // Clear base64 as well
+    setExcelFilePath(null);
+    setExcelFileHandle(null);
     setPrintQuantityMode('constant');
     setPrintQuantityColumn("");
     setPrintCopies(24);
@@ -1060,6 +1237,7 @@ export default function App() {
         setExcelData(restoredData);
         setExcelFileName(parsedData.excelFileName || "xlsx_linked_file.xlsx");
         setExcelFileBase64(parsedData.excelOriginalBase64 || "");
+        setExcelFilePath(parsedData.excelFilePath || null);
         
         if (parsedData.printQuantityMode) {
           setPrintQuantityMode(parsedData.printQuantityMode);
@@ -1173,6 +1351,7 @@ export default function App() {
       objects,
       // Lightweight optimized spreadsheet persistence block (no heavy base64 to protect 5MB local quota)
       excelFileName,
+      excelFilePath,
       excelColumns,
       excelRowsCompact: compactExcelRows,
       printQuantityMode,
@@ -1185,6 +1364,12 @@ export default function App() {
     localStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
     setSavedDesigns(updated);
     setCustomSaveName(nameToSave);
+    setCurrentLocalStorageKey(nameToSave);
+    setCurrentFilePath(null);
+    setSaveLogs(prev => [
+      { time: new Date().toLocaleTimeString("vi-VN"), path: `Local Storage: ${nameToSave}`, type: 'save' },
+      ...prev
+    ]);
     alert(`Đã lưu thiết kế "${nameToSave}" thành công vào bộ nhớ trình duyệt!`);
   };
 
@@ -1196,6 +1381,7 @@ export default function App() {
       sheetConfig: saved.sheetConfig,
       objects: saved.objects,
       excelFileName: saved.excelFileName,
+      excelFilePath: saved.excelFilePath,
       excelColumns: saved.excelColumns,
       excelRowsCompact: saved.excelRowsCompact,
       excelData: saved.excelData, // Handle legacy format backward compatibility
@@ -1203,11 +1389,19 @@ export default function App() {
       printQuantityColumn: saved.printQuantityColumn,
       excelOriginalBase64: "", // Rebuilt on demand dynamically to save quota space
     });
+    setCustomSaveName(saved.name);
+    setCurrentLocalStorageKey(saved.name);
+    setCurrentFilePath(null);
+    setActiveFileHandle(null);
+    setSaveLogs(prev => [
+      { time: new Date().toLocaleTimeString("vi-VN"), path: `Loaded filter: ${saved.name}`, type: 'import' },
+      ...prev
+    ]);
     setShowSavedList(false);
   };
 
   // Export current design to a lightweight offline file (.kvl or .json)
-  const handleExportToFile = (customName?: string, format: 'kvl' | 'json' = 'kvl') => {
+  const handleExportToFile = (customName?: string, format: 'kvl' | 'json' = 'kvl', onSuccess?: () => void) => {
     const nameToSave = (customName || customSaveName).trim() || labelConfig.name || "tem_thiet_ke";
     
     // Strip redundant object names/keys to minimize plaintext weight dynamically matching spreadsheet rows
@@ -1225,11 +1419,43 @@ export default function App() {
       objects,
       // Lightweight, hyper-optimized spreadsheet persistence blocks 
       excelFileName,
+      excelFilePath,
       excelColumns,
       excelRowsCompact: compactExcelRows,
       excelOriginalBase64: excelFileBase64 || "", // High-fidelity original binary excel fallback backing
       printQuantityMode,
       printQuantityColumn,
+    };
+
+    const triggerBlobDownload = (
+      content: string, 
+      fname: string, 
+      mtype: string, 
+      savedName: string, 
+      callback?: () => void
+    ) => {
+      try {
+        const blob = new Blob([content], { type: mtype });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fname;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        setCurrentFilePath(fname);
+        setCurrentLocalStorageKey(null);
+        setCustomSaveName(savedName);
+        setSaveLogs(prev => [
+          { time: new Date().toLocaleTimeString("vi-VN"), path: `Browser Download: ${fname}`, type: 'save' },
+          ...prev
+        ]);
+        callback?.();
+      } catch (err: any) {
+        alert("Lỗi kết xuất file tải xuống: " + err.message);
+      }
     };
 
     try {
@@ -1250,10 +1476,37 @@ export default function App() {
         // @ts-ignore
         window.pywebview.api.save_file_native(filename, fileContent)
           .then((result: any) => {
+            let success = false;
+            let pathSaved: string | null = null;
+            let filenameSaved: string | null = null;
+
             if (result === "success" || result === true) {
-              alert(`Đã lưu thành công tệp tin thiết kế (.kvl) vào ổ cứng thiết bị của bạn!`);
-            } else if (typeof result === "string" && result.startsWith("error:")) {
-              alert(`Lỗi lưu tệp tin thông qua ứng dụng offline: ${result.substring(6)}`);
+              success = true;
+            } else if (result && typeof result === "object") {
+              if (result.status === "success") {
+                success = true;
+                pathSaved = result.file_path || null;
+                filenameSaved = result.filename || null;
+              } else if (result.status === "error") {
+                alert(`Lỗi lưu tệp tin thông qua ứng dụng offline: ${result.message}`);
+                return;
+              }
+            }
+
+            if (success) {
+              if (pathSaved) {
+                setCurrentFilePath(pathSaved);
+                setCurrentLocalStorageKey(null);
+                if (filenameSaved) {
+                  setCustomSaveName(filenameSaved.replace(/\.(kvl|json)$/i, ""));
+                }
+                setSaveLogs(prev => [
+                  { time: new Date().toLocaleTimeString("vi-VN"), path: pathSaved!, type: 'save' },
+                  ...prev
+                ]);
+              }
+              alert(`Đã lưu thành công tệp tin thiết kế (.kvl) vào máy tính của bạn!`);
+              onSuccess?.();
             }
           })
           .catch((err: any) => {
@@ -1262,18 +1515,317 @@ export default function App() {
         return;
       }
       
-      const blob = new Blob([fileContent], { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
+      // If running in browser and supports showSaveFilePicker, use it to get a real local file handle!
+      // @ts-ignore
+      else if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+        // @ts-ignore
+        const opts = {
+          suggestedName: filename,
+          types: [{
+            description: format === 'kvl' ? 'Bộ mẫu KVL (*.kvl)' : 'Tệp cấu hình JSON (*.json)',
+            accept: format === 'kvl' ? { 'text/plain': ['.kvl'] } : { 'application/json': ['.json'] }
+          }]
+        };
+        
+        let pickerPromise;
+        try {
+          // @ts-ignore
+          pickerPromise = window.showSaveFilePicker(opts);
+        } catch (syncErr: any) {
+          console.warn("Synchronous error calling showSaveFilePicker, falling back to standard download:", syncErr);
+          triggerBlobDownload(fileContent, filename, mimeType, nameToSave, onSuccess);
+          return;
+        }
+
+        pickerPromise
+          .then(async (handle: any) => {
+            const writable = await handle.createWritable();
+            await writable.write(fileContent);
+            await writable.close();
+            
+            setActiveFileHandle(handle);
+            setCurrentFilePath(handle.name);
+            setCurrentLocalStorageKey(null);
+            setCustomSaveName(handle.name.replace(/\.(kvl|json)$/i, ""));
+            setSaveLogs(prev => [
+              { time: new Date().toLocaleTimeString("vi-VN"), path: handle.name, type: 'save' },
+              ...prev
+            ]);
+            alert(`Đã lưu thành công tệp thiết kế "${handle.name}" vào máy tính của bạn! Từ bây giờ bạn có thể sửa và bấm Ctrl + S để tự động cập nhật trực tiếp không cần chọn đường dẫn.`);
+            onSuccess?.();
+          })
+          .catch((err: any) => {
+            if (err.name === 'AbortError') {
+              // User deliberate cancellation, let modal stay open so they can click Save again
+              return;
+            }
+            console.warn("showSaveFilePicker promise rejected, falling back to standard download:", err);
+            triggerBlobDownload(fileContent, filename, mimeType, nameToSave, onSuccess);
+          });
+        return;
+      }
       
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(fileContent, filename, mimeType, nameToSave, onSuccess);
     } catch (err: any) {
       alert("Lỗi khi kết xuất file: " + err.message);
+    }
+  };
+
+  // Quick In-place save for offline mode
+  const handleQuickSave = () => {
+    // If we have an active file path in PyWebView offline mode, save directly
+    // @ts-ignore
+    if (currentFilePath && window.pywebview && window.pywebview.api && window.pywebview.api.save_file_direct) {
+      const compactExcelRows = excelData.map((row) => {
+        return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
+      });
+
+      const exportData: any = {
+        version: "2.5",
+        name: customSaveName || labelConfig.name || "tem_thiet_ke",
+        timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
+        labelConfig,
+        sheetConfig,
+        objects,
+        excelFileName,
+        excelFilePath,
+        excelColumns,
+        excelRowsCompact: compactExcelRows,
+        excelOriginalBase64: excelFileBase64 || "",
+        printQuantityMode,
+        printQuantityColumn,
+      };
+
+      try {
+        const jsonStr = JSON.stringify(exportData);
+        let fileContent = jsonStr;
+        if (currentFilePath.endsWith('.kvl')) {
+          fileContent = btoa(unescape(encodeURIComponent(jsonStr)));
+        }
+
+        // @ts-ignore
+        window.pywebview.api.save_file_direct(currentFilePath, fileContent)
+          .then((result: any) => {
+            if (result && result.status === "success") {
+              setSaveLogs(prev => [
+                { time: new Date().toLocaleTimeString("vi-VN"), path: currentFilePath, type: 'quick-save' },
+                ...prev
+              ]);
+              alert(`Đã tự động lưu đè và cập nhật thành công vào file:\n${result.filename}`);
+            } else if (result && result.status === "error") {
+              alert(`Lỗi khi lưu đè tệp tin: ${result.message}`);
+            } else {
+              alert("Lưu tệp tin thất bại!");
+            }
+          })
+          .catch((err: any) => {
+            alert("Lỗi kết nối lưu đè trực tiếp Python: " + err.message);
+          });
+      } catch (err: any) {
+        alert("Lỗi mã hóa dữ liệu: " + err.message);
+      }
+    } 
+    // If we have an active file handle in Web File System Access API (Google Chrome / Edge)
+    else if (activeFileHandle) {
+      const compactExcelRows = excelData.map((row) => {
+        return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
+      });
+
+      const exportData: any = {
+        version: "2.5",
+        name: customSaveName || labelConfig.name || "tem_thiet_ke",
+        timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
+        labelConfig,
+        sheetConfig,
+        objects,
+        excelFileName,
+        excelFilePath,
+        excelColumns,
+        excelRowsCompact: compactExcelRows,
+        excelOriginalBase64: excelFileBase64 || "",
+        printQuantityMode,
+        printQuantityColumn,
+      };
+
+      try {
+        const jsonStr = JSON.stringify(exportData);
+        let fileContent = jsonStr;
+        if (activeFileHandle.name.endsWith('.kvl')) {
+          fileContent = btoa(unescape(encodeURIComponent(jsonStr)));
+        }
+
+        activeFileHandle.createWritable()
+          .then(async (writable: any) => {
+            await writable.write(fileContent);
+            await writable.close();
+            setSaveLogs(prev => [
+              { time: new Date().toLocaleTimeString("vi-VN"), path: activeFileHandle.name, type: 'quick-save' },
+              ...prev
+            ]);
+            alert(`Đã tự động lưu đè và cập nhật trực tiếp thành công vào file:\n"${activeFileHandle.name}"`);
+          })
+          .catch((err: any) => {
+            alert("Lỗi khi ghi đè trực tiếp lên tệp: " + err.message);
+          });
+      } catch (err: any) {
+        alert("Lỗi mã hóa dữ liệu: " + err.message);
+      }
+    }
+    // If we have an active file in browser (currentFilePath is set but window.pywebview is not available), let's save directly by downloading!
+    // @ts-ignore
+    else if (currentFilePath && (!window.pywebview || !window.pywebview.api)) {
+      handleExportToFile(customSaveName || labelConfig.name || "tem_thiet_ke", currentFilePath.endsWith('.json') ? 'json' : 'kvl');
+    }
+    // If we have a connected browser local storage design template, save directly to local storage
+    else if (currentLocalStorageKey) {
+      const compactExcelRows = excelData.map((row) => {
+        return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
+      });
+
+      const newRecord = {
+        name: currentLocalStorageKey,
+        timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
+        config: labelConfig,
+        sheetConfig,
+        objects,
+        excelFileName,
+        excelColumns,
+        excelRowsCompact: compactExcelRows,
+        printQuantityMode,
+        printQuantityColumn,
+      };
+
+      const duplicateFiltered = savedDesigns.filter((d) => d.name !== currentLocalStorageKey);
+      const updated = [newRecord, ...duplicateFiltered].slice(0, 20);
+
+      localStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
+      setSavedDesigns(updated);
+      setCustomSaveName(currentLocalStorageKey);
+      setSaveLogs(prev => [
+        { time: new Date().toLocaleTimeString("vi-VN"), path: `Local Storage: ${currentLocalStorageKey}`, type: 'quick-save' },
+        ...prev
+      ]);
+      alert(`Đã tự động lưu đè và cập nhật trực tiếp thành công vào Bộ nhớ duyệt web:\n"${currentLocalStorageKey}"`);
+    }
+    // Standard unlinked state -> Open Save Dialog (Save As)
+    else {
+      // Prompt standard Save Dialog
+      setSaveTemplateName(customSaveName || labelConfig.name || "");
+      setSaveLocation(null);
+      setShowSaveDialog(true);
+    }
+  };
+
+  // Open native system file selector in PyWebView
+  const triggerImportFile = () => {
+    // @ts-ignore
+    if (window.pywebview && window.pywebview.api && window.pywebview.api.load_file_native) {
+      // @ts-ignore
+      window.pywebview.api.load_file_native()
+        .then((response: any) => {
+          if (response && (response.status === "success" || response.status === "warning_locked") && response.content) {
+            try {
+              if (response.status === "warning_locked") {
+                const confirmOpen = window.confirm(response.message);
+                if (!confirmOpen) {
+                  return;
+                } else {
+                  // User chose to "open anyway". Let's lock it explicitly under our session
+                  // @ts-ignore
+                  if (window.pywebview && window.pywebview.api && window.pywebview.api.create_lock_direct) {
+                    // @ts-ignore
+                    window.pywebview.api.create_lock_direct(response.file_path);
+                  }
+                }
+              }
+
+              let parsedData: any = null;
+              try {
+                parsedData = JSON.parse(response.content);
+              } catch (jsonErr) {
+                const decodedStr = decodeURIComponent(escape(atob(response.content.trim())));
+                parsedData = JSON.parse(decodedStr);
+              }
+              
+              const restored = restoreDesignAndExcel(parsedData);
+              if (restored) {
+                setCurrentFilePath(response.file_path);
+                setCurrentLocalStorageKey(null);
+                setActiveFileHandle(null);
+                setCustomSaveName(response.filename.replace(/\.(kvl|json)$/i, ""));
+                setSaveLogs(prev => [
+                  { time: new Date().toLocaleTimeString("vi-VN"), path: response.file_path, type: 'import' },
+                  ...prev
+                ]);
+              } else {
+                alert("Nội dung tệp thiếu thông số cấu trúc (labelConfig/objects).");
+              }
+            } catch (err: any) {
+              alert("Lỗi phân tích tệp KVL/JSON: " + err.message);
+            }
+          } else if (response && response.status === "error") {
+            alert("Lỗi mở tệp tin: " + response.message);
+          }
+        })
+        .catch((err: any) => {
+          alert("Lỗi nạp tệp qua Python: " + err.message);
+        });
+    } else if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+      // @ts-ignore
+      window.showOpenFilePicker({
+        types: [
+          {
+            description: 'Bộ mẫu KVL hoặc JSON (*.kvl, *.json)',
+            accept: {
+              'application/json': ['.json', '.kvl'],
+              'text/plain': ['.kvl']
+            }
+          }
+        ],
+        multiple: false
+      })
+      .then(async ([handle]: any) => {
+        try {
+          const file = await handle.getFile();
+          const rawContent = await file.text();
+          let parsedData: any = null;
+
+          try {
+            parsedData = JSON.parse(rawContent);
+          } catch (jsonErr) {
+            try {
+              const decodedStr = decodeURIComponent(escape(atob(rawContent.trim())));
+              parsedData = JSON.parse(decodedStr);
+            } catch (b64Err) {
+              throw new Error("Định dạng file không hợp lệ. Vui lòng nạp file .kvl hoặc .json chính xác.");
+            }
+          }
+
+          const restored = restoreDesignAndExcel(parsedData);
+          if (restored) {
+            setCustomSaveName(file.name.replace(/\.(kvl|json)$/i, ""));
+            setCurrentFilePath(file.name);
+            setCurrentLocalStorageKey(null);
+            setActiveFileHandle(handle);
+            setSaveLogs(prev => [
+              { time: new Date().toLocaleTimeString("vi-VN"), path: file.name, type: 'import' },
+              ...prev
+            ]);
+            alert(`Đã liên kết tệp "${file.name}" thành công! Từ bây giờ bạn có thể sửa và bấm Ctrl + S để tự động cập nhật trực tiếp lên tệp.`);
+          } else {
+            alert("Nội dung tệp thiếu các thông số cấu trúc (labelConfig/objects). Vui lòng kiểm tra lại.");
+          }
+        } catch (err: any) {
+          alert("Lỗi khi đọc tệp tin: " + err.message);
+        }
+      })
+      .catch((err: any) => {
+        if (err.name !== 'AbortError') {
+          document.getElementById("file-import-input")?.click();
+        }
+      });
+    } else {
+      document.getElementById("file-import-input")?.click();
     }
   };
 
@@ -1302,7 +1854,12 @@ export default function App() {
         }
 
         const restored = restoreDesignAndExcel(parsedData);
-        if (!restored) {
+        if (restored) {
+          setCustomSaveName(file.name.replace(/\.(kvl|json)$/i, ""));
+          setCurrentFilePath(file.name);
+          setCurrentLocalStorageKey(null);
+          setActiveFileHandle(null);
+        } else {
           alert("Nội dung tệp thiếu các thông số cấu trúc (labelConfig/objects). Vui lòng kiểm tra lại.");
         }
       } catch (err: any) {
@@ -1330,6 +1887,9 @@ export default function App() {
     setLabelConfig(config);
     setObjects(templateObjects);
     handleSelectObject(null);
+    setCurrentFilePath(null);
+    setCurrentLocalStorageKey(null);
+    setActiveFileHandle(null);
   };
 
   // Synchronise global hotkey intercept for Ctrl+P, Ctrl+S, Ctrl+O, etc.
@@ -1347,12 +1907,10 @@ export default function App() {
         handlePrintLabel();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        setSaveTemplateName(customSaveName || labelConfig.name || "");
-        setSaveLocation(null);
-        setShowSaveDialog(true);
+        handleQuickSave();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
         e.preventDefault();
-        document.getElementById("file-import-input")?.click();
+        triggerImportFile();
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         if (!isEditingInput) {
           e.preventDefault();
@@ -1379,6 +1937,9 @@ export default function App() {
     printQuantityColumn,
     selectedId,
     customSaveName,
+    currentFilePath,
+    currentLocalStorageKey,
+    savedDesigns,
     handleUndo,
     handleRedo
   ]);
@@ -1426,9 +1987,9 @@ export default function App() {
     <div className="h-screen w-screen flex flex-col overflow-hidden font-sans select-none bg-kiot-bg text-kiot-slate app-scale-wrapper">
       
       {/* 1. TOP APPLICATION NAVIGATION BAR */}
-      <header id="app-header" className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-3 shrink-0 z-40 no-print text-kiot-navy shadow-sm">
-        <div className="flex items-center space-x-3">
-          <svg viewBox="0 0 326 92" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto shrink-0 select-none" id="kiotviet-svg-logo">
+      <header id="app-header" className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-40 no-print text-kiot-navy shadow-md">
+        <div className="flex items-center space-x-4">
+          <svg viewBox="0 0 326 92" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-11 w-auto shrink-0 select-none transition-transform hover:scale-105" id="kiotviet-svg-logo">
             {/* Background barcode pattern inside logo wrapper on header */}
             <g opacity="0.12">
               <rect x="2" y="8" width="3" height="76" fill="#000000"/>
@@ -1464,48 +2025,48 @@ export default function App() {
               </radialGradient>
             </defs>
           </svg>
-          <div className="h-7 w-px bg-gray-250" />
+          <div className="h-9 w-px bg-gray-200" />
           <div>
-            <h1 className="text-[17px] font-extrabold tracking-tight text-kiot-navy flex items-center space-x-1.5 leading-none">
+            <h1 className="text-[21px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
               <span className="text-kiot-cyan">LabelPro</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[10px] font-mono font-bold text-white bg-kiot-green px-1.5 py-0.5 rounded-full shadow-sm">V2.4</span>
+              <span className="text-[11px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">V2.4</span>
             </h1>
-            <p className="text-[11px] text-gray-400 font-semibold mt-0.5">Hệ thống tạo & in tem nhãn liên kết dữ liệu hàng loạt</p>
+            <p className="text-[13px] text-zinc-500 font-bold mt-1">Hệ thống thiết kế & in tem nhãn liên kết dữ liệu hàng loạt chuyên nghiệp</p>
           </div>
         </div>
 
         {/* TOP QUICK DESIGNS BUTTONS */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-3">
           {/* Preset Template Selector */}
           <div className="relative group">
             <button
-              className="h-7 px-2.5 rounded bg-white hover:bg-amber-50 text-[11px] font-bold text-amber-750 tracking-wide flex items-center space-x-1.5 border border-amber-200 hover:border-amber-450 transition cursor-pointer shadow-xs"
+              className="h-10 px-3.5 rounded-lg bg-white hover:bg-amber-50 text-[12.5px] font-extrabold text-amber-800 tracking-wide flex items-center space-x-2 border border-amber-300 hover:border-amber-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
               title="Chọn mẫu thiết kế ứng dụng có sẵn"
             >
-              <BookOpen className="w-3.5 h-3.5 text-amber-550 shrink-0" />
+              <BookOpen className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Chọn Mẫu có sẵn</span>
-              <span className="text-[9px] bg-amber-50 text-amber-800 px-1 rounded font-mono">Preset</span>
+              <span className="text-[9.5px] bg-amber-150/60 text-amber-900 px-1.5 py-0.5 rounded font-mono font-black">Preset</span>
             </button>
-            <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 text-slate-800 hidden group-hover:block hover:block z-50 text-left">
+            <div className="absolute right-0 mt-1.5 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 text-slate-800 hidden group-hover:block hover:block z-50 text-left">
               <TemplateSelector onSelectTemplate={handleSelectTemplate} />
             </div>
           </div>
 
           {/* Load layouts storage */}
-          <div className="relative border-r border-gray-150 pr-2">
+          <div className="relative border-r border-gray-150 pr-3">
             <button
               onClick={() => setShowSavedList(!showSavedList)}
-              className="h-7 px-2.5 rounded bg-white hover:bg-emerald-50 text-[11px] font-bold text-emerald-700 tracking-wide flex items-center space-x-1.5 border border-emerald-200 hover:border-emerald-400 transition cursor-pointer shadow-xs"
+              className="h-10 px-3.5 rounded-lg bg-white hover:bg-emerald-50 text-[12.5px] font-extrabold text-emerald-800 tracking-wide flex items-center space-x-2 border border-emerald-300 hover:border-emerald-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
               title="Danh sách thiết kế của bạn đã lưu"
             >
-              <FolderHeart className="w-3.5 h-3.5 text-rose-500" />
+              <FolderHeart className="w-4 h-4 text-rose-500" />
               <span>Mẫu đã lưu ({savedDesigns.length})</span>
             </button>
             
             {showSavedList && (
-              <div className="absolute right-0 mt-2 w-76 bg-white text-slate-800 rounded-lg shadow-2xl border border-gray-200/80 p-2.5 z-50 text-left max-h-[300px] overflow-y-auto animate-fadeIn">
-                <h4 className="font-extrabold text-[11px] pb-2 border-b border-gray-150 text-kiot-navy uppercase tracking-wider flex items-center space-x-1.5">
+              <div className="absolute right-0 mt-2.5 w-76 bg-white text-slate-800 rounded-lg shadow-2xl border border-gray-200/85 p-3 z-50 text-left max-h-[300px] overflow-y-auto animate-fadeIn">
+                <h4 className="font-extrabold text-xs pb-2 border-b border-gray-150 text-kiot-navy uppercase tracking-wider flex items-center space-x-1.5">
                   <FolderHeart className="w-4 h-4 text-rose-500" />
                   <span>Bộ sưu tập mẫu đã lưu</span>
                 </h4>
@@ -1539,7 +2100,7 @@ export default function App() {
           </div>
 
           {/* Simplified save trigger and file import */}
-          <div className="flex items-center space-x-1.5 shrink-0">
+          <div className="flex items-center space-x-2 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -1547,22 +2108,29 @@ export default function App() {
                 setSaveLocation(null);
                 setShowSaveDialog(true);
               }}
-              className="h-7 px-3 bg-indigo-600 hover:bg-indigo-750 text-white transition rounded-md text-[11px] font-extrabold uppercase flex items-center space-x-1 cursor-pointer shadow-md shadow-indigo-600/10 shrink-0"
-              title="Mở bảng lựa chọn lưu trữ thiết kế (Phím tắt: Ctrl + S)"
+              className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white transition rounded-lg text-xs font-black uppercase flex items-center space-x-1.5 cursor-pointer shadow-md shadow-indigo-600/20 shrink-0 hover:scale-[1.02] active:scale-[0.98]"
+              title="Lưu bản thiết kế này sang loại khác hoặc tên mới hoàn toàn (Save As)"
             >
-              <Save className="w-3.5 h-3.5 mr-0.5" />
-              <span>Lưu mẫu <kbd className="ml-1 bg-indigo-850 px-1 py-0.5 rounded text-[8px] font-mono normal-case">Ctrl+S</kbd></span>
+              <Save className="w-4 h-4" />
+              <span>Save As...</span>
             </button>
           </div>
 
           {/* Offline Import File Group (Export button removed per request) */}
-          <div className="flex items-center space-x-1 border-l border-gray-150 pl-2">
+          <div className="flex items-center space-x-2 border-l border-gray-150 pl-3">
             <label
-              className="h-7 px-2.5 rounded bg-white hover:bg-emerald-50 text-[11px] font-bold text-emerald-850 tracking-wide flex items-center space-x-1 border border-emerald-250 hover:border-emerald-350 transition cursor-pointer shadow-xs shrink-0"
+              className="h-10 px-4 rounded-lg bg-white hover:bg-emerald-50 text-[12.5px] font-extrabold text-emerald-900 tracking-wide flex items-center space-x-2 border border-emerald-300 hover:border-emerald-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
               title="Chọn file thiết kế .kvl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu (Phím tắt: Ctrl + O)"
+              onClick={(e) => {
+                // @ts-ignore
+                if (window.pywebview && window.pywebview.api && window.pywebview.api.load_file_native) {
+                  e.preventDefault();
+                  triggerImportFile();
+                }
+              }}
             >
-              <Upload className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span>Import File <kbd className="ml-1 bg-slate-100 border border-slate-250/65 text-slate-500 px-1 py-0.5 rounded text-[8px] font-mono normal-case">Ctrl+O</kbd></span>
+              <Upload className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Import File <kbd className="ml-1 bg-slate-100 border border-slate-250/65 text-slate-500 px-1.5 py-0.5 rounded text-[9px] font-mono normal-case">Ctrl+O</kbd></span>
               <input
                 id="file-import-input"
                 type="file"
@@ -1574,14 +2142,14 @@ export default function App() {
           </div>
 
           {/* Quick instructions toggle */}
-          <div className="flex items-center space-x-1 border-l border-gray-150 pl-2 font-sans">
+          <div className="flex items-center space-x-2 border-l border-gray-150 pl-3 font-sans">
             <button
               type="button"
               onClick={() => setShowHowToUse(true)}
-              className="h-7 px-2.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold tracking-wide flex items-center space-x-1 border border-amber-200 hover:border-amber-350 transition cursor-pointer shadow-xs shrink-0"
+              className="h-10 px-3.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 text-[12.5px] font-extrabold tracking-wide flex items-center space-x-2 border border-amber-300 hover:border-amber-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
               title="Xem hướng dẫn các bước tạo mẫu tem"
             >
-              <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <Info className="w-4 h-4 text-amber-600 shrink-0" />
               <span>Hướng dẫn</span>
             </button>
           </div>
@@ -2756,21 +3324,9 @@ export default function App() {
                     {/* Direct Upload button or clean row count badge inside the header bar */}
                     <div className="flex items-center space-x-2 ml-2 shrink-0">
                       {!excelFileName ? (
-                        <button 
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsExcelExpanded(true);
-                            // Open file dialog directly
-                            setTimeout(() => {
-                              document.getElementById("excel-file-uploader-direct")?.click();
-                            }, 50);
-                          }}
-                          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[11.5px] rounded-lg shadow-sm flex items-center space-x-1 cursor-pointer transition focus:outline-none"
-                        >
-                          <Upload className="w-3.5 h-3.5" />
-                          <span>Upload file</span>
-                        </button>
+                        <span className="text-[10.5px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded select-none">
+                          Chưa liên kết
+                        </span>
                       ) : (
                         <div className="flex items-center space-x-1.5 bg-emerald-650 text-white px-2 py-1 rounded shadow-inner text-[11px] font-mono font-bold select-none">
                           <span>✓ {excelData.length} dòng</span>
@@ -2784,8 +3340,8 @@ export default function App() {
                     <span className="shrink-0 bg-emerald-600 text-white font-extrabold text-[9.5px] px-1.5 py-0.5 rounded uppercase tracking-wide">
                       NOTE
                     </span>
-                    <span className="leading-relaxed font-bold text-emerald-900">
-                      Dữ liệu dòng 1 sẽ làm tiêu đề, Dữ liệu để in sẽ bắt đầu từ dòng 2
+                    <span className="leading-relaxed font-bold text-emerald-950">
+                      Định dạng .xlsx, .xls. Dòng 1 chứa tiêu đề cột, dòng 2 trở đi chứa dữ liệu tem
                     </span>
                   </div>
 
@@ -2798,14 +3354,50 @@ export default function App() {
                           <div className="relative space-y-2">
                             <label 
                               htmlFor="excel-file-uploader-direct"
-                              className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg p-4 bg-slate-50 cursor-pointer hover:bg-emerald-50/10 hover:border-emerald-300 transition text-center space-y-1.5"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                triggerExcelLoadDialog('new');
+                              }}
+                              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) {
+                                  const fname = file.name.toLowerCase();
+                                  if (fname.endsWith(".xlsx") || fname.endsWith(".xls")) {
+                                    const b64Reader = new FileReader();
+                                    b64Reader.onload = (b64Evt) => {
+                                      try {
+                                        const b64Result = b64Evt.target?.result as string;
+                                        setExcelFileBase64(b64Result.split(",")[1] || b64Result);
+                                      } catch (err) {
+                                        console.error(err);
+                                      }
+                                    };
+                                    b64Reader.readAsDataURL(file);
+
+                                    const reader = new FileReader();
+                                    reader.onload = (evt) => {
+                                      if (evt.target?.result) {
+                                        processExcelBinary(evt.target.result as ArrayBuffer, file.name, true);
+                                      }
+                                    };
+                                    reader.readAsArrayBuffer(file);
+                                  } else {
+                                    alert("Định dạng tệp không được hỗ trợ! Vui lòng chỉ kéo thả tệp Excel (.xlsx, .xls).");
+                                  }
+                                }
+                              }}
+                              className="flex flex-col items-center justify-center border-2 border-dashed border-emerald-250/70 rounded-xl p-5 bg-slate-50/50 cursor-pointer hover:bg-emerald-50/25 hover:border-emerald-400 transition-all text-center space-y-3"
                             >
-                              <Upload className="w-7 h-7 text-emerald-500 animate-pulse" />
-                              <div>
-                                <span className="text-[12.5px] font-bold text-slate-700 block">Chọn tệp Excel từ máy (.xlsx, .xls)</span>
-                                <span className="text-[11px] text-slate-450 mt-1 block font-semibold leading-relaxed select-none">
-                                  Dòng 1: Tiêu đề cột để "Link Data"<br />Từ Dòng 2 trở đi: Dữ liệu tem
-                                </span>
+                              <div className="px-4.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-[12px] rounded-lg shadow-md flex items-center justify-center space-x-2 transition-all transform hover:scale-[1.02] select-none active:scale-[0.98]">
+                                <Upload className="w-4 h-4 text-white" />
+                                <span>Upload file</span>
+                              </div>
+                              <div className="space-y-1 pb-1">
+                                <span className="text-[13px] font-extrabold text-slate-850 block">Chọn tệp Excel từ máy</span>
+                                <span className="text-[11.5px] text-slate-500 font-extrabold block">Hoặc kéo thả file vào vùng upload</span>
                               </div>
                             </label>
                             
@@ -2821,51 +3413,73 @@ export default function App() {
                             </div>
                           </div>
                         ) : (
-                          <div className="p-3 bg-emerald-50 border border-emerald-250/70 rounded-lg space-y-3 shadow-2xs">
+                          <div className="p-3.5 bg-emerald-50 border border-emerald-250/70 rounded-lg space-y-3 shadow-2xs">
                             <div className="flex items-start justify-between">
                               <div className="min-w-0 pr-2 flex-1">
-                                <p className="font-extrabold text-emerald-900 truncate text-[13px] flex items-center gap-1.5">
+                                <p className="font-extrabold text-emerald-950 truncate text-[13px] flex items-center gap-1.5 leading-tight">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
                                   <span>Đã liên kết dữ liệu Excel</span>
                                 </p>
-                                <p className="text-[11.5px] text-emerald-850 truncate font-extrabold font-mono mt-1 border-b border-emerald-200/50 pb-1.5">{excelFileName}</p>
-                                <p className="text-[11.5px] text-slate-600 font-bold mt-1.5">
+                                <p className="text-[11px] text-emerald-850 truncate font-black font-mono mt-1 border-b border-emerald-200/50 pb-1.5" title={excelFileName}>{excelFileName}</p>
+                                <p className="text-[11px] text-zinc-650 font-bold mt-2">
                                   Sẵn sàng in hàng loạt: <span className="text-emerald-700 font-extrabold font-mono">{excelData.length} dòng dữ liệu</span>.
                                 </p>
-                                
-                                <div className="flex flex-wrap gap-2 mt-2.5">
-                                  {/* Download active linked excel/restored template file easily */}
-                                  <button
-                                    type="button"
-                                    onClick={handleDownloadExcelTemplate}
-                                    className="text-[10px] bg-white border border-emerald-300 hover:bg-emerald-50 text-emerald-800 font-bold px-2 py-1.5 rounded inline-flex items-center gap-1 transition-all shadow-3xs cursor-pointer select-none"
-                                    title="Tải tệp Excel đang lưu trong mẫu tem này về máy để sửa nhanh"
-                                  >
-                                    <Download className="w-2.5 h-2.5" /> Tải tệp đang chạy
-                                  </button>
-
-                                  {/* Quick Sync / Re-upload button that preserves all linkages */}
-                                  <button
-                                    type="button"
-                                    onClick={() => document.getElementById("excel-file-uploader-direct")?.click()}
-                                    className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold px-2.5 py-1.5 rounded inline-flex items-center gap-1 transition-all shadow-2xs hover:shadow-sm cursor-pointer select-none"
-                                    title="Chọn tệp Excel đã sửa đổi từ máy tính để đồng bộ lại dữ liệu mà không làm mất liên kết tem"
-                                  >
-                                    <RefreshCw className="w-2.5 h-2.5 animate-[spin_5s_linear_infinite]" /> Đồng bộ / Cập nhật File mới
-                                  </button>
-                                </div>
-
-                                <div className="mt-2.5 pt-2 border-t border-emerald-200/50 text-[10.5px] leading-relaxed font-medium text-slate-500">
-                                  <span className="text-emerald-700 font-bold">💡 Mẹo giữ liên kết:</span> Khi thông tin trong file Excel của bạn có thay đổi, hãy sửa trực tiếp trên file đó rồi nhấn nút <strong className="text-emerald-800">Đồng bộ / Cập nhật File mới</strong> ở trên. Hệ thống sẽ cập nhật dữ liệu mới <span className="font-semibold text-emerald-700">và giữ nguyên 100% tất cả các liên kết trường dữ liệu</span> đã thiết lập trước đó!
-                                </div>
                               </div>
                               <button
+                                type="button"
                                 onClick={handleClearExcel}
-                                className="p-1 hover:bg-emerald-100 text-emerald-700 hover:text-red-650 rounded transition shrink-0 cursor-pointer ml-1"
+                                className="p-1 hover:bg-emerald-100 text-emerald-700 hover:text-red-650 rounded transition shrink-0 cursor-pointer ml-1 animate-fadeIn"
                                 title="Hủy kết nối file Excel hiện tại"
                               >
                                 <X className="w-4 h-4" />
                               </button>
+                            </div>
+
+                            <div className="space-y-3 pt-2.5 border-t border-emerald-150/85">
+                              {/* 1. Nút Đồng bộ */}
+                              <div className="space-y-1">
+                                <button
+                                  type="button"
+                                  onClick={handleDirectExcelSync}
+                                  className="w-full text-[10.5px] bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-1.5 px-2.5 rounded-md inline-flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-[0.98] cursor-pointer select-none border border-emerald-700"
+                                  title="Tự động đồng bộ / làm mới tất cả thông tin trực tiếp từ tệp tin mà không hiển thị lại hộp thoại thoại"
+                                >
+                                  <RefreshCw className="w-3 h-3 text-white animate-[spin_10s_linear_infinite]" />
+                                  <span>Đồng bộ dữ liệu</span>
+                                </button>
+                                <p className="text-[9.5px] text-zinc-500 font-bold leading-normal pl-1.5 border-l border-emerald-400">
+                                  Hệ thống tự động phát hiện, cập nhật dữ liệu ngầm và giữ nguyên liên kết.
+                                </p>
+                              </div>
+
+                              {/* 2. Nút Cập nhật File mới */}
+                              <div className="space-y-1">
+                                <button
+                                  type="button"
+                                  onClick={() => triggerExcelLoadDialog('new')}
+                                  className="w-full text-[10.5px] bg-white hover:bg-slate-50 text-slate-800 font-bold py-1.5 px-2.5 rounded-md inline-flex items-center justify-center gap-1.5 transition-all shadow-3xs active:scale-[0.98] border border-slate-300 cursor-pointer select-none"
+                                  title="Thay đổi bằng file Excel hoàn toàn mới"
+                                >
+                                  <Upload className="w-3 h-3 text-zinc-650" />
+                                  <span>Cập nhật File mới</span>
+                                </button>
+                                <p className="text-[9.5px] text-zinc-500 font-bold leading-normal pl-1.5 border-l border-slate-300">
+                                  Nếu chọn file khác, các liên kết tem với cột cũ sẽ bị xóa hết.
+                                </p>
+                              </div>
+
+                              {/* 3. Nút Tải tệp đang liên kết */}
+                              <div className="pt-2 border-t border-emerald-200/40">
+                                <button
+                                  type="button"
+                                  onClick={handleDownloadExcelTemplate}
+                                  className="w-full text-[10px] bg-emerald-100/60 hover:bg-emerald-100 text-emerald-800 font-extrabold py-1 px-2 rounded inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none border border-emerald-200/50"
+                                  title="Tải tệp Excel đang chạy trong mẫu thiết kế này"
+                                >
+                                  <Download className="w-2.5 h-2.5 text-emerald-700" />
+                                  <span>Tải tệp đang liên kết</span>
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
@@ -3476,6 +4090,9 @@ export default function App() {
             isSystemPrinting={isSystemPrinting}
             onAddImageObject={(base64) => handleAddObject("image", base64)}
             onUpdateObject={handleUpdateObject}
+            currentFilePath={currentFilePath}
+            currentLocalStorageKey={currentLocalStorageKey}
+            saveLogs={saveLogs}
           />
 
         </main>
@@ -3820,6 +4437,12 @@ export default function App() {
                   </div>
                 </button>
               </div>
+
+              {saveLocation === 'device' && typeof window !== 'undefined' && window.self !== window.top && (
+                <div className="mt-3 p-2.5 bg-amber-50 rounded-lg text-[10px] text-amber-800 leading-relaxed border border-amber-200/50 animate-fadeIn">
+                  💡 <strong>Giới hạn của Iframe:</strong> Trình duyệt chặn quyền ghi đè trực tiếp file khi trang web nằm trong khung xem thử của AI Studio. Hệ thống sẽ tự động tải file xuống qua trình duyệt. Để mở khóa tính năng <strong>tự động lưu đè trực tiếp (Ctrl + S)</strong>, bạn chỉ cần click nút <strong>"Mở tab mới"</strong> ở góc trên bên phải màn hình để chạy ứng dụng độc lập.
+                </div>
+              )}
             </div>
 
             {/* Step 2: Form Settings (Visible only when a destination is chosen) */}
@@ -3862,12 +4485,17 @@ export default function App() {
                       const finalName = saveTemplateName.trim() || `Bản vẽ ${new Date().toLocaleDateString("vi-VN")}`;
                       if (saveLocation === 'local') {
                         handleSaveToLocalStorage(finalName);
+                        setCustomSaveName(finalName); // update state in header
+                        setShowSaveDialog(false);
+                        setSaveLocation(null);
                       } else if (saveLocation === 'device') {
-                        handleExportToFile(finalName, 'kvl');
+                        // Pass onSuccess callback to close only when the file select action actually finishes
+                        setCustomSaveName(finalName); // update state in header first
+                        handleExportToFile(finalName, 'kvl', () => {
+                          setShowSaveDialog(false);
+                          setSaveLocation(null);
+                        });
                       }
-                      setCustomSaveName(finalName); // update state in header
-                      setShowSaveDialog(false);
-                      setSaveLocation(null);
                     }}
                     className="flex-1 py-1.5 bg-kiot-green hover:bg-emerald-600 text-white rounded-lg text-xs font-extrabold uppercase transition cursor-pointer shadow-md flex items-center justify-center space-x-1"
                   >

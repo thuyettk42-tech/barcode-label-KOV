@@ -39,11 +39,53 @@ if sys.platform.startswith('win'):
 class DesktopApi:
     def __init__(self):
         self._window = None
+        self._active_lock_path = None
+
+    def _create_lock_file(self, target_path):
+        """Tạo file khóa tạm thời (lock file) trong cùng thư mục với file chính để đánh dấu đang chỉnh sửa."""
+        try:
+            self._release_lock_file()
+            if not target_path:
+                return
+            dir_name = os.path.dirname(target_path)
+            if not os.path.exists(dir_name):
+                return
+            base_name = os.path.basename(target_path)
+            lock_filename = f"~${base_name}"
+            lock_path = os.path.join(dir_name, lock_filename)
+            
+            with open(lock_path, 'w', encoding='utf-8') as f:
+                f.write(f"LOCKED BY KIOTLABEL DESIGNER ON {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            self._active_lock_path = lock_path
+            print(f"[LOCK-SYSTEM] Đã tạo file khóa tạm thời (Lock file): {lock_path}")
+        except Exception as e:
+            print(f"[LOCK-SYSTEM] Lỗi khi tạo file khóa tạm thời: {e}")
+
+    def _release_lock_file(self):
+        """Giải phóng và xóa file khóa tạm thời."""
+        try:
+            if self._active_lock_path and os.path.exists(self._active_lock_path):
+                os.remove(self._active_lock_path)
+                print(f"[LOCK-SYSTEM] Đã xóa file khóa tạm thời: {self._active_lock_path}")
+            self._active_lock_path = None
+        except Exception as e:
+            print(f"[LOCK-SYSTEM] Lỗi khi giải phóng file khóa tạm thời: {e}")
+
+    def create_lock_direct(self, file_path):
+        """API cho phép React yêu cầu tạo file lock trực tiếp."""
+        self._create_lock_file(file_path)
+        return {"status": "success"}
+
+    def release_lock_direct(self):
+        """API cho phép React yêu cầu giải phóng file lock."""
+        self._release_lock_file()
+        return {"status": "success"}
 
     def save_file_native(self, filename, content_str):
         """Mở hộp thoại lưu tệp gốc (Native Save Dialog) của Windows/macOS/Linux và ghi file."""
         if not self._window:
-            return "error: Cửa sổ chính chưa được khởi tạo"
+            return {"status": "error", "message": "Cửa sổ chính chưa được khởi tạo"}
             
         try:
             # Sinh cấu hình bộ lọc loại tập tin hỗ trợ .kvl, .json
@@ -72,12 +114,159 @@ class DesktopApi:
                 # Ghi nội dung chuỗi vào đường dẫn người dùng chỉ định
                 with open(file_path, 'w', encoding='utf-8') as f:
                     f.write(content_str)
-                return "success"
+                # Đăng ký khóa tạm thời cho file này
+                self._create_lock_file(file_path)
+                return {
+                    "status": "success",
+                    "file_path": file_path,
+                    "filename": os.path.basename(file_path)
+                }
             else:
-                return "cancelled"
+                return {"status": "cancelled"}
         except Exception as e:
             print(f"Lỗi khi thực hiện lưu tệp tin ngoại tuyến: {e}")
-            return f"error: {str(e)}"
+            return {"status": "error", "message": str(e)}
+
+    def save_file_direct(self, file_path, content_str):
+        """Lưu đè nội dung trực tiếp vào đường dẫn có sẵn không hiển thị hộp thoại."""
+        try:
+            if not file_path:
+                return {"status": "error", "message": "Đường dẫn không hợp lệ"}
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content_str)
+            # Đảm bảo giữ file khóa tạm của file này
+            self._create_lock_file(file_path)
+            return {
+                "status": "success",
+                "file_path": file_path,
+                "filename": os.path.basename(file_path)
+            }
+        except Exception as e:
+            print(f"Lỗi khi lưu đè tệp tin trực tiếp: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def load_excel_native(self):
+        """Mở hộp thoại chọn tệp Excel của hệ điều hành và đọc trả về đường dẫn & dữ liệu base64."""
+        if not self._window:
+            return {"status": "error", "message": "Cửa sổ chính chưa được khởi tạo"}
+            
+        try:
+            file_types = ('Tệp Excel (*.xlsx; *.xls)', 'Tất cả tập tin (*.*)')
+            file_paths = self._window.create_file_dialog(
+                webview.OPEN_DIALOG,
+                allow_multiple=False,
+                file_types=file_types
+            )
+            
+            if file_paths:
+                if isinstance(file_paths, (tuple, list)):
+                    if len(file_paths) > 0:
+                        file_path = file_paths[0]
+                    else:
+                        file_path = None
+                else:
+                    file_path = file_paths
+            else:
+                file_path = None
+                
+            if file_path:
+                import base64
+                with open(file_path, "rb") as f:
+                    content = f.read()
+                    base64_str = base64.b64encode(content).decode("utf-8")
+                return {
+                    "status": "success",
+                    "file_path": file_path,
+                    "filename": os.path.basename(file_path),
+                    "base64": base64_str
+                }
+            else:
+                return {"status": "cancelled"}
+        except Exception as e:
+            print(f"Lỗi khi mở tệp Excel qua Python: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def read_file_base64_direct(self, file_path):
+        """Đọc và trả về nội dung tệp tin cục bộ dưới dạng chuỗi base64 (sử dụng cho đồng bộ Excel ẩn)."""
+        try:
+            if not file_path or not os.path.exists(file_path):
+                return {"status": "error", "message": "Tệp tin không tồn tại hoặc đường dẫn không hợp lệ."}
+            
+            import base64
+            with open(file_path, "rb") as f:
+                content = f.read()
+                base64_str = base64.b64encode(content).decode("utf-8")
+                
+            return {
+                "status": "success",
+                "base64": base64_str,
+                "filename": os.path.basename(file_path)
+            }
+        except Exception as e:
+            print(f"Lỗi khi đọc file trực tiếp: {e}")
+            return {"status": "error", "message": str(e)}
+
+    def load_file_native(self):
+        """Mở hộp thoại mở tệp gốc (Native Open Dialog) của Windows/macOS/Linux và đọc nội dung file."""
+        if not self._window:
+            return {"status": "error", "message": "Cửa sổ chính chưa được khởi tạo"}
+            
+        try:
+            file_types = ('Mẫu nhãn KVL (*.kvl)', 'Tệp cấu hình JSON (*.json)', 'Tất cả tập tin (*.*)')
+            
+            # Hiển thị hội thoại mở tệp
+            file_paths = self._window.create_file_dialog(
+                webview.OPEN_DIALOG,
+                allow_multiple=False,
+                file_types=file_types
+            )
+            
+            if file_paths:
+                if isinstance(file_paths, (tuple, list)):
+                    if len(file_paths) > 0:
+                        file_path = file_paths[0]
+                    else:
+                        file_path = None
+                else:
+                    file_path = file_paths
+            else:
+                file_path = None
+                
+            if file_path:
+                # Kiểm tra khóa tạm thời
+                dir_name = os.path.dirname(file_path)
+                base_name = os.path.basename(file_path)
+                lock_filename = f"~${base_name}"
+                lock_path = os.path.join(dir_name, lock_filename)
+                
+                is_locked = os.path.exists(lock_path)
+                
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content_str = f.read()
+                
+                if is_locked:
+                    return {
+                        "status": "warning_locked",
+                        "file_path": file_path,
+                        "filename": base_name,
+                        "content": content_str,
+                        "message": f"CẢNH BÁO: Tệp tin '{base_name}' hiện đang được mở hoặc chỉnh sửa ở một cửa sổ/ứng dụng khác.\n\n(Phát hiện file tạm khóa: {lock_filename})\n\nBạn có chắc chắn muốn mở và tiếp tục chỉnh sửa không?"
+                    }
+                else:
+                    # Tạo file lock tạm thời tự động
+                    self._create_lock_file(file_path)
+                    return {
+                        "status": "success",
+                        "file_path": file_path,
+                        "filename": base_name,
+                        "content": content_str
+                    }
+            else:
+                return {"status": "cancelled"}
+        except Exception as e:
+            print(f"Lỗi khi mở tệp tin ngoại tuyến: {e}")
+            return {"status": "error", "message": str(e)}
 
 def get_resource_path(relative_path):
     """Lấy đường dẫn chính xác cho tài nguyên (Hỗ trợ cả khi chạy thường và khi đóng gói file .exe bằng PyInstaller)"""
@@ -93,6 +282,29 @@ def find_free_port():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(('127.0.0.1', 0))
         return s.getsockname()[1]
+
+def set_window_icon(window):
+    """Cấu hình icon riêng của ứng dụng cho cửa sổ Windows Forms một cách an toàn."""
+    try:
+        # Cấu hình AppUserModelID để Windows liên kết biểu tượng Taskbar với file .exe của ứng dụng
+        if sys.platform.startswith('win'):
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("KiotLabel.Designer.Offline.1.0")
+    except Exception:
+        pass
+
+    try:
+        ico_path = get_resource_path("logo.ico")
+        if os.path.exists(ico_path):
+            native_window = getattr(window, 'native', None)
+            if native_window:
+                import System.Drawing
+                # Nạp icon và đổi biểu tượng ở góc trái phía trên của ứng dụng
+                native_window.Icon = System.Drawing.Icon(ico_path)
+                print("[DESKTOP] Đã cập nhật biểu tượng cửa sổ (Windows Form Icon) thành công!")
+    except Exception as e:
+        # Bỏ qua nếu chạy trên macOS/Linux hoặc các thư viện chưa nạp xong
+        print(f"[DESKTOP] Bỏ qua gán biểu tượng WinForms: {e}")
 
 def configure_devtools(window):
     """
@@ -192,8 +404,17 @@ def main():
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
     api._window = win
 
-    # Đăng ký tự động cấu hình và bật DevTools trong nền khi cửa sổ xuất hiện
-    win.events.shown += lambda: configure_devtools(win)
+    # Đăng ký tự động cấu hình, bật DevTools và đổi icon khi cửa sổ xuất hiện
+    def on_window_shown():
+        set_window_icon(win)
+        configure_devtools(win)
+        
+    win.events.shown += on_window_shown
+
+    def on_window_closed():
+        api._release_lock_file()
+
+    win.events.closed += on_window_closed
 
     # Chạy ứng dụng webview (Đặt debug=False để tránh tự động bùng màn hình DevTools lúc khởi động)
     webview.start(debug=False, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn

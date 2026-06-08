@@ -43,6 +43,9 @@ interface LabelCanvasProps {
   isSystemPrinting?: boolean;
   onAddImageObject?: (content: string) => void;
   onUpdateObject?: (updated: LabelObject) => void;
+  currentFilePath?: string | null;
+  currentLocalStorageKey?: string | null;
+  saveLogs?: Array<{ time: string; path: string; type: 'save' | 'import' | 'quick-save' }>;
 }
 
 const getRotatedCursor = (
@@ -295,6 +298,9 @@ export function LabelCanvas({
   isSystemPrinting = false,
   onAddImageObject,
   onUpdateObject,
+  currentFilePath,
+  currentLocalStorageKey,
+  saveLogs,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -302,6 +308,7 @@ export function LabelCanvas({
   const [showAllPagesOnScreen, setShowAllPagesOnScreen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
+  const [showLogsPopupBottom, setShowLogsPopupBottom] = useState(false);
 
   useEffect(() => {
     const handleBeforePrint = () => {
@@ -2189,11 +2196,88 @@ export function LabelCanvas({
           )}
         </div>
 
-        <div className="flex items-center bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-3 rounded-full space-x-2">
-          <span>
-            💡 <strong>Nút di chuyển:</strong> Sử dụng các phím mũi tên ⬅️ ➡️ ⬆️
-            ⬇️ để dịch nhãn, phím Delete để xoá nhanh.
-          </span>
+        <div className="flex items-center space-x-2">
+          {currentFilePath ? (
+            <div 
+              className="relative flex items-center space-x-1.5 text-[10.5px] font-bold text-emerald-600 bg-white/95 backdrop-blur-sm shadow border border-emerald-250/50 px-2.5 py-1 rounded-full cursor-pointer pointer-events-auto"
+              onMouseEnter={() => setShowLogsPopupBottom(true)}
+              onMouseLeave={() => setShowLogsPopupBottom(false)}
+              onClick={() => setShowLogsPopupBottom(!showLogsPopupBottom)}
+              title="Nhấp để xem chi tiết liên kết tệp mẫu này"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span className="font-mono text-[9px] uppercase font-extrabold text-emerald-800 shrink-0">LIÊN KẾT:</span>
+              <span className="truncate max-w-[130px]" title={`File: ${currentFilePath}`}>{currentFilePath.split(/[\\/]/).pop()}</span>
+              
+              {showLogsPopupBottom && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white text-slate-800 rounded-lg shadow-xl border border-gray-250 p-2 text-left z-50 pointer-events-auto select-all">
+                  <h5 className="font-extrabold text-[10px] text-zinc-500 uppercase tracking-wider border-b border-gray-150 pb-1 mb-1.5">Nhật ký liên kết file</h5>
+                  <div className="text-[9.5px] space-y-1 max-h-32 overflow-y-auto font-mono text-slate-600">
+                    <div><strong className="text-emerald-700 font-extrabold text-[9px] uppercase">Đường dẫn đầy đủ:</strong></div>
+                    <div className="break-all select-all font-semibold text-[10px] text-slate-700 bg-slate-50 p-1 rounded border border-slate-200/50 mb-1.5">{currentFilePath}</div>
+                    
+                    <div className="font-extrabold text-slate-500 text-[8.5px] uppercase tracking-wider mb-1">Cập nhật gần đây:</div>
+                    {!saveLogs || saveLogs.length === 0 ? (
+                      <div className="text-gray-400 italic py-0.5">Chưa ghi nhận hoạt động nào</div>
+                    ) : (
+                      saveLogs.slice(0, 5).map((log, index) => (
+                        <div key={index} className="flex justify-between items-center py-0.5 border-b border-dashed border-gray-100 last:border-0">
+                          <span className="truncate text-slate-500">
+                            {log.type === 'save' ? '💾 Lưu mới (As)' : log.type === 'quick-save' ? '🔄 Ghi đè file' : '📂 Nhập file'}
+                          </span>
+                          <span className="text-gray-400 font-medium shrink-0 ml-1">{log.time}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : currentLocalStorageKey ? (
+            <div 
+              className="relative flex items-center space-x-1.5 text-[10.5px] font-bold text-indigo-600 bg-white/95 backdrop-blur-sm shadow border border-indigo-200/40 px-2.5 py-1 rounded-full cursor-pointer pointer-events-auto"
+              onMouseEnter={() => setShowLogsPopupBottom(true)}
+              onMouseLeave={() => setShowLogsPopupBottom(false)}
+              onClick={() => setShowLogsPopupBottom(!showLogsPopupBottom)}
+              title="Nhấp để xem chi tiết bộ lưu trữ này"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+              <span className="font-mono text-[9px] uppercase font-extrabold text-indigo-800 shrink-0">BẢN LƯU WEB:</span>
+              <span className="truncate max-w-[130px]" title={`Mẫu lưu trình duyệt: ${currentLocalStorageKey}`}>{currentLocalStorageKey}</span>
+              
+              {showLogsPopupBottom && (
+                <div className="absolute bottom-full right-0 mb-2 w-64 bg-white text-slate-800 rounded-lg shadow-xl border border-gray-250 p-2 text-left z-50 pointer-events-auto select-all">
+                  <h5 className="font-extrabold text-[10px] text-zinc-500 uppercase tracking-wider border-b border-gray-150 pb-1 mb-1.5">Trạng thái bộ lưu mẫu</h5>
+                  <div className="text-[9.5px] space-y-1 font-mono text-slate-600">
+                    <div><strong className="text-indigo-700 font-extrabold text-[9px] uppercase">Tên mẫu lưu trữ:</strong></div>
+                    <div className="break-all font-semibold text-[10px] text-slate-700 bg-slate-50 p-1 rounded border border-slate-200/50 mb-1.5">{currentLocalStorageKey}</div>
+                    <p className="text-[9px] text-slate-400 font-sans leading-normal">Bản vẽ này được lưu đè trực tiếp trên trình duyệt bằng phím tắt <strong>Ctrl + S</strong> thay vì mở dialog lựa chọn mới.</p>
+                    
+                    <div className="font-extrabold text-slate-500 text-[8.5px] uppercase tracking-wider mb-1">Cập nhật gần đây:</div>
+                    {!saveLogs || saveLogs.length === 0 ? (
+                      <div className="text-gray-400 italic py-0.5">Chưa ghi nhận hoạt động nào</div>
+                    ) : (
+                      saveLogs.slice(0, 5).map((log, index) => (
+                        <div key={index} className="flex justify-between items-center py-0.5 border-b border-dashed border-gray-100 last:border-0">
+                          <span className="truncate text-slate-500">
+                            {log.type === 'save' ? '💾 Lưu mới (As)' : log.type === 'quick-save' ? '🔄 Ghi đè' : '📂 Nhập file'}
+                          </span>
+                          <span className="text-gray-400 font-medium shrink-0 ml-1">{log.time}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="flex items-center bg-white/90 backdrop-blur-sm shadow border border-gray-100 py-1 px-3 rounded-full space-x-2 pointer-events-auto">
+            <span>
+              💡 <strong>Nút di chuyển:</strong> Sử dụng các phím mũi tên ⬅️ ➡️ ⬆️
+              ⬇️ để dịch nhãn, phím Delete để xoá nhanh.
+            </span>
+          </div>
         </div>
       </div>
     </div>
