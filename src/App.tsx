@@ -3753,26 +3753,26 @@ export default function App() {
                 onClick={() => setIsPrintExpanded(!isPrintExpanded)}
                 className={`mx-3 mt-3 mb-2 px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl shadow-md transition-all duration-150 ${
                   isPrintExpanded
-                    ? 'bg-gradient-to-r from-kiot-cyan to-blue-600 text-white scale-[1.01]'
-                    : 'bg-gradient-to-r from-kiot-green to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]'
+                    ? "bg-emerald-50/95 border border-emerald-200/80 hover:bg-emerald-100/50 scale-[1.01]"
+                    : "bg-gradient-to-r from-kiot-green to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]"
                 }`}
                 title="Nhấn để thiết lập số lượng bản in và thực hiện in nhãn"
               >
                 <div className="flex items-center space-x-2">
-                  <Printer className="w-4 h-4 text-white animate-pulse" />
-                  <span className="font-extrabold text-[12px] uppercase tracking-wider select-none text-white">
+                  <Printer className={`w-4 h-4 animate-pulse ${isPrintExpanded ? "text-emerald-600" : "text-white"}`} />
+                  <span className={`font-extrabold text-[12px] uppercase tracking-wider select-none ${isPrintExpanded ? "text-emerald-800" : "text-white"}`}>
                     Nhập số lượng và In
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`text-[10px] px-2 py-0.5 rounded font-black border font-mono transition-colors duration-150 ${
                     isPrintExpanded 
-                      ? 'bg-white/25 text-white border-white/30' 
-                      : 'bg-white/20 text-white border-white/30'
+                      ? "bg-emerald-100/80 text-emerald-800 border-emerald-200/60" 
+                      : "bg-white/20 text-white border-white/30"
                   }`}>
-                    {printQuantityMode === 'constant' ? `${printCopies} bản` : 'Theo Excel'}
+                    {printQuantityMode === "constant" ? `${printCopies} bản` : 'Theo Excel'}
                   </span>
-                  <div className={`transition-transform duration-150 ${isPrintExpanded ? 'text-white rotate-180' : 'text-white/80 group-hover:text-white'}`}>
+                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-emerald-600 rotate-180" : "text-white/80 group-hover:text-white"}`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
