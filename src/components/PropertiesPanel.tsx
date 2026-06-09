@@ -22,6 +22,9 @@ import {
   Link2,
   Unlink,
   ArrowUp,
+  Minus,
+  Square,
+  Circle,
 } from "lucide-react";
 
 interface PropertiesPanelProps {
@@ -421,16 +424,19 @@ export function PropertiesPanel({
             </div>
           </div>
         )}
-      </div>
-    );
-  };
+        </div>
+      );
+    };
 
-  return (
-    <div id="properties-panel" className="space-y-2.5">
-      <main className="space-y-2.5">
-        {/* TEXT EXCLUSIVE ATTRIBUTES */}
+    return (
+      <div id="properties-panel" className="space-y-2.5 pb-8 font-sans">
+        <main className="space-y-2.5">
+          {/* Coordinates quick panel */}
+          {renderPositionPanel()}
+
+          {/* TEXT EXCLUSIVE ATTRIBUTES */}
         {selectedObject.type === "text" && (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 animate-fadeIn">
             {/* Nội dung văn bản */}
             <div className="space-y-1.5">
               <label className="block text-[11.5px] font-black text-slate-705 uppercase tracking-wider mb-0.5">
@@ -485,121 +491,181 @@ export function PropertiesPanel({
               {renderExcelLinker()}
             </div>
 
-            {/* Font settings & formatting */}
-            <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-gray-250/60 font-sans">
-              <div>
-                <label className="block text-[11px] text-slate-650 font-bold mb-0.5">
-                  Cỡ chữ (pt)
-                </label>
-                <input
-                  {...getNumericInputProps(
-                    "fontSize",
-                    selectedObject.fontSize || 11,
-                    (val) => handleAttributeChange("fontSize", val),
-                    11,
-                  )}
-                  className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] text-slate-650 font-bold mb-0.5">
-                  Font Chữ
-                </label>
-                <div className="relative">
-                  <select
-                    value={selectedObject.fontFamily || "sans-serif"}
-                    onChange={(e) =>
-                      handleAttributeChange("fontFamily", e.target.value)
-                    }
-                    className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white appearance-none text-slate-800 font-bold"
-                  >
-                    <option value="sans-serif">Chữ thường (Sans)</option>
-                    <option value="Arial">Arial</option>
-                    <option value="Times New Roman">Times New Roman</option>
-                    <option value="Tahoma">Tahoma</option>
-                    <option value="monospace">Mã máy (Mono)</option>
-                    <option value="serif">Chữ Serif (Times)</option>
-                  </select>
-                  <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            {/* ĐỊNH DẠNG DƯ LIỆU */}
+            <div className="pt-2.5 border-t border-gray-250/60 pb-1 font-sans">
+              <span className="block text-[11.5px] uppercase tracking-wider font-extrabold text-kiot-navy mb-1.5">
+                Định dạng dữ liệu
+              </span>
+              <div className="space-y-2 text-xs">
+                {/* Select Format Type */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-slate-500 font-medium">Loại định dạng:</span>
+                  <div className="relative">
+                    <select
+                      value={selectedObject.dataFormatType || "general"}
+                      onChange={(e) =>
+                        handleAttributeChange("dataFormatType", e.target.value)
+                      }
+                      className="w-40 pl-2 pr-6 py-1 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white text-slate-705 font-bold cursor-pointer appearance-none"
+                    >
+                      <option value="general">Mặc định (General)</option>
+                      <option value="number">Số (Number)</option>
+                      <option value="datetime">Ngày / Giờ (Date/Time)</option>
+                    </select>
+                    <ChevronDown className="absolute right-1.5 top-1.5 w-3.5 h-3.5 text-gray-450 pointer-events-none" />
+                  </div>
                 </div>
+
+                {/* If Number format chosen */}
+                {selectedObject.dataFormatType === "number" && (
+                  <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-205 animate-fadeIn">
+                    {/* Decimal Separator */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">Ngăn thập phân:</span>
+                      <div className="flex items-center bg-gray-150 p-0.5 rounded gap-1">
+                        {[
+                          { value: ",", label: "Dấu phẩy (,)" },
+                          { value: ".", label: "Dấu chấm (.)" },
+                        ].map((opt) => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() =>
+                              handleAttributeChange("numberDecimalSeparator", opt.value)
+                            }
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition ${
+                              (selectedObject.numberDecimalSeparator || ".") === opt.value
+                                ? "bg-white text-kiot-navy shadow-sm ring-1 ring-kiot-cyan/20 font-extrabold"
+                                : "text-gray-500 hover:text-gray-800"
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Thousands Separator checkbox */}
+                    <div className="flex items-center">
+                      <input
+                        id="numberThousandsSeparator"
+                        type="checkbox"
+                        checked={selectedObject.numberThousandsSeparator ?? false}
+                        onChange={(e) =>
+                          handleAttributeChange("numberThousandsSeparator", e.target.checked)
+                        }
+                        className="rounded border-gray-350 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2"
+                      />
+                      <label htmlFor="numberThousandsSeparator" className="text-[11px] text-slate-650 cursor-pointer select-none font-bold">
+                        Phân cách hàng ngàn, triệu...
+                      </label>
+                    </div>
+
+                    {/* Decimal Places */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">Chữ số thập phân:</span>
+                      <select
+                        value={selectedObject.numberDecimalPlaces === undefined ? "auto" : selectedObject.numberDecimalPlaces.toString()}
+                        onChange={(e) =>
+                          handleAttributeChange(
+                            "numberDecimalPlaces",
+                            e.target.value === "auto" ? undefined : parseInt(e.target.value, 10)
+                          )
+                        }
+                        className="w-24 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-bold text-slate-705 cursor-pointer"
+                      >
+                        <option value="auto">Tự động</option>
+                        <option value="0">0 chữ số</option>
+                        <option value="1">1 chữ số</option>
+                        <option value="2">2 chữ số</option>
+                        <option value="3">3 chữ số</option>
+                        <option value="4">4 chữ số</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* If DateTime format chosen */}
+                {selectedObject.dataFormatType === "datetime" && (
+                  <div className="p-2.5 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-205 animate-fadeIn">
+                    {/* Format presets select */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500">Định dạng mẫu:</span>
+                      <div className="relative">
+                        <select
+                          value={
+                            ["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "")
+                              ? selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"
+                              : "custom"
+                          }
+                          onChange={(e) => {
+                            if (e.target.value !== "custom") {
+                              handleAttributeChange("datetimeFormat", e.target.value);
+                            } else {
+                              if (!selectedObject.datetimeFormat) {
+                                handleAttributeChange("datetimeFormat", "DD/MM/YYYY HH:mm");
+                              }
+                            }
+                          }}
+                          className="w-40 pl-1.5 pr-6 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-750 font-bold cursor-pointer appearance-none"
+                        >
+                          <option value="DD/MM/YYYY">Ngày/Tháng/Năm (DD/MM/YYYY)</option>
+                          <option value="DD/MM/YYYY HH:mm">Ngày/Tháng/Năm Giờ:Phút (DD/MM/YYYY HH:mm)</option>
+                          <option value="HH:mm">Giờ:Phút (HH:mm)</option>
+                          <option value="DD-MM-YYYY">Ngày-Tháng-Năm (DD-MM-YYYY)</option>
+                          <option value="YYYY-MM-DD">Năm-Tháng-Ngày (YYYY-MM-DD)</option>
+                          <option value="custom">Tùy chọn tự nhập</option>
+                        </select>
+                        <ChevronDown className="absolute right-1 top-1.5 w-3 h-3 text-gray-450 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    {/* Custom DateTime Format text input */}
+                    {(!["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "") ||
+                      selectedObject.datetimeFormat === "") && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] text-slate-500">Chuỗi định dạng:</span>
+                        <input
+                          type="text"
+                          value={selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"}
+                          onChange={(e) => handleAttributeChange("datetimeFormat", e.target.value)}
+                          placeholder="Ví dụ: DD/MM/YYYY HH:mm"
+                          className="w-40 px-2 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-700 font-mono font-bold"
+                        />
+                      </div>
+                    )}
+
+                    {/* Choose System Time Checkbox */}
+                    <div className="flex items-center pt-1">
+                      <input
+                        id="useSystemTime"
+                        type="checkbox"
+                        checked={selectedObject.useSystemTime ?? false}
+                        onChange={(e) =>
+                          handleAttributeChange("useSystemTime", e.target.checked)
+                        }
+                        className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2 font-bold cursor-pointer"
+                      />
+                      <label htmlFor="useSystemTime" className="text-[11px] text-slate-650 cursor-pointer select-none font-bold flex items-center gap-1">
+                        <span>Chọn giờ hệ thống</span>
+                        <span className="text-[9px] text-slate-400 font-normal italic">(Lấy giờ computer)</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="pt-1.5 border-t border-gray-200/50 space-y-2.5">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="flex-1">
-                  <span className="block text-[11px] text-slate-650 font-bold mb-0.5">
-                    Căn lề chữ
-                  </span>
-                  <div className="flex bg-gray-100 p-0.5 rounded-md">
-                    {(["left", "center", "right"] as const).map((align) => (
-                      <button
-                        key={align}
-                        type="button"
-                        onClick={() =>
-                          handleAttributeChange("textAlign", align)
-                        }
-                        className={`flex-1 py-1 flex items-center justify-center rounded transition cursor-pointer ${
-                          (selectedObject.textAlign || "left") === align
-                            ? "bg-white text-kiot-navy font-bold shadow-sm"
-                            : "text-gray-450 hover:text-gray-700"
-                        }`}
-                      >
-                        {align === "left" && (
-                          <AlignLeft className="w-3.5 h-3.5" />
-                        )}
-                        {align === "center" && (
-                          <AlignCenter className="w-3.5 h-3.5" />
-                        )}
-                        {align === "right" && (
-                          <AlignRight className="w-3.5 h-3.5" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+            {/* ĐỊNH DẠNG CHỮ & TRỰC QUAN */}
+            <div className="pt-2.5 border-t border-gray-250/60 pb-1 font-sans space-y-2.5">
+              <span className="block text-[11.5px] uppercase tracking-wider font-extrabold text-kiot-navy">
+                Định dạng chữ &amp; Trực quan
+              </span>
 
-                <div>
-                  <span className="block text-[11px] text-slate-650 font-bold mb-0.5">
-                    Chỉnh chỉ số
-                  </span>
-                  <div className="flex bg-gray-100 p-0.5 rounded-md text-[11px] font-bold">
-                    {(["normal", "superscript", "subscript"] as const).map(
-                      (subSuper) => (
-                        <button
-                          key={subSuper}
-                          type="button"
-                          onClick={() =>
-                            handleAttributeChange("textSuperSub", subSuper)
-                          }
-                          className={`flex-1 py-1 flex items-center justify-center rounded transition cursor-pointer text-[10.5px] ${
-                            (selectedObject.textSuperSub || "normal") ===
-                            subSuper
-                              ? "bg-white text-kiot-navy font-black shadow-sm"
-                              : "text-gray-500 hover:text-gray-800 font-bold"
-                          }`}
-                          title={
-                            subSuper === "normal"
-                              ? "Chữ bình thường"
-                              : subSuper === "superscript"
-                                ? "Chỉ số trên"
-                                : "Chỉ số dưới"
-                          }
-                        >
-                          {subSuper === "normal" && "Thường"}
-                          {subSuper === "superscript" && "A²"}
-                          {subSuper === "subscript" && "A₂"}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <span className="block text-[11px] text-slate-600 font-bold mb-0.5">
-                  Định dạng chữ
+              {/* Bold, Italic, Underline, Strikethrough buttons / Định dạng chữ */}
+              <div className="space-y-1">
+                <span className="block text-[11px] text-slate-600 font-bold">
+                  Kiểu dáng chữ
                 </span>
                 <div className="flex bg-gray-100 p-0.5 rounded-md gap-1">
                   {/* Bold Button */}
@@ -684,168 +750,50 @@ export function PropertiesPanel({
                 </div>
               </div>
 
-              {/* Định dạng dữ liệu */}
-              <div className="pt-2 border-t border-gray-250/60 pb-1">
-                <span className="block text-[11px] text-slate-650 font-bold mb-1.5 uppercase tracking-wider text-kiot-navy">
-                  Định dạng dữ liệu
-                </span>
-                <div className="space-y-2 font-sans text-xs">
-                  {/* Select Format Type */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500 font-medium">Loại định dạng:</span>
+              {/* Font & Cỡ chữ (grouped directly under style) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] text-slate-650 font-bold mb-0.5">
+                    Font chữ
+                  </label>
+                  <div className="relative">
                     <select
-                      value={selectedObject.dataFormatType || "general"}
+                      value={selectedObject.fontFamily || "sans-serif"}
                       onChange={(e) =>
-                        handleAttributeChange("dataFormatType", e.target.value)
+                        handleAttributeChange("fontFamily", e.target.value)
                       }
-                      className="w-40 px-2 py-1 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white text-slate-705"
+                      className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white appearance-none text-slate-800 font-bold cursor-pointer"
                     >
-                      <option value="general">Mặc định (General)</option>
-                      <option value="number">Số (Number)</option>
-                      <option value="datetime">Ngày / Giờ (Date/Time)</option>
+                      <option value="sans-serif">Chữ thường (Sans)</option>
+                      <option value="Arial">Arial</option>
+                      <option value="Times New Roman">Times New Roman</option>
+                      <option value="Tahoma">Tahoma</option>
+                      <option value="monospace">Mã máy (Mono)</option>
+                      <option value="serif">Chữ Serif (Times)</option>
                     </select>
+                    <ChevronDown className="absolute right-2 top-2 a w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                   </div>
+                </div>
 
-                  {/* If Number format chosen */}
-                  {selectedObject.dataFormatType === "number" && (
-                    <div className="p-2 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-200">
-                      {/* Decimal Separator */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-slate-500">Ngăn thập phân:</span>
-                        <div className="flex items-center bg-gray-150 p-0.5 rounded gap-1">
-                          {[
-                            { value: ",", label: "Dấu phẩy (,)" },
-                            { value: ".", label: "Dấu chấm (.)" },
-                          ].map((opt) => (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() =>
-                                handleAttributeChange("numberDecimalSeparator", opt.value)
-                              }
-                              className={`px-2 py-0.5 text-[10px] font-bold rounded cursor-pointer transition ${
-                                (selectedObject.numberDecimalSeparator || ".") === opt.value
-                                  ? "bg-white text-kiot-navy shadow-sm ring-1 ring-kiot-cyan/20"
-                                  : "text-gray-500 hover:text-gray-800"
-                              }`}
-                            >
-                              {opt.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Thousands Separator checkbox */}
-                      <div className="flex items-center">
-                        <input
-                          id="numberThousandsSeparator"
-                          type="checkbox"
-                          checked={selectedObject.numberThousandsSeparator ?? false}
-                          onChange={(e) =>
-                            handleAttributeChange("numberThousandsSeparator", e.target.checked)
-                          }
-                          className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2"
-                        />
-                        <label htmlFor="numberThousandsSeparator" className="text-[11px] text-slate-650 cursor-pointer select-none">
-                          Phân cách hàng ngàn, triệu...
-                        </label>
-                      </div>
-
-                      {/* Decimal Places */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-slate-500">Chữ số thập phân:</span>
-                        <select
-                          value={selectedObject.numberDecimalPlaces === undefined ? "auto" : selectedObject.numberDecimalPlaces.toString()}
-                          onChange={(e) =>
-                            handleAttributeChange(
-                              "numberDecimalPlaces",
-                              e.target.value === "auto" ? undefined : parseInt(e.target.value, 10)
-                            )
-                          }
-                          className="w-24 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-medium text-slate-700"
-                        >
-                          <option value="auto">Tự động</option>
-                          <option value="0">0 chữ số</option>
-                          <option value="1">1 chữ số</option>
-                          <option value="2">2 chữ số</option>
-                          <option value="3">3 chữ số</option>
-                          <option value="4">4 chữ số</option>
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* If DateTime format chosen */}
-                  {selectedObject.dataFormatType === "datetime" && (
-                    <div className="p-2 bg-slate-50 border border-slate-150 rounded-md space-y-2 transition duration-200">
-                      {/* Format presets select */}
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-slate-500">Định dạng mẫu:</span>
-                        <select
-                          value={
-                            ["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "")
-                              ? selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"
-                              : "custom"
-                          }
-                          onChange={(e) => {
-                            if (e.target.value !== "custom") {
-                              handleAttributeChange("datetimeFormat", e.target.value);
-                            } else {
-                              if (!selectedObject.datetimeFormat) {
-                                handleAttributeChange("datetimeFormat", "DD/MM/YYYY HH:mm");
-                              }
-                            }
-                          }}
-                          className="w-40 px-1.5 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-700"
-                        >
-                          <option value="DD/MM/YYYY">Ngày/Tháng/Năm (DD/MM/YYYY)</option>
-                          <option value="DD/MM/YYYY HH:mm">Ngày/Tháng/Năm Giờ:Phút (DD/MM/YYYY HH:mm)</option>
-                          <option value="HH:mm">Giờ:Phút (HH:mm)</option>
-                          <option value="DD-MM-YYYY">Ngày-Tháng-Năm (DD-MM-YYYY)</option>
-                          <option value="YYYY-MM-DD">Năm-Tháng-Ngày (YYYY-MM-DD)</option>
-                          <option value="custom">Tùy chọn tự nhập</option>
-                        </select>
-                      </div>
-
-                      {/* Custom DateTime Format text input */}
-                      {(!["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "HH:mm", "DD-MM-YYYY", "YYYY-MM-DD"].includes(selectedObject.datetimeFormat || "") ||
-                        selectedObject.datetimeFormat === "") && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-slate-500">Chuỗi định dạng:</span>
-                          <input
-                            type="text"
-                            value={selectedObject.datetimeFormat || "DD/MM/YYYY HH:mm"}
-                            onChange={(e) => handleAttributeChange("datetimeFormat", e.target.value)}
-                            placeholder="Ví dụ: DD/MM/YYYY HH:mm"
-                            className="w-40 px-2 py-0.5 text-[11px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-700 font-mono"
-                          />
-                        </div>
-                      )}
-
-                      {/* Choose System Time Checkbox */}
-                      <div className="flex items-center pt-1">
-                        <input
-                          id="useSystemTime"
-                          type="checkbox"
-                          checked={selectedObject.useSystemTime ?? false}
-                          onChange={(e) =>
-                            handleAttributeChange("useSystemTime", e.target.checked)
-                          }
-                          className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan h-3 w-3 mr-2 font-bold cursor-pointer"
-                        />
-                        <label htmlFor="useSystemTime" className="text-[11px] text-slate-650 cursor-pointer select-none font-medium flex items-center gap-1">
-                          <span>Chọn giờ hệ thống</span>
-                          <span className="text-[9px] text-slate-400 font-normal italic">(Lấy giờ computer)</span>
-                        </label>
-                      </div>
-                    </div>
-                  )}
+                <div>
+                  <label className="block text-[11px] text-slate-650 font-bold mb-0.5">
+                    Cỡ chữ (pt)
+                  </label>
+                  <input
+                    {...getNumericInputProps(
+                      "fontSize",
+                      selectedObject.fontSize || 11,
+                      (val) => handleAttributeChange("fontSize", val),
+                      11,
+                    )}
+                    className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
+                  />
                 </div>
               </div>
 
-              {/* Màu sắc chữ */}
-              <div className="pt-2 border-t border-gray-250/60 font-sans">
-                <label className="block text-[11px] text-slate-650 font-bold mb-1">
+              {/* Màu sắc chữ (grouped directly under font size/family) */}
+              <div className="space-y-1">
+                <label className="block text-[11px] text-slate-650 font-bold">
                   Màu sắc chữ
                 </label>
                 <div className="flex items-center space-x-2">
@@ -855,7 +803,7 @@ export function PropertiesPanel({
                     onChange={(e) =>
                       handleAttributeChange("color", e.target.value)
                     }
-                    className="w-10 h-8 p-0 border border-gray-300 cursor-pointer rounded-md outline-none bg-transparent"
+                    className="w-8 h-8 p-0 border border-gray-350 cursor-pointer rounded-md outline-none bg-transparent shrink-0"
                   />
                   <input
                     type="text"
@@ -863,10 +811,10 @@ export function PropertiesPanel({
                     onChange={(e) =>
                       handleAttributeChange("color", e.target.value)
                     }
-                    className="w-24 px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                    className="w-20 px-1.5 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold shrink-0"
                     placeholder="#000000"
                   />
-                  <div className="flex space-x-1">
+                  <div className="flex space-x-1 overflow-x-auto py-0.5 scrollbar-none">
                     {[
                       "#000000",
                       "#FF0000",
@@ -878,7 +826,7 @@ export function PropertiesPanel({
                         key={hex}
                         type="button"
                         onClick={() => handleAttributeChange("color", hex)}
-                        className="w-5 h-5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm"
+                        className="w-4.5 h-4.5 rounded-full border border-gray-350 cursor-pointer transition-transform hover:scale-110 shadow-sm shrink-0"
                         style={{ backgroundColor: hex }}
                         title={hex}
                       />
@@ -886,6 +834,80 @@ export function PropertiesPanel({
                   </div>
                 </div>
               </div>
+
+              {/* Alignment and Super/Sub indexes (lower priority layout) */}
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-gray-200/45">
+                <div className="flex-1">
+                  <span className="block text-[11px] text-slate-650 font-bold mb-0.5">
+                    Căn lề chữ
+                  </span>
+                  <div className="flex bg-gray-100 p-0.5 rounded-md">
+                    {(["left", "center", "right"] as const).map((align) => {
+                      return (
+                        <button
+                          key={align}
+                          type="button"
+                          onClick={() =>
+                            handleAttributeChange("textAlign", align)
+                          }
+                          className={`flex-1 py-1 flex items-center justify-center rounded transition cursor-pointer ${
+                            (selectedObject.textAlign || "left") === align
+                              ? "bg-white text-kiot-navy font-bold shadow-sm"
+                              : "text-gray-450 hover:text-gray-700"
+                          }`}
+                        >
+                          {align === "left" && (
+                            <AlignLeft className="w-3.5 h-3.5" />
+                          )}
+                          {align === "center" && (
+                            <AlignCenter className="w-3.5 h-3.5" />
+                          )}
+                          {align === "right" && (
+                            <AlignRight className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="block text-[11px] text-slate-650 font-bold mb-0.5">
+                    Chỉnh chỉ số
+                  </span>
+                  <div className="flex bg-gray-100 p-0.5 rounded-md text-[11px] font-bold">
+                    {(["normal", "superscript", "subscript"] as const).map((subSuper) => {
+                      return (
+                        <button
+                          key={subSuper}
+                          type="button"
+                          onClick={() =>
+                            handleAttributeChange("textSuperSub", subSuper)
+                          }
+                          className={`flex-1 py-1 flex items-center justify-center rounded transition cursor-pointer text-[10.5px] ${
+                            (selectedObject.textSuperSub || "normal") ===
+                            subSuper
+                              ? "bg-white text-kiot-navy font-black shadow-sm"
+                              : "text-gray-500 hover:text-gray-800 font-bold"
+                          }`}
+                          title={
+                            subSuper === "normal"
+                              ? "Chữ bình thường"
+                              : subSuper === "superscript"
+                                ? "Chỉ số trên"
+                                : "Chỉ số dưới"
+                          }
+                        >
+                          {subSuper === "normal" && "Thường"}
+                          {subSuper === "superscript" && "A²"}
+                          {subSuper === "subscript" && "A₂"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
 
               {/* PHẦN TIỀN TỐ VÀ HẬU TỐ */}
               <div className="pt-2 border-t border-gray-250/60 pb-1.5 space-y-2.5">
@@ -956,6 +978,32 @@ export function PropertiesPanel({
                             <option value="Tahoma">Tahoma</option>
                             <option value="monospace">Mono</option>
                           </select>
+                        </div>
+                      </div>
+
+                      {/* Màu đặc biệt cho Prefix */}
+                      <div className="flex items-center justify-between gap-2 border-t border-sky-100/45 pt-1.5 pb-0.5">
+                        <label className="text-[9.5px] text-slate-500 font-bold">
+                          Màu tiền tố:
+                        </label>
+                        <div className="flex items-center space-x-1.5">
+                          <input
+                            type="color"
+                            value={selectedObject.prefixColor || selectedObject.color || "#000000"}
+                            onChange={(e) =>
+                              handleAttributeChange("prefixColor", e.target.value)
+                            }
+                            className="w-5 h-5 p-0 border border-gray-250 cursor-pointer rounded outline-none bg-transparent shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={selectedObject.prefixColor || selectedObject.color || "#000000"}
+                            onChange={(e) =>
+                              handleAttributeChange("prefixColor", e.target.value)
+                            }
+                            className="w-16 px-1.5 py-0.5 text-[10px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                            placeholder="#000000"
+                          />
                         </div>
                       </div>
 
@@ -1104,6 +1152,32 @@ export function PropertiesPanel({
                         </div>
                       </div>
 
+                      {/* Màu đặc biệt cho Suffix */}
+                      <div className="flex items-center justify-between gap-2 border-t border-purple-100/45 pt-1.5 pb-0.5">
+                        <label className="text-[9.5px] text-slate-500 font-bold">
+                          Màu hậu tố:
+                        </label>
+                        <div className="flex items-center space-x-1.5">
+                          <input
+                            type="color"
+                            value={selectedObject.suffixColor || selectedObject.color || "#000000"}
+                            onChange={(e) =>
+                              handleAttributeChange("suffixColor", e.target.value)
+                            }
+                            className="w-5 h-5 p-0 border border-gray-250 cursor-pointer rounded outline-none bg-transparent shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={selectedObject.suffixColor || selectedObject.color || "#000000"}
+                            onChange={(e) =>
+                              handleAttributeChange("suffixColor", e.target.value)
+                            }
+                            className="w-16 px-1.5 py-0.5 text-[10px] border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                            placeholder="#000000"
+                          />
+                        </div>
+                      </div>
+
                       {/* Formatting bar: Bold, Italic, Underline, Strikethrough, Sub/Sup */}
                       <div className="flex gap-1 items-center bg-gray-50 border border-gray-200 p-0.5 rounded-md">
                         {/* Bold */}
@@ -1235,7 +1309,6 @@ export function PropertiesPanel({
                   <ChevronDown className="absolute right-2 top-2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                 </div>
               </div>
-            </div>
 
             {/* Vị trí & Kích thước (Collapsible) */}
             {renderPositionPanel()}
@@ -1933,6 +2006,196 @@ export function PropertiesPanel({
               ảnh (.png, .jpg...) từ máy tính thả vào khung thiết kế để làm logo
               nhãn động.
             </div>
+
+            {/* Vị trí & Kích thước (Collapsible) */}
+            {renderPositionPanel()}
+          </div>
+        )}
+
+        {/* SHAPE EXCLUSIVE ATTRIBUTES */}
+        {selectedObject.type === "shape" && (
+          <div className="space-y-4 font-sans">
+            
+            {/* Shape Type Selection */}
+            <div className="space-y-2 pb-3 border-b border-gray-100">
+              <label className="block text-[11.5px] font-black text-slate-700">
+                Loại hình khối (Shape)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  {
+                    id: "line",
+                    name: "Đường kẻ (Line)",
+                    icon: <Minus className="w-4 h-4 text-indigo-500" />
+                  },
+                  {
+                    id: "rect",
+                    name: "H.chữ nhật (Rect)",
+                    icon: <Square className="w-4 h-4 text-amber-500" />
+                  },
+                  {
+                    id: "circle",
+                    name: "Hình tròn (Circle)",
+                    icon: <Circle className="w-4 h-4 text-emerald-500" />
+                  },
+                  {
+                    id: "oval",
+                    name: "Hình oval (Oval)",
+                    icon: (
+                      <div className="w-4 h-2 bg-transparent border-[1.5px] border-pink-500 rounded-full inline-block shrink-0" />
+                    )
+                  },
+                ].map((item) => {
+                  const isSelected = (selectedObject.shapeType || "rect") === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        const newType = item.id as any;
+                        let nm = "Hình chữ nhật";
+                        if (newType === "line") nm = "Đường kẻ";
+                        else if (newType === "circle") nm = "Hình tròn";
+                        else if (newType === "oval") nm = "Hình oval";
+                        
+                        handleAttributeChange("shapeType", newType);
+                        handleAttributeChange("content", nm);
+                      }}
+                      className={`flex items-center space-x-1.5 p-2 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-kiot-cyan bg-sky-50 text-kiot-cyan ring-1 ring-kiot-cyan/25 shadow-2xs"
+                          : "border-gray-200 hover:bg-slate-50 text-slate-700 bg-white"
+                      }`}
+                    >
+                      {item.icon}
+                      <span className="truncate">{item.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Stroke Thickness and Style */}
+            <div className="grid grid-cols-2 gap-2 pb-1">
+              <div>
+                <label className="block text-[10.5px] text-slate-500 font-bold mb-0.5">
+                  Độ dày viền (mm)
+                </label>
+                <input
+                  {...getNumericInputProps(
+                    "shapeStrokeWidth",
+                    selectedObject.shapeStrokeWidth !== undefined ? selectedObject.shapeStrokeWidth : 1,
+                    (val) => handleAttributeChange("shapeStrokeWidth", val),
+                    0.5,
+                  )}
+                  className="w-full px-2 py-0.5 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10.5px] text-slate-500 font-bold mb-0.5">
+                  Kiểu viền
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedObject.shapeStrokeStyle || "solid"}
+                    onChange={(e) => handleAttributeChange("shapeStrokeStyle", e.target.value)}
+                    className="w-full pl-1.5 pr-4 py-0.5 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white text-slate-800 font-bold cursor-pointer"
+                  >
+                    <option value="solid">─── Liền viền (Solid)</option>
+                    <option value="dashed">- - - Đứt nét (Dashed)</option>
+                    <option value="dotted">• • • Chấm bi (Dotted)</option>
+                  </select>
+                  <ChevronDown className="absolute right-1 top-1.5 w-3 h-3 text-gray-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Border Stroke Color */}
+            <div className="space-y-1">
+              <label className="block text-[10.5px] text-slate-505 font-bold">
+                Màu sắc viền
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={selectedObject.shapeStrokeColor || "#000000"}
+                  onChange={(e) => handleAttributeChange("shapeStrokeColor", e.target.value)}
+                  className="w-8 h-7 p-0 border border-gray-300 cursor-pointer rounded outline-none bg-transparent shrink-0"
+                />
+                <input
+                  type="text"
+                  value={selectedObject.shapeStrokeColor || "#000000"}
+                  onChange={(e) => handleAttributeChange("shapeStrokeColor", e.target.value)}
+                  className="flex-1 px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                  placeholder="#000000"
+                />
+              </div>
+            </div>
+
+            {/* Shading / Background Fill Color */}
+            {selectedObject.shapeType !== "line" && (
+              <div className="space-y-2 border-t border-gray-100 pt-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10.5px] text-slate-550 font-bold">
+                    Màu nền (Shading)
+                  </label>
+                  <label className="flex items-center space-x-1 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedObject.shapeFillColor === "transparent"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          handleAttributeChange("shapeFillColor", "transparent");
+                        } else {
+                          handleAttributeChange("shapeFillColor", "#ffffff");
+                        }
+                      }}
+                      className="rounded border-gray-300 text-kiot-cyan focus:ring-kiot-cyan w-3 h-3 cursor-pointer"
+                    />
+                    <span className="text-[10px] text-slate-505 font-bold select-none">
+                      Trong suốt
+                    </span>
+                  </label>
+                </div>
+
+                {selectedObject.shapeFillColor !== "transparent" && (
+                  <div className="flex items-center space-x-2 animate-fadeIn">
+                    <input
+                      type="color"
+                      value={selectedObject.shapeFillColor || "#ffffff"}
+                      onChange={(e) => handleAttributeChange("shapeFillColor", e.target.value)}
+                      className="w-8 h-7 p-0 border border-gray-300 cursor-pointer rounded outline-none bg-transparent shrink-0"
+                    />
+                    <input
+                      type="text"
+                      value={selectedObject.shapeFillColor || "#ffffff"}
+                      onChange={(e) => handleAttributeChange("shapeFillColor", e.target.value)}
+                      className="flex-1 px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono text-slate-800 font-bold"
+                      placeholder="#ffffff"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Corner Radius (Rectangle only) */}
+            {selectedObject.shapeType === "rect" && (
+              <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                <label className="block text-[10.5px] text-slate-505 font-bold mb-0.5">
+                  Độ bo góc (Corner Radius - mm)
+                </label>
+                <input
+                  {...getNumericInputProps(
+                    "shapeCornerRadius",
+                    selectedObject.shapeCornerRadius !== undefined ? selectedObject.shapeCornerRadius : 1.5,
+                    (val) => handleAttributeChange("shapeCornerRadius", val),
+                    0.5,
+                  )}
+                  className="w-full px-2 py-0.5 text-xs border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
+                />
+              </div>
+            )}
 
             {/* Vị trí & Kích thước (Collapsible) */}
             {renderPositionPanel()}

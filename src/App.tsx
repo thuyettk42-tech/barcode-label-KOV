@@ -49,7 +49,11 @@ import {
   Settings,
   Laptop,
   Palette,
-  CheckSquare
+  CheckSquare,
+  Minus,
+  Square,
+  Circle,
+  Shapes
 } from "lucide-react";
 
 export default function App() {
@@ -381,6 +385,7 @@ export default function App() {
   const [printQuantityMode, setPrintQuantityMode] = useState<'constant' | 'excel_column'>('constant');
   const [printQuantityColumn, setPrintQuantityColumn] = useState<string>("");
   const [isBatchPrinting, setIsBatchPrinting] = useState<boolean>(false);
+  const [isPrintExpanded, setIsPrintExpanded] = useState<boolean>(false);
   const [colGapUnit, setColGapUnit] = useState<'mm' | 'inch'>('mm');
   const [rowGapUnit, setRowGapUnit] = useState<'mm' | 'inch'>('mm');
   const [colGapInput, setColGapInput] = useState<string>("");
@@ -448,13 +453,17 @@ export default function App() {
     setIsBatchPrinting(excelData.length > 0);
   }, [excelData]);
 
-  // Helper to convert ArrayBuffer to Base64
+  // Helper to convert ArrayBuffer to Base64 using a memory-safe and performance-optimized chunked reader
   const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
-    let binary = "";
     const bytes = new Uint8Array(buffer);
+    let binary = "";
     const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    const chunkSize = 0xffff; // 64k chunks to prevent call-stack overflows and massive memory allocations
+    for (let i = 0; i < len; i += chunkSize) {
+      binary += String.fromCharCode.apply(
+        null,
+        bytes.subarray(i, i + chunkSize) as any
+      );
     }
     return btoa(binary);
   };
@@ -1019,8 +1028,7 @@ export default function App() {
         content: customContent || "https://vi.wikipedia.org",
         textFlowOrigin: "center"
       };
-    } else {
-      // type === "image"
+    } else if (type === "image") {
       newObject = {
         id: timestampId,
         type: "image",
@@ -1031,6 +1039,42 @@ export default function App() {
         content: customContent || `data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="%234f46e5" stroke-dasharray="3 3" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`,
         imageFit: "contain",
         imageOpacity: 1
+      };
+    } else {
+      // type === "shape"
+      const sType = (customContent as any) || "rect";
+      let shapeW = 30;
+      let shapeH = 15;
+      if (sType === "line") {
+        shapeW = 30;
+        shapeH = 2; // thin box for line
+      } else if (sType === "circle") {
+        shapeW = 15;
+        shapeH = 15;
+      } else if (sType === "oval") {
+        shapeW = 25;
+        shapeH = 15;
+      }
+
+      const rawShapeX = (labelConfig.width - shapeW) / 2;
+      const rawShapeY = (labelConfig.height - shapeH) / 2;
+      const shapeX = Math.round(Math.max(2, rawShapeX) * 10) / 10;
+      const shapeY = Math.round(Math.max(2, rawShapeY) * 10) / 10;
+
+      newObject = {
+        id: timestampId,
+        type: "shape",
+        x: shapeX,
+        y: shapeY,
+        width: shapeW,
+        height: shapeH,
+        content: sType === "line" ? "Đường kẻ" : sType === "rect" ? "Hình chữ nhật" : sType === "circle" ? "Hình tròn" : "Hình oval",
+        shapeType: sType,
+        shapeStrokeWidth: sType === "line" ? 0.8 : 0.8,
+        shapeStrokeColor: "#000000",
+        shapeFillColor: "transparent",
+        shapeCornerRadius: sType === "rect" ? 1.5 : 0,
+        shapeStrokeStyle: "solid"
       };
     }
 
@@ -3288,6 +3332,20 @@ export default function App() {
                           <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
                         </span>
                       </button>
+
+                      <button
+                        onClick={() => handleAddObject("shape", "line")}
+                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                        title="Thêm nét kẻ ngang / dọc hoặc hình khối bất kỳ vào nhãn"
+                      >
+                        <span className="flex items-center space-x-2">
+                          <Shapes className="w-4 h-4 text-indigo-500" />
+                          <span>Đường kẻ &amp; Hình khối</span>
+                        </span>
+                        <span className="p-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                        </span>
+                      </button>
                     </div>
                   </section>
                 </div>
@@ -3668,6 +3726,19 @@ export default function App() {
                       )}
                     </div>
                   </div>
+
+                  {/* NÚT KHỚP VỪA VỚI NHÃN - KHÔNG TIÊU ĐỀ, KHÔNG MÔ TẢ THEO YÊU CẦU */}
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      onClick={handleFitObjectsToLabel}
+                      disabled={objects.length === 0}
+                      className="w-full py-2.5 bg-gradient-to-r from-kiot-cyan to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white rounded-lg text-xs font-black text-center select-none cursor-pointer transition flex items-center justify-center space-x-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-[0.98]"
+                      title="Tự động co giãn tất cả đối tượng vừa vặn vào khổ tem và giữ nguyên vị trí cân đối"
+                    >
+                      ⚡ <span>Khớp vừa với nhãn</span>
+                    </button>
+                  </div>
               </>
             )}
 
@@ -3675,142 +3746,167 @@ export default function App() {
 
           {/* Sticky Bottom Actions inside sidebar */}
           {activeSidebarTab === 'design' && (
-            <div className="p-4 bg-slate-50 border-t border-gray-200 shrink-0 space-y-3.5 shadow-sm">
-              {/* Fit Objects to Label Button */}
+            <div className="bg-slate-50 border-t border-gray-200 shrink-0 shadow-sm flex flex-col no-print">
+              {/* Accordion Toggle Header */}
               <button
                 type="button"
-                onClick={handleFitObjectsToLabel}
-                disabled={objects.length === 0}
-                className="w-full py-2 bg-kiot-cyan hover:bg-sky-600 border border-kiot-cyan text-white rounded-lg text-[11.5px] font-black text-center select-none cursor-pointer transition flex items-center justify-center space-x-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:border-slate-300"
-                title="Tự động co giãn tất cả đối tượng vừa vặn vào khổ tem và giữ nguyên vị trí cân đối"
+                onClick={() => setIsPrintExpanded(!isPrintExpanded)}
+                className={`mx-3 mt-3 mb-2 px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl shadow-md transition-all duration-150 ${
+                  isPrintExpanded
+                    ? 'bg-gradient-to-r from-kiot-cyan to-blue-600 text-white scale-[1.01]'
+                    : 'bg-gradient-to-r from-kiot-green to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]'
+                }`}
+                title="Nhấn để thiết lập số lượng bản in và thực hiện in nhãn"
               >
-                ⚡ <span>Khớp vừa với nhãn</span>
-              </button>
-
-              <div className="space-y-2 border-b border-gray-200/60 pb-3">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-[11.5px] font-black text-[#475569] uppercase tracking-wider select-none">
-                    SỐ LƯỢNG TEM NHÃN CẦN IN
-                  </label>
-                  <span className="text-[10px] text-kiot-navy font-mono font-black bg-sky-50 px-2 py-0.5 rounded border border-kiot-cyan/20">
-                    Cấu hình
+                <div className="flex items-center space-x-2">
+                  <Printer className="w-4 h-4 text-white animate-pulse" />
+                  <span className="font-extrabold text-[12px] uppercase tracking-wider select-none text-white">
+                    Nhập số lượng và In
                   </span>
                 </div>
-
-                {/* Two options selection button layout */}
-                <div className="grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/85">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrintQuantityMode('constant');
-                    }}
-                    className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all cursor-pointer ${
-                      printQuantityMode === 'constant'
-                        ? "bg-white text-kiot-navy shadow-xs border border-gray-250"
-                        : "text-slate-500 hover:text-slate-800"
-                    }`}
-                  >
-                    Số lượng cố định
-                  </button>
-                  <button
-                    type="button"
-                    disabled={excelData.length === 0}
-                    onClick={() => {
-                      setPrintQuantityMode('excel_column');
-                    }}
-                    className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all flex items-center justify-center space-x-0.5 ${
-                      excelData.length === 0
-                        ? "opacity-55 cursor-not-allowed text-slate-400"
-                        : printQuantityMode === 'excel_column'
-                        ? "bg-white text-emerald-700 shadow-xs border border-emerald-250"
-                        : "text-slate-500 hover:text-slate-800 cursor-pointer"
-                    }`}
-                    title={excelData.length === 0 ? "Hãy tải dữ liệu Excel trước" : "Lấy số bản in theo cột Excel"}
-                  >
-                    <span>SL theo file</span>
-                    {excelData.length === 0 && <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded">Khóa</span>}
-                  </button>
-                </div>
-
-                {/* Quantity configuration elements */}
-                {printQuantityMode === 'constant' ? (
-                  <div className="space-y-1.5 pt-1.5">
-                    <input
-                      id="print-copies-input"
-                      type="text"
-                      value={printCopiesInput}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        setPrintCopiesInput(raw);
-                        const val = parseInt(raw, 10);
-                        if (!isNaN(val) && val >= 1) {
-                          setPrintCopies(val);
-                        }
-                      }}
-                      onBlur={() => {
-                        const val = parseInt(printCopiesInput, 10);
-                        if (isNaN(val) || val < 1) {
-                          setPrintCopies(1);
-                          setPrintCopiesInput("1");
-                        } else if (val > 500) {
-                          setPrintCopies(500);
-                          setPrintCopiesInput("500");
-                        } else {
-                          setPrintCopies(val);
-                          setPrintCopiesInput(String(val));
-                        }
-                      }}
-                      className="w-full px-2 py-1 text-xs border border-gray-250 rounded font-mono font-bold text-slate-800 bg-white"
-                    />
+                <div className="flex items-center space-x-2">
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-black border font-mono transition-colors duration-150 ${
+                    isPrintExpanded 
+                      ? 'bg-white/25 text-white border-white/30' 
+                      : 'bg-white/20 text-white border-white/30'
+                  }`}>
+                    {printQuantityMode === 'constant' ? `${printCopies} bản` : 'Theo Excel'}
+                  </span>
+                  <div className={`transition-transform duration-150 ${isPrintExpanded ? 'text-white rotate-180' : 'text-white/80 group-hover:text-white'}`}>
+                    <ChevronDown className="w-4 h-4" />
                   </div>
-                ) : (
-                  <div className="space-y-1.5 pt-1.5">
-                    {excelData.length > 0 ? (
-                      <>
+                </div>
+              </button>
+
+              {/* Collapsed/Expanded Content */}
+              {isPrintExpanded && (
+                <div className="mx-3 mb-3 p-4 space-y-3.5 bg-white border border-gray-200 rounded-xl shadow-sm animate-fadeIn">
+                  <div className="space-y-2 pb-1.5">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-black text-slate-500 uppercase tracking-wider select-none">
+                        CHẾ ĐỘ SỐ LƯỢNG IN
+                      </label>
+                    </div>
+
+                    {/* Two options selection button layout */}
+                    <div className="grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/85">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrintQuantityMode('constant');
+                        }}
+                        className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all cursor-pointer ${
+                          printQuantityMode === 'constant'
+                            ? "bg-white text-kiot-navy shadow-xs border border-gray-250"
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        Số lượng cố định
+                      </button>
+                      <button
+                        type="button"
+                        disabled={excelData.length === 0}
+                        onClick={() => {
+                          setPrintQuantityMode('excel_column');
+                        }}
+                        className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all flex items-center justify-center space-x-0.5 ${
+                          excelData.length === 0
+                            ? "opacity-55 cursor-not-allowed text-slate-400"
+                            : printQuantityMode === 'excel_column'
+                            ? "bg-white text-emerald-700 shadow-xs border border-emerald-250"
+                            : "text-slate-500 hover:text-slate-800 cursor-pointer"
+                        }`}
+                        title={excelData.length === 0 ? "Hãy tải dữ liệu Excel trước" : "Lấy số bản in theo cột Excel"}
+                      >
+                        <span>SL theo file</span>
+                        {excelData.length === 0 && <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded">Khóa</span>}
+                      </button>
+                    </div>
+
+                    {/* Quantity configuration elements */}
+                    {printQuantityMode === 'constant' ? (
+                      <div className="space-y-1 pt-1">
                         <label className="block text-[10px] text-slate-500 font-bold uppercase select-none mb-0.5">
-                          Chọn cột số lượng từ Excel:
+                          Nhập số bản sao cần in:
                         </label>
-                        <select
-                          value={printQuantityColumn || ""}
-                          onChange={(e) => setPrintQuantityColumn(e.target.value || null)}
-                          className="w-full text-xs font-bold font-mono py-1 px-1.5 bg-white border border-gray-250 rounded focus:outline-none"
-                        >
-                          <option value="">-- Tự động in mỗi dòng 1 tem --</option>
-                          {numericExcelColumns.map((col) => (
-                            <option key={col} value={col}>
-                              Cột: [{col}]
-                            </option>
-                          ))}
-                        </select>
-                        {numericExcelColumns.length === 0 ? (
-                          <span className="block text-[10px] text-amber-950 font-semibold leading-normal bg-amber-50 p-1.5 rounded-md border border-amber-200 mt-1">
-                            ⚠️ Không tìm thấy cột số lượng phù hợp. Đảm bảo Excel chứa cột SL / Số lượng dạng số.
-                          </span>
-                        ) : (
-                          <span className="block text-[10px] text-emerald-700 font-semibold leading-relaxed bg-emerald-50 p-1 rounded-md border border-emerald-150 mt-1">
-                            {printQuantityColumn
-                              ? `In dựa vào cột: ${printQuantityColumn}. Tổng in: ${printManifest.length} bản.`
-                              : "Mỗi dòng trong Excel sẽ được in đúng 1 bản."}
-                          </span>
-                        )}
-                      </>
+                        <input
+                          id="print-copies-input"
+                          type="text"
+                          value={printCopiesInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            setPrintCopiesInput(raw);
+                            const val = parseInt(raw, 10);
+                            if (!isNaN(val) && val >= 1) {
+                              setPrintCopies(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            const val = parseInt(printCopiesInput, 10);
+                            if (isNaN(val) || val < 1) {
+                              setPrintCopies(1);
+                              setPrintCopiesInput("1");
+                            } else if (val > 500) {
+                              setPrintCopies(500);
+                              setPrintCopiesInput("500");
+                            } else {
+                              setPrintCopies(val);
+                              setPrintCopiesInput(String(val));
+                            }
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs border border-gray-250 rounded font-mono font-bold text-slate-800 bg-white"
+                        />
+                      </div>
                     ) : (
-                      <div className="text-[10px] font-semibold text-yellow-850 bg-yellow-50 border border-yellow-250 p-1.5 rounded-md leading-normal">
-                        Cần liên kết file dữ liệu trước trong tab <strong>"KHỔ TEM & GIẤY"</strong>.
+                      <div className="space-y-1.5 pt-1">
+                        {excelData.length > 0 ? (
+                          <>
+                            <label className="block text-[10px] text-slate-500 font-bold uppercase select-none mb-0.5">
+                              Chọn cột số lượng từ Excel:
+                            </label>
+                            <select
+                              value={printQuantityColumn || ""}
+                              onChange={(e) => setPrintQuantityColumn(e.target.value || null)}
+                              className="w-full text-xs font-bold font-mono py-1 px-1.5 bg-white border border-gray-250 rounded focus:outline-none"
+                            >
+                              <option value="">-- Tự động in mỗi dòng 1 tem --</option>
+                              {numericExcelColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  Cột: [{col}]
+                                </option>
+                              ))}
+                            </select>
+                            {numericExcelColumns.length === 0 ? (
+                              <span className="block text-[10px] text-amber-950 font-semibold leading-normal bg-amber-50 p-1.5 rounded-md border border-amber-200 mt-1">
+                                ⚠️ Không tìm thấy cột số lượng phù hợp. Đảm bảo Excel chứa cột SL / Số lượng dạng số.
+                              </span>
+                            ) : (
+                              <span className="block text-[10px] text-emerald-700 font-semibold leading-relaxed bg-emerald-50 p-1 rounded-md border border-emerald-150 mt-1">
+                                {printQuantityColumn
+                                  ? `In dựa vào cột: ${printQuantityColumn}. Tổng in: ${printManifest.length} bản.`
+                                  : "Mỗi dòng trong Excel sẽ được in đúng 1 bản."}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <div className="text-[10px] font-semibold text-yellow-850 bg-yellow-50 border border-yellow-250 p-1.5 rounded-md leading-normal">
+                            Cần liên kết file dữ liệu trước trong tab <strong>"KHỔ TEM & GIẤY"</strong>.
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-              
-              <button
-                onClick={handlePrintLabel}
-                className="w-full py-3.5 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white rounded-xl flex items-center justify-center space-x-2 cursor-pointer transition-all duration-150 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] text-sm font-black border-b-[3px] border-sky-600"
-                title="Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"
-              >
-                <Printer className="w-5 h-5 stroke-[3]" />
-                <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
-              </button>
+
+                  <button
+                    onClick={handlePrintLabel}
+                    className="w-full py-3 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white rounded-xl flex items-center justify-center space-x-2 cursor-pointer transition-all duration-150 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] text-xs font-black border-b-[3px] border-sky-600"
+                    title="Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"
+                  >
+                    <Printer className="w-4.5 h-4.5 stroke-[3]" />
+                    <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

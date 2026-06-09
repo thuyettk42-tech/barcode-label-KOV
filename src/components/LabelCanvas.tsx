@@ -213,6 +213,47 @@ export const formatLabelText = (obj: LabelObject): string => {
   return rawValue;
 };
 
+const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: number }) => {
+  const shapeType = obj.shapeType || "rect";
+  const strokeColor = obj.shapeStrokeColor || "#000000";
+  const fillColor = obj.shapeFillColor || "transparent";
+  const strokeWidthMm = obj.shapeStrokeWidth !== undefined ? obj.shapeStrokeWidth : 1;
+  const strokeWidthPx = strokeWidthMm * pixelScale;
+  const cornerRadiusMm = obj.shapeCornerRadius || 0;
+  const cornerRadiusPx = cornerRadiusMm * pixelScale;
+  const strokeStyle = obj.shapeStrokeStyle || "solid";
+
+  if (shapeType === "line") {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <div
+          style={{
+            width: "100%",
+            height: 0,
+            borderTop: `${strokeWidthPx}px ${strokeStyle} ${strokeColor}`,
+          }}
+        />
+      </div>
+    );
+  }
+
+  const isCircle = shapeType === "circle";
+  const isOval = shapeType === "oval";
+  const borderRadiusStyle = isCircle || isOval ? "50%" : `${cornerRadiusPx}px`;
+
+  return (
+    <div
+      className="w-full h-full"
+      style={{
+        border: strokeWidthPx > 0 ? `${strokeWidthPx}px ${strokeStyle} ${strokeColor}` : "none",
+        backgroundColor: fillColor,
+        borderRadius: borderRadiusStyle,
+        boxSizing: "border-box",
+      }}
+    />
+  );
+};
+
 const renderTextElement = (obj: LabelObject, pixelScale: number) => {
   const displayContent = formatLabelText(obj);
 
@@ -265,6 +306,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
     underlineVal?: boolean,
     lineThroughVal?: boolean,
     superSubVal?: "normal" | "subscript" | "superscript",
+    colorVal?: string,
   ) => {
     let decs = [];
     if (underlineVal) decs.push("underline");
@@ -294,6 +336,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
           fontSize: `${(fontSizeVal || obj.fontSize || 11) * 0.352777 * pixelScale}px`,
+          color: colorVal || undefined,
         }}
       >
         {wrapped}
@@ -331,6 +374,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
             obj.prefixTextDecorationUnderline,
             obj.prefixTextDecorationLineThrough,
             obj.prefixTextSuperSub,
+            obj.prefixColor,
           )}
         {renderSegment(
           displayContent,
@@ -341,6 +385,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           obj.textDecorationUnderline,
           obj.textDecorationLineThrough,
           obj.textSuperSub,
+          obj.color,
         )}
         {obj.suffixText &&
           renderSegment(
@@ -352,6 +397,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
             obj.suffixTextDecorationUnderline,
             obj.suffixTextDecorationLineThrough,
             obj.suffixTextSuperSub,
+            obj.suffixColor,
           )}
       </div>
     </div>
@@ -1431,6 +1477,10 @@ export function LabelCanvas({
                                       referrerPolicy="no-referrer"
                                     />
                                   )}
+
+                                  {obj.type === "shape" && (
+                                    <ShapeRenderer obj={obj} pixelScale={previewScale} />
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1740,6 +1790,10 @@ export function LabelCanvas({
                                     }}
                                     referrerPolicy="no-referrer"
                                   />
+                                )}
+
+                                {obj.type === "shape" && (
+                                  <ShapeRenderer obj={obj} pixelScale={previewScale} />
                                 )}
                               </div>
                             </div>
@@ -2153,6 +2207,10 @@ export function LabelCanvas({
                       }}
                       referrerPolicy="no-referrer"
                     />
+                  )}
+
+                  {obj.type === "shape" && (
+                    <ShapeRenderer obj={obj} pixelScale={printScale} />
                   )}
                 </div>
 

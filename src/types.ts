@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-export type ObjectType = 'text' | 'barcode' | 'qrcode' | 'image';
+export type ObjectType = 'text' | 'barcode' | 'qrcode' | 'image' | 'shape';
 
 export interface LabelObject {
   id: string;
@@ -36,6 +36,7 @@ export interface LabelObject {
   prefixTextDecorationUnderline?: boolean;
   prefixTextDecorationLineThrough?: boolean;
   prefixTextSuperSub?: 'normal' | 'subscript' | 'superscript';
+  prefixColor?: string; // Text color for prefix
 
   suffixText?: string;
   suffixFontSize?: number;
@@ -45,6 +46,7 @@ export interface LabelObject {
   suffixTextDecorationUnderline?: boolean;
   suffixTextDecorationLineThrough?: boolean;
   suffixTextSuperSub?: 'normal' | 'subscript' | 'superscript';
+  suffixColor?: string; // Text color for suffix
 
   // Barcode attributes
   barcodeFormat?: 'CODE128' | 'EAN13' | 'CODE39';
@@ -80,6 +82,14 @@ export interface LabelObject {
   // Custom styling colors
   color?: string; // Text color, QR code color, or Barcode lines color
   barcodeTextColor?: string; // Specific color for the barcode label text
+
+  // Shape attributes
+  shapeType?: 'line' | 'rect' | 'circle' | 'oval';
+  shapeStrokeWidth?: number; // in mm
+  shapeStrokeColor?: string;
+  shapeFillColor?: string;
+  shapeCornerRadius?: number; // in mm
+  shapeStrokeStyle?: 'solid' | 'dashed' | 'dotted';
 }
 
 export interface LabelConfig {
