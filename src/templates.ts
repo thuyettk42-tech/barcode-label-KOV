@@ -239,5 +239,183 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         textAlign: "center"
       }
     ]
+  },
+  {
+    name: "Tem nhãn sản phẩm KM ( cuộn 2 tem )",
+    description: "Mẫu tem quảng cáo, khuyến mãi có kích thước 35x22mm bao gồm tên cửa hàng, tên mặt hàng, mã vạch, giá niêm yết có gạch ngang và giá khuyến mãi nổi bật.",
+    config: {
+      width: 35,
+      height: 22,
+      name: "Cấu hình tự chọn",
+      bgColor: "#ffffff"
+    },
+    sheetConfig: {
+      mode: "thermal",
+      cols: 2,
+      rows: 8,
+      rowGap: 3,
+      colGap: 0,
+      rollSideMargin: 1
+    },
+    objects: [
+      {
+        id: "init-text-1",
+        type: "text",
+        x: 2,
+        y: 0,
+        width: 31,
+        height: 2.6,
+        content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
+        fontSize: 4.5,
+        fontWeight: "bold",
+        textAlign: "center"
+      },
+      {
+        id: "init-barcode-1",
+        type: "barcode",
+        x: 7,
+        y: 6,
+        width: 20,
+        height: 8,
+        content: "SP0000001",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.4,
+        barcodeHeight: 11,
+        textFlowOrigin: "center",
+        barcodeTextMargin: 0.1,
+        barcodeFontSize: 5.5
+      },
+      {
+        id: "init-text-2",
+        type: "text",
+        x: 1,
+        y: 3,
+        width: 31,
+        height: 2.6,
+        content: "Ổ cắm LIOA",
+        fontSize: 5,
+        textAlign: "center",
+        fontWeight: "bold"
+      },
+      {
+        id: "text-1780993278403",
+        type: "text",
+        x: 0,
+        y: 14,
+        width: 34,
+        height: 3,
+        content: "150.000 VNĐ",
+        fontSize: 6.5,
+        fontWeight: "normal",
+        textAlign: "center",
+        textDecorationLineThrough: true
+      },
+      {
+        id: "text-1780993317539",
+        type: "text",
+        x: 0,
+        y: 17,
+        width: 33,
+        height: 3,
+        content: "130.000 VNĐ",
+        fontSize: 7.5,
+        fontWeight: "bold",
+        textAlign: "center",
+        prefixText: "KM: ",
+        prefixFontWeight: "bold"
+      }
+    ]
+  },
+  {
+    name: "Tem nhãn sản phẩm KM ( Cuộn 3 tem )",
+    description: "Mẫu tem quảng cáo, khuyến mãi dạng cuộn 3 tem/hàng có kích thước 35x22mm bao gồm tên cửa hàng, tên mặt hàng, mã vạch, giá niêm yết gạch ngang và giá KM nổi bật.",
+    config: {
+      width: 35,
+      height: 22,
+      name: "Cấu hình tự chọn",
+      bgColor: "#ffffff"
+    },
+    sheetConfig: {
+      mode: "thermal",
+      cols: 3,
+      rows: 8,
+      rowGap: 3,
+      colGap: 0,
+      showBorder: true,
+      borderWidth: 1,
+      borderRadius: 2,
+      borderColor: "#9ca3af",
+      rollSideMargin: 1
+    },
+    objects: [
+      {
+        id: "init-text-1",
+        type: "text",
+        x: 2,
+        y: 0,
+        width: 31,
+        height: 2.6,
+        content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
+        fontSize: 4.5,
+        fontWeight: "bold",
+        textAlign: "center"
+      },
+      {
+        id: "init-barcode-1",
+        type: "barcode",
+        x: 7,
+        y: 6,
+        width: 20,
+        height: 8,
+        content: "SP0000001",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.4,
+        barcodeHeight: 11,
+        textFlowOrigin: "center",
+        barcodeTextMargin: 0.1,
+        barcodeFontSize: 5.5
+      },
+      {
+        id: "init-text-2",
+        type: "text",
+        x: 1,
+        y: 3,
+        width: 31,
+        height: 2.6,
+        content: "Ổ cắm LIOA",
+        fontSize: 5,
+        textAlign: "center",
+        fontWeight: "bold"
+      },
+      {
+        id: "text-1780993278403",
+        type: "text",
+        x: 0,
+        y: 14,
+        width: 34,
+        height: 3,
+        content: "150.000 VNĐ",
+        fontSize: 6.5,
+        fontWeight: "normal",
+        textAlign: "center",
+        textDecorationLineThrough: true
+      },
+      {
+        id: "text-1780993317539",
+        type: "text",
+        x: 0,
+        y: 17,
+        width: 33,
+        height: 3,
+        content: "130.000 VNĐ",
+        fontSize: 7.5,
+        fontWeight: "bold",
+        textAlign: "center",
+        prefixText: "KM: ",
+        prefixFontWeight: "bold"
+      }
+    ]
   }
 ];

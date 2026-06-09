@@ -1927,9 +1927,19 @@ export default function App() {
   };
 
   // Load preset template
-  const handleSelectTemplate = (config: LabelConfig, templateObjects: LabelObject[]) => {
+  const handleSelectTemplate = (
+    config: LabelConfig, 
+    templateObjects: LabelObject[],
+    templateSheetConfig?: Partial<SheetLayoutConfig>
+  ) => {
     setLabelConfig(config);
     setObjects(templateObjects);
+    if (templateSheetConfig) {
+      setSheetConfig((prev) => ({
+        ...prev,
+        ...templateSheetConfig,
+      }));
+    }
     handleSelectObject(null);
     setCurrentFilePath(null);
     setCurrentLocalStorageKey(null);

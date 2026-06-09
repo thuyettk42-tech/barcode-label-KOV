@@ -136,4 +136,5 @@ export interface LabelTemplate {
   description: string;
   config: LabelConfig;
   objects: LabelObject[];
+  sheetConfig?: Partial<SheetLayoutConfig>;
 }

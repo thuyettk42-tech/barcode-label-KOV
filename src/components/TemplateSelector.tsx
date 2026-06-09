@@ -4,11 +4,15 @@
  */
 
 import { LABEL_TEMPLATES } from "../templates";
-import { LabelConfig, LabelObject } from "../types";
+import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { Layers, FileText, Barcode, QrCode } from "lucide-react";
 
 interface TemplateSelectorProps {
-  onSelectTemplate: (config: LabelConfig, objects: LabelObject[]) => void;
+  onSelectTemplate: (
+    config: LabelConfig,
+    objects: LabelObject[],
+    sheetConfig?: Partial<SheetLayoutConfig>
+  ) => void;
 }
 
 export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
@@ -68,7 +72,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => onSelectTemplate(template.config, template.objects)}
+                  onClick={() => onSelectTemplate(template.config, template.objects, template.sheetConfig)}
                   className="text-left p-3 rounded-lg border border-gray-200 hover:border-kiot-cyan hover:bg-sky-50/30 active:bg-sky-100/50 transition-all duration-200 group relative block cursor-pointer"
                 >
                   <div className="flex justify-between items-start mb-1">
