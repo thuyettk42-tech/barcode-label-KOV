@@ -138,7 +138,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: transparent !important;
   }
 
@@ -180,7 +180,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: transparent !important;
     
     border: var(--cell-border, none) !important;
