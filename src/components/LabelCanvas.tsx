@@ -346,7 +346,10 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.352777 * pixelScale}px`,
+          fontSize:
+            pixelScale === BASE_DPI_SCALE
+              ? `${(fontSizeVal || obj.fontSize || 10) * 0.352777}mm`
+              : `${(fontSizeVal || obj.fontSize || 10) * 0.352777 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >

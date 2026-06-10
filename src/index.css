@@ -204,6 +204,10 @@
     margin: 0 !important;
   }
 
+  .object-print-class > div {
+    padding: 0 !important;
+  }
+
   /* Dynamic page configuration */
   @page {
     size: var(--print-width, 100mm) var(--print-height, 75mm);
