@@ -75,7 +75,7 @@ export default function App() {
   });
 
   // State to manage showing the quick instructions pop up
-  const [showHowToUse, setShowHowToUse] = useState<boolean>(true);
+  const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>([
@@ -2395,19 +2395,6 @@ export default function App() {
               />
             </label>
           </div>
-
-          {/* Quick instructions toggle */}
-          <div className="flex items-center space-x-1.5 border-l border-gray-150 pl-2 font-sans">
-            <button
-              type="button"
-              onClick={() => setShowHowToUse(true)}
-              className="h-7 px-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-950 text-[11px] font-black tracking-wide flex items-center space-x-1.5 border border-amber-300 hover:border-amber-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
-              title="Xem hướng dẫn các bước tạo mẫu tem"
-            >
-              <Info className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>Hướng dẫn</span>
-            </button>
-          </div>
         </div>
       </header>
 
@@ -4416,7 +4403,7 @@ export default function App() {
           {/* 3. INTERACTIVE CANVAS GRID PORTAL */}
           {showHowToUse && (
             <div className="w-full flex justify-center px-4 mt-3 select-none no-print animate-fadeIn">
-              <div className="max-w-[840px] w-full p-3 bg-white border border-slate-200 rounded-2xl shadow-md flex flex-col space-y-2 relative font-sans animate-fadeIn">
+              <div className="max-w-[924px] w-full p-3.5 bg-white border border-slate-200 rounded-2xl shadow-md flex flex-col space-y-2 relative font-sans animate-fadeIn">
                 <button 
                   type="button" 
                   onClick={() => setShowHowToUse(false)}
@@ -4427,8 +4414,8 @@ export default function App() {
                 </button>
                 
                 <div className="flex items-center space-x-2 pb-1 border-b border-slate-100">
-                  <span className="text-[11px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
-                  <span className="text-[9.5px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
+                  <span className="text-[12.3px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
+                  <span className="text-[10.8px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -4441,10 +4428,10 @@ export default function App() {
                       className="w-full md:w-[130px] text-white bg-[#0070F4] hover:bg-[#0062d6] font-black py-2.5 px-2.5 flex items-center justify-center md:flex-col md:justify-center text-left md:text-center cursor-pointer transition-all active:scale-[0.99] border-0 outline-none shrink-0 rounded-t-xl md:rounded-tr-none md:rounded-l-xl rounded-b-none"
                       title="Chuyển sang tab Thiết lập Khổ tem & Giấy"
                     >
-                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#0070F4] font-black text-[9px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">1</div>
+                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#0070F4] font-black text-[10.3px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">1</div>
                       <div className="flex flex-col md:items-center">
-                        <span className="text-[10.5px] font-black tracking-wider uppercase font-sans leading-none">KHỔ GIẤY IN</span>
-                        <span className="text-[8px] text-sky-100 font-bold normal-case leading-none mt-0.5 md:mt-1">Thiết lập khổ</span>
+                        <span className="text-[11.8px] font-black tracking-wider uppercase font-sans leading-none">KHỔ GIẤY IN</span>
+                        <span className="text-[9.3px] text-sky-100 font-bold normal-case leading-none mt-0.5 md:mt-1">Thiết lập khổ</span>
                       </div>
                     </button>
 
@@ -4452,19 +4439,19 @@ export default function App() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 items-stretch bg-white rounded-b-xl md:rounded-bl-none md:rounded-r-xl">
                       {/* Bước 1 */}
                       <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50">
-                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-sky-100 text-sky-700 font-extrabold text-[10px] tracking-wide shrink-0 border border-sky-200">BƯỚC 1</span>
-                        <div className="text-[12.5px] leading-snug flex-1">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Xác định khổ tem</p>
-                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Cấu hình cỡ nhãn thực tế (Rộng x Cao) ở cột bên trái.</p>
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-sky-100 text-sky-700 font-extrabold text-[11.3px] tracking-wide shrink-0 border border-sky-200">BƯỚC 1</span>
+                        <div className="text-[13.8px] leading-snug flex-1">
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập kích thước khổ tem</p>
+                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight">Cấu hình cỡ nhãn thực tế (Rộng x Cao) ở cột bên trái.</p>
                         </div>
                       </div>
 
                       {/* Bước 2 */}
                       <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50 border-t md:border-t-0 md:border-l border-blue-100/60">
-                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[10px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
-                        <div className="text-[12.5px] leading-snug flex-1">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[11.3px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
+                        <div className="text-[13.8px] leading-snug flex-1">
                           <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập khổ giấy và máy in</p>
-                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề giấy phù hợp.</p>
+                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề giấy phù hợp.</p>
                         </div>
                       </div>
                     </div>
@@ -4479,10 +4466,10 @@ export default function App() {
                       className="w-full md:w-[130px] text-white bg-[#00B63E] hover:bg-[#009e35] font-black py-2 px-2.5 flex items-center justify-center md:flex-col md:justify-center text-left md:text-center cursor-pointer transition-all active:scale-[0.99] border-0 outline-none shrink-0 rounded-t-xl md:rounded-tr-none md:rounded-l-xl rounded-b-none"
                       title="Chuyển sang tab Thiết kế tem"
                     >
-                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#00B63E] font-black text-[9px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">2</div>
+                      <div className="w-4 h-4 rounded-full bg-white flex items-center justify-center text-[#00B63E] font-black text-[10.3px] shadow-sm shrink-0 mr-2 md:mr-0 md:mb-1 ring-2 ring-white/10">2</div>
                       <div className="flex flex-col md:items-center">
-                        <span className="text-[10.5px] font-black tracking-wider uppercase font-sans leading-none">THIẾT KẾ TEM</span>
-                        <span className="text-[8px] text-emerald-100 font-bold normal-case leading-none mt-0.5 md:mt-1 font-sans">Vẽ & chỉnh sửa</span>
+                        <span className="text-[11.8px] font-black tracking-wider uppercase font-sans leading-none">THIẾT KẾ TEM</span>
+                        <span className="text-[9.3px] text-emerald-100 font-bold normal-case leading-none mt-0.5 md:mt-1 font-sans">Vẽ & chỉnh sửa</span>
                       </div>
                     </button>
 
@@ -4490,19 +4477,19 @@ export default function App() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 items-stretch bg-white rounded-b-xl md:rounded-bl-none md:rounded-r-xl">
                       {/* Bước 3 */}
                       <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50">
-                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold text-[10px] tracking-wide shrink-0 border border-emerald-200">BƯỚC 3</span>
-                        <div className="text-[12.5px] leading-snug flex-1">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-emerald-100 text-emerald-800 font-extrabold text-[11.3px] tracking-wide shrink-0 border border-emerald-200">BƯỚC 3</span>
+                        <div className="text-[13.8px] leading-snug flex-1">
                           <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết kế mẫu tem</p>
-                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Thêm nội dung, mã vạch, QR. Nhấp chọn để chỉnh tọa độ.</p>
+                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight">Thêm nội dung, mã vạch, QR. Nhấp chọn để chỉnh tọa độ.</p>
                         </div>
                       </div>
 
                       {/* Bước 4 */}
                       <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50 border-t md:border-t-0 md:border-l border-emerald-100/60">
-                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[10px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
-                        <div className="text-[12.5px] leading-snug flex-1">
+                        <span className="px-1.5 py-[1px] mt-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[11.3px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
+                        <div className="text-[13.8px] leading-snug flex-1">
                           <p className="font-extrabold text-[#0F172A] mb-0.5">In nhãn tem</p>
-                          <p className="text-slate-500 font-semibold text-[11.5px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN</strong> hoặc <strong className="text-slate-700">Ctrl+P</strong> ở góc trái.</p>
+                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN</strong> hoặc <strong className="text-slate-700">Ctrl+P</strong> ở góc trái.</p>
                         </div>
                       </div>
                     </div>
@@ -4547,6 +4534,8 @@ export default function App() {
             currentLocalStorageKey={currentLocalStorageKey}
             saveLogs={saveLogs}
             onUpdateGridSnapSize={setGridSnapSize}
+            showHowToUse={showHowToUse}
+            onToggleHowToUse={() => setShowHowToUse(!showHowToUse)}
           />
 
         </main>

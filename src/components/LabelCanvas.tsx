@@ -9,7 +9,7 @@ import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
 import { mmToPx, pxToMm, constrainCoordinates, BASE_DPI_SCALE } from "../utils";
-import { Trash, Maximize2, Move, LayoutGrid, RefreshCw } from "lucide-react";
+import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info } from "lucide-react";
 
 interface LabelCanvasProps {
   labelConfig: LabelConfig;
@@ -48,6 +48,8 @@ interface LabelCanvasProps {
   currentLocalStorageKey?: string | null;
   saveLogs?: Array<{ time: string; path: string; type: 'save' | 'import' | 'quick-save' }>;
   onUpdateGridSnapSize?: (size: number) => void;
+  showHowToUse?: boolean;
+  onToggleHowToUse?: () => void;
 }
 
 const getRotatedCursor = (
@@ -459,6 +461,8 @@ export function LabelCanvas({
   currentLocalStorageKey,
   saveLogs,
   onUpdateGridSnapSize,
+  showHowToUse,
+  onToggleHowToUse,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -2584,6 +2588,26 @@ export function LabelCanvas({
             borderStyle: "dashed",
           }}
         />
+      )}
+
+      {/* Floating Guide Toggle Button (top-right, under the "Xóa hết" toolbar item) */}
+      {onToggleHowToUse && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleHowToUse();
+          }}
+          className={`absolute top-4 right-4 h-9 px-3.5 rounded-xl shadow-md border flex items-center space-x-1.5 text-[12.5px] font-extrabold tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] z-50 no-print hover:shadow-lg ${
+            showHowToUse
+              ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 hover:border-amber-600 shadow-amber-200"
+              : "bg-white hover:bg-amber-50/70 border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-850"
+          }`}
+          title={showHowToUse ? "Ẩn bảng hướng dẫn các bước thiết kế" : "Xem hướng dẫn các bước thiết kế"}
+        >
+          <Info className={`w-4 h-4 shrink-0 transition-transform duration-300 ${showHowToUse ? "rotate-12 text-white" : "text-amber-500"}`} />
+          <span>{showHowToUse ? "Ẩn Hướng dẫn" : "Hướng dẫn"}</span>
+        </button>
       )}
     </div>
   );
