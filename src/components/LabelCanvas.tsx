@@ -1677,6 +1677,7 @@ export function LabelCanvas({
 
             const pageEl = (
               <div
+                key={`sheet-page-print-${sIdx}`}
                 className="office-print-page bg-white relative shadow-lg border border-gray-300 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
@@ -1910,6 +1911,10 @@ export function LabelCanvas({
               </div>
             );
 
+            if (isMobileOrPrint) {
+              return pageEl;
+            }
+
             return (
               <div
                 key={`sheet-page-${sIdx}`}
@@ -2039,6 +2044,7 @@ export function LabelCanvas({
 
             const rowEl = (
               <div
+                key={`thermal-row-print-${rIdx}`}
                 className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
                 style={
                   {
@@ -2252,6 +2258,10 @@ export function LabelCanvas({
                 })}
               </div>
             );
+
+            if (isMobileOrPrint) {
+              return rowEl;
+            }
 
             return (
               <div

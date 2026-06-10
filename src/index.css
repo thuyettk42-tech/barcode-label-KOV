@@ -123,6 +123,7 @@
     background: #ffffff !important;
     width: var(--print-width, 100mm) !important;
     height: var(--print-height, 75mm) !important;
+    overflow: hidden !important;
     page-break-inside: avoid !important;
     page-break-after: always !important;
   }
@@ -153,6 +154,7 @@
     
     width: var(--print-width, 210mm) !important;
     height: var(--print-height, 297mm) !important;
+    overflow: hidden !important;
     
     padding-top: var(--sheet-m-top, 10mm) !important;
     padding-bottom: var(--sheet-m-bottom, 10mm) !important;
