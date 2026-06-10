@@ -2220,7 +2220,7 @@ export function LabelCanvas({
               <div
                 key={`thermal-row-${rIdx}`}
                 className="shrink-0 print:m-0 print:p-0 print:w-auto print:h-auto"
-                style={isMobileOrPrint ? { marginBottom: `${pxRowGap}px` } : {
+                style={isMobileOrPrint ? undefined : {
                   width: `${pxBackingW * zoomRatio}px`,
                   height: `${(pxBackingH + pxRowGap) * zoomRatio}px`,
                 }}
