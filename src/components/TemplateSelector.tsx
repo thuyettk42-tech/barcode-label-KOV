@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { LABEL_TEMPLATES } from "../templates";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
-import { Layers, FileText, Barcode, QrCode, Tag, ShoppingCart, Eye, Sparkles, Inbox } from "lucide-react";
+import { Layers, FileText, Barcode, QrCode, Tag, ShoppingCart, Eye, Sparkles, Inbox, ChevronRight, X } from "lucide-react";
 
 interface TemplateSelectorProps {
   onSelectTemplate: (
@@ -17,7 +17,7 @@ interface TemplateSelectorProps {
 }
 
 export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
-  const [activeCategory, setActiveCategory] = useState<string>("common");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
   // Helper to categorize template names
   const getCategoryOfTemplate = (name: string): string => {
@@ -45,103 +45,117 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
     { id: "jewelry", name: "Tem trang sức", icon: Sparkles, colorClass: "text-pink-500 bg-pink-50" },
   ];
 
-  const filteredTemplates = LABEL_TEMPLATES.filter(
-    (t) => getCategoryOfTemplate(t.name) === activeCategory
-  );
+  const filteredTemplates = activeCategory
+    ? LABEL_TEMPLATES.filter((t) => getCategoryOfTemplate(t.name) === activeCategory)
+    : [];
+
+  const handleCategoryClick = (catId: string) => {
+    if (activeCategory === catId) {
+      setActiveCategory(null);
+    } else {
+      setActiveCategory(catId);
+    }
+  };
+
+  const activeCategoryObj = categories.find((c) => c.id === activeCategory);
 
   return (
-    <div id="template-selector" className="space-y-4">
-      {/* Selector Header */}
-      <div className="flex items-center space-x-2 text-gray-700 pb-1 border-b border-gray-100">
-        <Layers className="w-5 h-5 text-kiot-cyan" />
-        <h3 className="font-semibold text-sm text-kiot-navy">Mẫu Thiết Kế Sẵn Có</h3>
-      </div>
+    <div
+      id="template-selector"
+      className="flex transition-all duration-300 ease-in-out gap-4 p-4"
+      style={{ width: activeCategory ? "610px" : "270px" }}
+    >
+      {/* COLUMN 1: CATEGORIES LIST */}
+      <div className="w-[238px] shrink-0 space-y-4 pr-1">
+        {/* Selector Header */}
+        <div className="flex items-center space-x-2 text-gray-750 pb-1 border-b border-gray-100">
+          <Layers className="w-5 h-5 text-kiot-cyan" />
+          <h3 className="font-semibold text-sm text-kiot-navy">Mẫu Thiết Kế Sẵn Có</h3>
+        </div>
 
-      {/* Category Tabs */}
-      <div className="flex flex-col gap-1.5 no-print" id="template-category-tabs">
-        {categories.map((cat) => {
-          const IconComponent = cat.icon;
-          const isActive = activeCategory === cat.id;
-          const count = getCountForCategory(cat.id);
+        {/* Category Tabs */}
+        <div className="flex flex-col gap-1.5 no-print" id="template-category-tabs">
+          {categories.map((cat) => {
+            const IconComponent = cat.icon;
+            const isActive = activeCategory === cat.id;
+            const count = getCountForCategory(cat.id);
 
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setActiveCategory(cat.id)}
-              className={`flex items-center justify-between p-2.5 rounded-lg border text-left transition-all duration-200 cursor-pointer ${
-                isActive
-                  ? "border-kiot-cyan bg-sky-50/50 text-kiot-navy shadow-xs font-bold ring-1 ring-kiot-cyan/20"
-                  : "border-slate-200 hover:border-slate-350 bg-white text-slate-600 hover:bg-slate-50 font-medium"
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <div className={`p-1.5 rounded-md shrink-0 ${cat.colorClass}`}>
-                  <IconComponent className="w-4 h-4" />
-                </div>
-                <span className="text-[12.5px]">{cat.name}</span>
-              </div>
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => handleCategoryClick(cat.id)}
+                className={`flex items-center justify-between p-2.5 rounded-lg border text-left transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? "bg-kiot-cyan text-white shadow-2xs"
-                    : "bg-slate-100 text-slate-500"
+                    ? "border-kiot-cyan bg-sky-50/50 text-kiot-navy shadow-xs font-bold ring-1 ring-kiot-cyan/20"
+                    : "border-slate-200 hover:border-slate-350 bg-white text-slate-600 hover:bg-slate-50 font-medium"
                 }`}
               >
-                {count}
-              </span>
-            </button>
-          );
-        })}
+                <div className="flex items-center space-x-2.5">
+                  <div className={`p-1.5 rounded-md shrink-0 ${cat.colorClass}`}>
+                    <IconComponent className="w-4 h-4" />
+                  </div>
+                  <span className="text-[12.5px]">{cat.name}</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isActive
+                        ? "bg-kiot-cyan text-white shadow-2xs"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                  <ChevronRight
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                      isActive ? "rotate-180 text-kiot-cyan" : ""
+                    }`}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {LABEL_TEMPLATES.length === 0 ? (
-        <div className="space-y-3 pt-1">
-          <p className="text-[11.5px] text-emerald-800 bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg font-medium leading-relaxed">
-            ✨ Đã làm sạch các mẫu cũ mặc định thành công! Bây giờ bạn có thể dễ dàng gửi mô tả hoặc ảnh chụp mẫu nhãn dán cho tôi để thiết kế bổ sung.
-          </p>
-          
-          <div className="bg-slate-50 border border-slate-200/80 rounded-lg p-3 text-xs space-y-2 text-slate-700">
-            <span className="font-extrabold text-kiot-navy block text-[13px] border-b border-slate-200 pb-1.5">📝 Cách thức gửi mẫu cho trợ lý:</span>
-            <p className="leading-relaxed font-bold">Bạn có thể gửi bằng 2 cách:</p>
-            <ol className="list-decimal pl-4.5 space-y-1.5 font-semibold text-slate-650 leading-relaxed text-[11px]">
-              <li><strong className="text-slate-800">Cách 1: Gửi ảnh chụp thực tế</strong> (Kèm kích thước rộng x cao, tôi sẽ tự phân tích và vẽ lại chuẩn xác bố cục tem).</li>
-              <li><strong className="text-slate-800">Cách 2: Gửi theo mẫu mô tả bằng chữ</strong> theo form dưới đây.</li>
-            </ol>
-            
-            <div className="mt-3 bg-white border border-slate-200 p-2.5 rounded-md font-mono text-[10.5px] text-slate-600 select-text overflow-x-auto whitespace-pre leading-normal shadow-xs">
-{`---- PHORM GỬI MẪU NHÃN ----
-1. Kích thước tem rộng x cao (mm): e.g. 65mm x 45mm
-2. Loại giấy in: Cuộn/A4/A5
-3. Mục đích sử dụng / Tên mẫu: e.g. Tem giá, Tem phụ...
-4. Các phần tử trên tem nhãn:
-   - Chữ 1: "TÊN CỬA HÀNG" (Vị trí, kích thước chữ...)
-   - Chữ 2: "Tên mặt hàng: {Tên sản phẩm}"
-   - Chữ 3: "Giá bán: {Giá bán}"
-   - Barcode / Mã vạch: Mã từ cột nào (e.g. Mã hàng)
-   - QR Code: Giá trị chứa gì (e.g. Link thanh toán, mã tài sản)
-5. Nội dung mặc định mẫu hiển thị.`}
+      {/* COLUMN 2: EXPANDED LIST */}
+      {activeCategory && (
+        <div className="w-[310px] shrink-0 border-l border-slate-100 pl-4 space-y-3 flex flex-col justify-start animate-fadeIn">
+          {/* Sub Header */}
+          <div className="flex items-center justify-between pb-1 border-b border-gray-105">
+            <div className="flex items-center space-x-1.5 text-kiot-navy">
+              {activeCategoryObj && (
+                <div className={`p-1 rounded-md shrink-0 ${activeCategoryObj.colorClass} scale-90`}>
+                  <activeCategoryObj.icon className="w-3.5 h-3.5" />
+                </div>
+              )}
+              <span className="font-extrabold text-[11px] tracking-wide uppercase">
+                {activeCategoryObj?.name}
+              </span>
             </div>
             
-            <div className="text-[10px] text-slate-400 font-bold leading-relaxed pt-1">
-              💡 Hãy gửi ảnh hoặc các thông tin trên tại ô chat bên dưới bất cứ lúc nào!
-            </div>
+            <button
+              onClick={() => setActiveCategory(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition cursor-pointer"
+              title="Đóng bảng xem mẫu"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-        </div>
-      ) : (
-        <>
+
           {filteredTemplates.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-6 border border-dashed border-slate-250 bg-slate-50/50 rounded-xl text-center space-y-2">
+            <div className="flex-1 flex flex-col items-center justify-center p-6 border border-dashed border-slate-200 bg-slate-50/50 rounded-xl text-center space-y-2">
               <div className="p-2 bg-slate-100 rounded-full text-slate-400">
                 <Inbox className="w-5 h-5" />
               </div>
-              <p className="text-[11.5px] text-slate-600 font-semibold">Chưa có thiết kế mẫu trong nhóm này</p>
-              <p className="text-[10px] text-slate-400 leading-normal max-w-[210px] font-medium">
-                Bạn có thể tự thiết kế bằng bảng vẽ, hoặc gửi hình ảnh/mô tả mẫu qua chat để trợ lý thiết kế bổ sung cho bạn!
+              <p className="text-[11.5px] text-slate-650 font-semibold">Chưa có thiết kế mẫu</p>
+              <p className="text-[10px] text-slate-450 leading-normal max-w-[210px] font-medium">
+                Hãy gửi hình ảnh/mô tả mẫu qua chat để trợ lý thiết kế bổ sung cho bạn!
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2.5 max-h-[350px] overflow-y-auto pr-1">
+            <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 max-h-[350px]">
               {filteredTemplates.map((template, idx) => {
                 const textCount = template.objects.filter((o) => o.type === "text").length;
                 const barcodeCount = template.objects.filter((o) => o.type === "barcode").length;
@@ -151,18 +165,21 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => onSelectTemplate(template.config, template.objects, template.sheetConfig)}
-                    className="text-left p-3 rounded-lg border border-gray-200 hover:border-kiot-cyan hover:bg-sky-50/30 active:bg-sky-100/50 transition-all duration-200 group relative block cursor-pointer"
+                    onClick={() => {
+                      onSelectTemplate(template.config, template.objects, template.sheetConfig);
+                      setActiveCategory(null); // Auto-collapse on selection
+                    }}
+                    className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-kiot-cyan hover:bg-sky-50/30 active:bg-sky-100/50 transition-all duration-200 group relative block cursor-pointer"
                   >
                     <div className="flex justify-between items-start mb-1">
-                      <span className="font-semibold text-xs text-slate-800 group-hover:text-kiot-navy transition-colors">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-kiot-navy transition-colors">
                         {template.name}
                       </span>
-                      <span className="text-[10px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-650 shrink-0 font-bold">
+                      <span className="text-[9.5px] font-mono bg-gray-100 px-1.5 py-0.5 rounded text-gray-600 shrink-0 font-bold">
                         {template.config.width}x{template.config.height}mm
                       </span>
                     </div>
-                    <p className="text-[11.5px] text-gray-500 line-clamp-2 leading-relaxed mb-2 font-medium">
+                    <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed mb-2 font-medium">
                       {template.description}
                     </p>
                     
@@ -176,7 +193,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                       {barcodeCount > 0 && (
                         <span className="flex items-center space-x-1">
                           <Barcode className="w-3 h-3 text-emerald-400" />
-                          <span>{barcodeCount} Barcode</span>
+                          <span>{barcodeCount} Mã vạch</span>
                         </span>
                       )}
                       {qrCount > 0 && (
@@ -191,9 +208,8 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
               })}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );
 }
-

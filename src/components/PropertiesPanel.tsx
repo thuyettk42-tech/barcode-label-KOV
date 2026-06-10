@@ -822,9 +822,9 @@ export function PropertiesPanel({
                   <input
                     {...getNumericInputProps(
                       "fontSize",
-                      selectedObject.fontSize || 11,
+                      selectedObject.fontSize || 10,
                       (val) => handleAttributeChange("fontSize", val),
-                      11,
+                      10,
                     )}
                     className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
                   />
@@ -1577,9 +1577,9 @@ export function PropertiesPanel({
                     <input
                       {...getNumericInputProps(
                         "barcodeFontSize",
-                        selectedObject.barcodeFontSize || 7,
+                        selectedObject.barcodeFontSize || 6,
                         (val) => handleAttributeChange("barcodeFontSize", val),
-                        7,
+                        6,
                       )}
                       className="w-full px-2 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
                     />

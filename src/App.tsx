@@ -1182,7 +1182,7 @@ export default function App() {
         width: w,
         height: h,
         content: customContent || "NỘI DUNG VĂN BẢN MỚI",
-        fontSize: 11, // Default font size is 11 pt
+        fontSize: 10, // Default font size is 10 pt
         fontWeight: "normal",
         textAlign: "center"
       };
@@ -1199,7 +1199,8 @@ export default function App() {
         displayValue: true,
         barcodeWidth: 1.5,
         barcodeHeight: 15,
-        textFlowOrigin: "center"
+        textFlowOrigin: "center",
+        barcodeFontSize: 6
       };
     } else if (type === "qrcode") {
       newObject = {
@@ -2350,7 +2351,7 @@ export default function App() {
               <span>Chọn Mẫu có sẵn</span>
               <span className="text-[8.5px] bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono font-black">Preset</span>
             </button>
-            <div className="absolute right-0 mt-1 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl p-3 text-slate-800 hidden group-hover:block hover:block z-50 text-left">
+            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl text-slate-800 hidden group-hover:block hover:block z-50 text-left transition-all duration-300 ease-in-out">
               <TemplateSelector onSelectTemplate={handleSelectTemplate} />
             </div>
           </div>
@@ -3632,7 +3633,7 @@ export default function App() {
                           <div className="grid grid-cols-1 gap-2">
                             <button
                               onClick={() => handleAddObject("text")}
-                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                               title="Thêm một đoạn dòng văn bản mới ở giữa nhãn"
                             >
                               <span className="flex items-center space-x-2">
@@ -3646,7 +3647,7 @@ export default function App() {
 
                             <button
                               onClick={() => handleAddObject("barcode")}
-                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                               title="Thêm một hình vẽ mã vạch chuẩn 1D ở giữa nhãn"
                             >
                               <span className="flex items-center space-x-2">
@@ -3660,7 +3661,7 @@ export default function App() {
 
                             <button
                               onClick={() => handleAddObject("qrcode")}
-                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                               title="Thêm một hình vẽ mã QR code ở giữa nhãn"
                             >
                               <span className="flex items-center space-x-2">
@@ -3674,7 +3675,7 @@ export default function App() {
 
                             <button
                               onClick={() => setShowImageImportModal(true)}
-                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                               title="Chèn logo, con dấu hoặc hình ảnh bất kỳ vào nhãn"
                             >
                               <span className="flex items-center space-x-2">
@@ -3688,7 +3689,7 @@ export default function App() {
 
                             <button
                               onClick={() => handleAddObject("shape", "line")}
-                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
                               title="Thêm nét kẻ ngang / dọc hoặc hình khối bất kỳ vào nhãn"
                             >
                               <span className="flex items-center space-x-2">

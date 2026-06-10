@@ -346,7 +346,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: `${(fontSizeVal || obj.fontSize || 11) * 0.352777 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.352777 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -524,14 +524,14 @@ export function LabelCanvas({
               e.stopPropagation();
               setIsFloatingPrintOpen(!isFloatingPrintOpen);
             }}
-            className={`h-9 px-3.5 rounded-xl shadow-md border flex items-center space-x-2 text-[12.5px] font-extrabold tracking-wider transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] border-b-[3px] cursor-pointer ${
+            className={`h-10 px-4 rounded-xl shadow-md border flex items-center space-x-2 text-[13.8px] font-extrabold tracking-wider transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] border-b-[3px] cursor-pointer ${
               isFloatingPrintOpen
                 ? "bg-slate-700 hover:bg-slate-800 text-white border-slate-700 border-b-slate-900 shadow-sm"
                 : "border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white"
             }`}
             title="Đóng / mở bảng cấu hình số lượng in trực tiếp ngay trên màn hình thiết kế"
           >
-            <Printer className={`w-4 h-4 stroke-[2.5] ${isFloatingPrintOpen ? "" : "animate-bounce"}`} />
+            <Printer className={`w-4.5 h-4.5 stroke-[2.5] ${isFloatingPrintOpen ? "" : "animate-bounce"}`} />
             <span>{isFloatingPrintOpen ? "THU GỌN" : "IN TEM"}</span>
           </button>
         </div>
@@ -694,10 +694,10 @@ export function LabelCanvas({
                 e.stopPropagation();
                 onPrintLabel?.();
               }}
-              className="w-full py-2.5 border border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white flex items-center justify-center space-x-1.5 text-xs font-black tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px] rounded-xl shadow-md"
+              className="w-full py-3 border border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white flex items-center justify-center space-x-1.5 text-[13.2px] font-black tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px] rounded-xl shadow-md"
               title="Truyền và gọi hộp thoại in tem nhãn"
             >
-              <Printer className="w-4 h-4 stroke-[2.5]" />
+              <Printer className="w-4.5 h-4.5 stroke-[2.5]" />
               <span className="uppercase tracking-widest font-black">IN TEM</span>
             </button>
           </div>
@@ -1792,7 +1792,7 @@ export function LabelCanvas({
                                       displayValue={obj.displayValue}
                                       barcodeWidth={obj.barcodeWidth}
                                       barcodeHeight={obj.barcodeHeight}
-                                      fontSize={obj.barcodeFontSize || 7}
+                                      fontSize={obj.barcodeFontSize || 6}
                                       pixelScale={previewScale}
                                       barcodeShowTextAbove={
                                         obj.barcodeShowTextAbove
@@ -2137,7 +2137,7 @@ export function LabelCanvas({
                                     displayValue={obj.displayValue}
                                     barcodeWidth={obj.barcodeWidth}
                                     barcodeHeight={obj.barcodeHeight}
-                                    fontSize={obj.barcodeFontSize || 7}
+                                    fontSize={obj.barcodeFontSize || 6}
                                     pixelScale={previewScale}
                                     barcodeShowTextAbove={
                                       obj.barcodeShowTextAbove
@@ -2562,7 +2562,7 @@ export function LabelCanvas({
                                     : "var(--font-sans)",
                           fontWeight: obj.fontWeight || "normal",
                           fontStyle: obj.fontStyle || "normal",
-                          fontSize: `${(obj.fontSize || 11) * 0.352777 * printScale}px`,
+                          fontSize: `${(obj.fontSize || 10) * 0.352777 * printScale}px`,
                           textAlign: obj.textAlign || "left",
                           lineHeight: "1.25",
                         }}
@@ -2578,7 +2578,7 @@ export function LabelCanvas({
                       displayValue={obj.displayValue}
                       barcodeWidth={obj.barcodeWidth}
                       barcodeHeight={obj.barcodeHeight}
-                      fontSize={obj.barcodeFontSize || 7}
+                      fontSize={obj.barcodeFontSize || 6}
                       pixelScale={printScale}
                       barcodeShowTextAbove={obj.barcodeShowTextAbove}
                       barcodeShowTextBelow={obj.barcodeShowTextBelow}
