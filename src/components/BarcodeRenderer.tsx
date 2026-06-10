@@ -353,16 +353,12 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
           <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
             <svg
               ref={svgRef}
-              style={
-                naturalDimensions
-                  ? {
-                      width: `${displayWidth}px`,
-                      height: "100%",
-                      maxWidth: "100%",
-                      maxHeight: "100%",
-                    }
-                  : undefined
-              }
+              style={{
+                width: "100%",
+                height: "100%",
+                maxWidth: "100%",
+                maxHeight: "100%",
+              }}
               preserveAspectRatio="none"
               className="block"
             />
