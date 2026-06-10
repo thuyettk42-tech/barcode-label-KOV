@@ -38,7 +38,8 @@
   main,
   .h-screen,
   .w-screen,
-  .flex-1 {
+  .flex-1,
+  .app-scale-wrapper {
     display: block !important;
     position: static !important;
     width: auto !important;
@@ -52,6 +53,8 @@
     box-shadow: none !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    zoom: 1 !important;
+    transform: none !important;
   }
 
   /* Hide entire UI layout chrome */
@@ -138,7 +141,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: transparent !important;
   }
 
@@ -180,7 +183,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     background: transparent !important;
     
     border: var(--cell-border, none) !important;
