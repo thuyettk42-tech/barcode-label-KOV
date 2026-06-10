@@ -56,6 +56,62 @@ import {
   Shapes
 } from "lucide-react";
 
+interface TomyTemplate {
+  name: string;
+  paperSize: 'A4' | 'A5';
+  orientation: 'portrait' | 'landscape';
+  width: number;
+  height: number;
+  cols: number;
+  rows: number;
+  colGap: number;
+  rowGap: number;
+  marginLeft: number;
+  marginRight: number;
+  marginTop: number;
+  marginBottom: number;
+}
+
+const TOMY_TEMPLATES_DATA: TomyTemplate[] = [
+  { name: "A5 - Tomy 99 - 96 tem 7 x 31 mm", paperSize: "A5", orientation: "portrait", width: 31, height: 7, cols: 4, rows: 24, colGap: 2, rowGap: 1.2, marginLeft: 9, marginRight: 9, marginTop: 7.2, marginBottom: 7.2 },
+  { name: "A5 - Tomy 100 - 8 tem 37 x 96 mm", paperSize: "A5", orientation: "landscape", width: 96, height: 37, cols: 2, rows: 4, colGap: 2, rowGap: 0, marginLeft: 8, marginRight: 8, marginTop: 0, marginBottom: 0 },
+  { name: "A5 - Tomy 101 - 6 tem 50 x 96 mm", paperSize: "A5", orientation: "landscape", width: 96, height: 50, cols: 2, rows: 3, colGap: 2, rowGap: 0, marginLeft: 8, marginRight: 8, marginTop: 0, marginBottom: 0 },
+  { name: "A5 - Tomy 102 - 12 tem 52 x 47 mm", paperSize: "A5", orientation: "portrait", width: 47, height: 52, cols: 3, rows: 4, colGap: 2.5, rowGap: 2.5, marginLeft: 3, marginRight: 3, marginTop: 1, marginBottom: 1 },
+  { name: "A5 - Tomy 103 - 12 tem 36 x 62 mm", paperSize: "A5", orientation: "portrait", width: 62, height: 36, cols: 2, rows: 6, colGap: 3, rowGap: 2, marginLeft: 10, marginRight: 10, marginTop: 1, marginBottom: 1 },
+  { name: "A5 - Tomy 104 - 14 tem 25 x 78 mm", paperSize: "A5", orientation: "portrait", width: 78, height: 25, cols: 2, rows: 7, colGap: 3, rowGap: 2, marginLeft: 10, marginRight: 10, marginTop: 11, marginBottom: 11 },
+  { name: "A5 - Tomy 105 - 30 tem 25 x 37 mm", paperSize: "A5", orientation: "portrait", width: 37, height: 25, cols: 3, rows: 10, colGap: 2, rowGap: 1.5, marginLeft: 10, marginRight: 10, marginTop: 2, marginBottom: 2 },
+  { name: "A5 - Tomy 106 - 42 tem 25 x 25 mm", paperSize: "A5", orientation: "portrait", width: 25, height: 25, cols: 5, rows: 8, colGap: 2, rowGap: 1.5, marginLeft: 10, marginRight: 10, marginTop: 4, marginBottom: 4 },
+  { name: "A5 - Tomy 107 - 30 tem 17 x 50 mm", paperSize: "A5", orientation: "portrait", width: 50, height: 17, cols: 2, rows: 15, colGap: 3, rowGap: 1.5, marginLeft: 10, marginRight: 10, marginTop: 3, marginBottom: 3 },
+  { name: "A5 - Tomy 108 - 40 tem 19 x 36 mm", paperSize: "A5", orientation: "portrait", width: 36, height: 19, cols: 4, rows: 10, colGap: 2, rowGap: 1.5, marginLeft: 10, marginRight: 10, marginTop: 1, marginBottom: 1 },
+  { name: "A5 - Tomy 109 - 55 tem 12 x 37 mm", paperSize: "A5", orientation: "portrait", width: 37, height: 12, cols: 3, rows: 18, colGap: 2, rowGap: 1.2, marginLeft: 10, marginRight: 10, marginTop: 1, marginBottom: 1 },
+  { name: "A5 - Tomy 110 - 72 tem 16 x 22 mm", paperSize: "A5", orientation: "portrait", width: 22, height: 16, cols: 6, rows: 12, colGap: 1.5, rowGap: 1.2, marginLeft: 10, marginRight: 10, marginTop: 1, marginBottom: 1 },
+  { name: "A5 - Tomy 112 - 144 tem 8 x 20 mm", paperSize: "A5", orientation: "portrait", width: 20, height: 8, cols: 6, rows: 24, colGap: 1.5, rowGap: 1.0, marginLeft: 10, marginRight: 10, marginTop: 1, marginBottom: 1 },
+  { name: "A4 - Tomy 125 - 2 tem 206 x 145 mm", paperSize: "A4", orientation: "portrait", width: 206, height: 145, cols: 1, rows: 2, colGap: 0, rowGap: 3, marginLeft: 2, marginRight: 2, marginTop: 2, marginBottom: 2 },
+  { name: "A4 - Tomy 126 - 4 tem 102 x 143 mm", paperSize: "A4", orientation: "portrait", width: 102, height: 143, cols: 2, rows: 2, colGap: 3, rowGap: 3, marginLeft: 2, marginRight: 2, marginTop: 4, marginBottom: 4 },
+  { name: "A4 - Tomy 127 - 6 tem 100 x 94 mm", paperSize: "A4", orientation: "portrait", width: 100, height: 94, cols: 2, rows: 3, colGap: 3, rowGap: 3, marginLeft: 3, marginRight: 3, marginTop: 4.5, marginBottom: 4.5 },
+  { name: "A4 - Tomy 128 - 8 tem 100 x 72 mm", paperSize: "A4", orientation: "portrait", width: 100, height: 72, cols: 2, rows: 4, colGap: 3, rowGap: 2.5, marginLeft: 3, marginRight: 3, marginTop: 1.5, marginBottom: 1.5 },
+  { name: "A4 - Tomy 129 - 10 tem 98 x 56 mm", paperSize: "A4", orientation: "portrait", width: 98, height: 56, cols: 2, rows: 5, colGap: 3, rowGap: 2.5, marginLeft: 4, marginRight: 4, marginTop: 3.5, marginBottom: 3.5 },
+  { name: "A4 - Tomy 130 - 12 tem 101 x 47 mm", paperSize: "A4", orientation: "portrait", width: 101, height: 47, cols: 2, rows: 6, colGap: 3, rowGap: 2, marginLeft: 2, marginRight: 2, marginTop: 2.5, marginBottom: 2.5 },
+  { name: "A4 - Tomy 131 - 14 tem 98 x 40 mm", paperSize: "A4", orientation: "portrait", width: 98, height: 40, cols: 2, rows: 7, colGap: 3, rowGap: 2, marginLeft: 4, marginRight: 4, marginTop: 4, marginBottom: 4 },
+  { name: "A4 - Tomy 132 - 48 tem 45.7 x 21.2 mm", paperSize: "A4", orientation: "portrait", width: 45.7, height: 21.2, cols: 4, rows: 12, colGap: 2.5, rowGap: 1.5, marginLeft: 9.8, marginRight: 9.8, marginTop: 13, marginBottom: 13 },
+  { name: "A4 - Tomy 133 - 16 tem 101 x 36 mm", paperSize: "A4", orientation: "portrait", width: 101, height: 36, cols: 2, rows: 8, colGap: 3, rowGap: 1.5, marginLeft: 2, marginRight: 2, marginTop: 1, marginBottom: 1 },
+  { name: "A4 - Tomy 134 - 18 tem 98 x 32 mm", paperSize: "A4", orientation: "portrait", width: 98, height: 32, cols: 2, rows: 9, colGap: 3, rowGap: 1.5, marginLeft: 4, marginRight: 4, marginTop: 0.5, marginBottom: 0.5 },
+  { name: "A4 - Tomy 135 - 21 tem 66 x 40 mm", paperSize: "A4", orientation: "portrait", width: 66, height: 40, cols: 3, rows: 7, colGap: 2.5, rowGap: 1.5, marginLeft: 3, marginRight: 3, marginTop: 4, marginBottom: 4 },
+  { name: "A4 - Tomy 136 - 24 tem 70 x 35 mm", paperSize: "A4", orientation: "portrait", width: 70, height: 35, cols: 3, rows: 8, colGap: 2.5, rowGap: 1.5, marginLeft: 2, marginRight: 2, marginTop: 4, marginBottom: 4 },
+  { name: "A4 - Tomy 137 - 27 tem 50 x 37 mm", paperSize: "A4", orientation: "portrait", width: 50, height: 37, cols: 4, rows: 8, colGap: 2.5, rowGap: 1.5, marginLeft: 2, marginRight: 2, marginTop: 0.5, marginBottom: 0.5 },
+  { name: "A4 - Tomy 138 - 30 tem 40 x 30 mm", paperSize: "A4", orientation: "portrait", width: 40, height: 30, cols: 5, rows: 6, colGap: 2, rowGap: 1.5, marginLeft: 1, marginRight: 1, marginTop: 53.5, marginBottom: 53.5 },
+  { name: "A4 - Tomy 139 - 40 tem 70 x 20 mm", paperSize: "A4", orientation: "portrait", width: 70, height: 20, cols: 2, rows: 20, colGap: 3, rowGap: 1, marginLeft: 30, marginRight: 30, marginTop: 4.5, marginBottom: 4.5 },
+  { name: "A4 - Tomy 140 - 80 tem 38 x 17 mm", paperSize: "A4", orientation: "portrait", width: 38, height: 17, cols: 5, rows: 16, colGap: 2, rowGap: 1, marginLeft: 5, marginRight: 5, marginTop: 5, marginBottom: 5 },
+  { name: "A4 - Tomy 141 - 44 tem 46 x 25 mm", paperSize: "A4", orientation: "portrait", width: 46, height: 25, cols: 4, rows: 11, colGap: 2, rowGap: 1.5, marginLeft: 5, marginRight: 5, marginTop: 6, marginBottom: 6 },
+  { name: "A4 - Tomy 143 - 45 tem 38 x 21 mm", paperSize: "A4", orientation: "portrait", width: 38, height: 21, cols: 5, rows: 9, colGap: 2, rowGap: 1.5, marginLeft: 5, marginRight: 5, marginTop: 46, marginBottom: 46 },
+  { name: "A4 - Tomy 144 - 30 tem 67 x 47 mm", paperSize: "A4", orientation: "portrait", width: 67, height: 47, cols: 3, rows: 6, colGap: 2.5, rowGap: 2, marginLeft: 2, marginRight: 2, marginTop: 3.7, marginBottom: 3.8 },
+  { name: "A4 - Tomy 145 - 65 tem 38 x 21 mm", paperSize: "A4", orientation: "portrait", width: 38, height: 21, cols: 5, rows: 13, colGap: 2, rowGap: 1.5, marginLeft: 5, marginRight: 5, marginTop: 6, marginBottom: 6 },
+  { name: "A4 - Tomy 146 - 180 tem 20 x 15 mm", paperSize: "A4", orientation: "portrait", width: 20, height: 15, cols: 10, rows: 18, colGap: 1.5, rowGap: 1, marginLeft: 5, marginRight: 5, marginTop: 5, marginBottom: 5 },
+  { name: "A4 - Tomy 147 - 32 tem 48 x 34 mm", paperSize: "A4", orientation: "portrait", width: 48, height: 34, cols: 4, rows: 8, colGap: 2.5, rowGap: 2, marginLeft: 4.5, marginRight: 4.5, marginTop: 7.2, marginBottom: 7.3 },
+  { name: "A4 - Tomy 148 - 33 tem 66 x 25 mm", paperSize: "A4", orientation: "portrait", width: 66, height: 25, cols: 3, rows: 11, colGap: 2.5, rowGap: 1.5, marginLeft: 3, marginRight: 3, marginTop: 6, marginBottom: 6 },
+  { name: "A4 - Tomy 149 - 18 tem 68 x 42 mm", paperSize: "A4", orientation: "portrait", width: 68, height: 42, cols: 3, rows: 6, colGap: 2.5, rowGap: 2, marginLeft: 2, marginRight: 2, marginTop: 17.5, marginBottom: 17.5 }
+];
+
 const InfoTooltip = ({ content }: { content: React.ReactNode }) => (
   <span className="group relative inline-flex items-center ml-1.5 cursor-help select-none align-middle">
     <Info className="w-3.5 h-3.5 text-sky-500 hover:text-sky-600 transition-colors duration-150" />
@@ -334,6 +390,13 @@ export default function App() {
   const [customSaveName, setCustomSaveName] = useState<string>("");
   const [savedDesigns, setSavedDesigns] = useState<Array<{ name: string; timestamp: string; config: LabelConfig; sheetConfig?: SheetLayoutConfig; objects: LabelObject[] }>>([]);
   const [showSavedList, setShowSavedList] = useState<boolean>(false);
+  const [showPresetDropdown, setShowPresetDropdown] = useState<boolean>(false);
+  const [isPresetDropdownPinned, setIsPresetDropdownPinned] = useState<boolean>(false);
+  const presetContainerRef = React.useRef<HTMLDivElement>(null);
+  const [usePopularTomy, setUsePopularTomy] = useState<boolean>(false);
+  const [tomySearchQuery, setTomySearchQuery] = useState<string>("");
+  const [isTomyDropdownOpen, setIsTomyDropdownOpen] = useState<boolean>(false);
+  const tomyContainerRef = React.useRef<HTMLDivElement>(null);
 
   // States for the custom Save Dialog Modal
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
@@ -589,6 +652,27 @@ export default function App() {
   useEffect(() => {
     setIsBatchPrinting(excelData.length > 0);
   }, [excelData]);
+
+  // Handle click outside for Preset dropdown and Tomy dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!target || !document.body.contains(target)) {
+        return; // Ignore detached elements (e.g. elements removed or re-rendered instantly) to avoid closing on tab switches
+      }
+      if (presetContainerRef.current && !presetContainerRef.current.contains(target)) {
+        setShowPresetDropdown(false);
+        setIsPresetDropdownPinned(false);
+      }
+      if (tomyContainerRef.current && !tomyContainerRef.current.contains(target)) {
+        setIsTomyDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Helper to convert ArrayBuffer to Base64 using a memory-safe and performance-optimized chunked reader
   const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -2129,6 +2213,35 @@ export default function App() {
     setCurrentFilePath(null);
     setCurrentLocalStorageKey(null);
     setActiveFileHandle(null);
+    setShowPresetDropdown(false);
+    setIsPresetDropdownPinned(false);
+  };
+  
+  // Load popular Tomy template with custom centered margins calculation
+  const handleSelectTomyTemplate = (item: TomyTemplate) => {
+    applyPresetDimensions(item.width, item.height, item.name);
+    
+    // Khi chọn mẫu Tomy, mặc định dọn sạch toàn bộ đối tượng để tạo tem trống không có dữ liệu mẫu
+    setObjects([]);
+    setSelectedId(null);
+    setSelectedIds([]);
+    
+    setSheetConfig((prev) => ({
+      ...prev,
+      mode: 'office',
+      paperSize: item.paperSize,
+      orientation: item.orientation,
+      cols: item.cols,
+      rows: item.rows,
+      colGap: item.colGap,
+      rowGap: item.rowGap,
+      marginLeft: item.marginLeft,
+      marginRight: item.marginRight,
+      marginTop: item.marginTop,
+      marginBottom: item.marginBottom,
+    }));
+    
+    setIsTomyDropdownOpen(false);
   };
 
   // Synchronise global hotkey intercept for Ctrl+P, Ctrl+S, Ctrl+O, etc.
@@ -2342,18 +2455,46 @@ export default function App() {
         {/* TOP QUICK DESIGNS BUTTONS */}
         <div className="flex items-center space-x-2 bg-slate-50/50 p-1 rounded-xl border border-slate-100/60 shadow-3xs">
           {/* Preset Template Selector */}
-          <div className="relative group">
+          <div 
+            ref={presetContainerRef}
+            className="relative"
+            onMouseEnter={() => setShowPresetDropdown(true)}
+            onMouseLeave={() => {
+              if (!isPresetDropdownPinned) {
+                setShowPresetDropdown(false);
+              }
+            }}
+          >
             <button
-              className="h-7 px-2 rounded-lg bg-white hover:bg-amber-50 text-[11px] font-black text-amber-850 tracking-wide flex items-center space-x-1.5 border border-amber-300 hover:border-amber-500 transition cursor-pointer shadow-xs active:scale-[0.98]"
-              title="Chọn mẫu thiết kế ứng dụng có sẵn"
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (isPresetDropdownPinned) {
+                  setIsPresetDropdownPinned(false);
+                  setShowPresetDropdown(false);
+                } else {
+                  setIsPresetDropdownPinned(true);
+                  setShowPresetDropdown(true);
+                }
+              }}
+              className={`h-7 px-2 rounded-lg text-[11px] font-black tracking-wide flex items-center space-x-1.5 border transition cursor-pointer shadow-xs active:scale-[0.98] ${
+                isPresetDropdownPinned 
+                  ? "bg-amber-100 text-amber-950 border-amber-500 ring-1 ring-amber-500/20" 
+                  : "bg-white hover:bg-amber-50 text-amber-850 border-amber-300 hover:border-amber-500"
+              }`}
+              title="Chọn mẫu thiết kế ứng dụng có sẵn (Click để ghim hiển thị)"
             >
-              <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <BookOpen className={`w-3.5 h-3.5 shrink-0 ${isPresetDropdownPinned ? "text-amber-800 animate-pulse" : "text-amber-600"}`} />
               <span>Chọn Mẫu có sẵn</span>
-              <span className="text-[8.5px] bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono font-black">Preset</span>
+              <span className={`text-[8.5px] px-1 py-0.5 rounded font-mono font-black ${isPresetDropdownPinned ? "bg-amber-200 text-amber-950" : "bg-amber-100 text-amber-900"}`}>
+                {isPresetDropdownPinned ? "Ghim" : "Preset"}
+              </span>
             </button>
-            <div className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl text-slate-800 hidden group-hover:block hover:block z-50 text-left transition-all duration-300 ease-in-out">
-              <TemplateSelector onSelectTemplate={handleSelectTemplate} />
-            </div>
+            {showPresetDropdown && (
+              <div id="preset-selector-dropdown-wrapper" className="absolute right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-2xl text-slate-800 z-50 text-left transition-all duration-300 ease-in-out animate-fadeIn">
+                <TemplateSelector onSelectTemplate={handleSelectTemplate} />
+              </div>
+            )}
           </div>
 
           {/* Load layouts storage */}
@@ -2535,6 +2676,114 @@ export default function App() {
                           <Compass className="w-3.5 h-3.5 text-blue-500" />
                           <span>Kích thước tem nhãn ( 1 tem )</span>
                         </h2>
+
+                      {/* POPULAR TOMY LABELS PICKER PANEL */}
+                      <div ref={tomyContainerRef} className="space-y-2.5 pb-2.5 border-b border-gray-150/80 no-print">
+                        <div className="flex items-center space-x-2 select-none no-print">
+                          <label className="relative flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={usePopularTomy}
+                              onChange={(e) => {
+                                setUsePopularTomy(e.target.checked);
+                                setIsTomyDropdownOpen(e.target.checked);
+                              }}
+                              className="sr-only peer"
+                            />
+                            <div className="w-8 h-4.5 bg-slate-200 hover:bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-[#00B63E]"></div>
+                            <span className="ml-2.5 text-[12px] font-black text-slate-700">Sử dụng tem Tomy phổ biến</span>
+                          </label>
+                        </div>
+
+                        {usePopularTomy && (
+                          <div className="relative space-y-1 pt-0.5 select-none no-print">
+                            <label className="block text-[11px] text-slate-500 font-bold mb-0.5">Chọn dòng tem Tomy:</label>
+                            <div className="relative col-span-2">
+                              <button
+                                type="button"
+                                onClick={() => setIsTomyDropdownOpen(!isTomyDropdownOpen)}
+                                className="w-full flex items-center justify-between pl-3 pr-2 py-1.5 text-[12px] bg-slate-50 border border-slate-250 hover:border-[#00B63E] rounded-lg text-slate-800 font-bold transition shadow-3xs cursor-pointer focus:ring-1 focus:ring-[#00B63E] text-left"
+                              >
+                                <span className="truncate">
+                                  {TOMY_TEMPLATES_DATA.find(item => item.name === labelConfig.name)?.name || "Bấm chọn dòng tem..."}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 ml-1.5" />
+                              </button>
+
+                              {isTomyDropdownOpen && (
+                                <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-[290px] flex flex-col overflow-hidden animate-slideDown">
+                                  {/* Search box container */}
+                                  <div className="p-2 border-b border-slate-100 flex items-center space-x-2 bg-slate-50 shrink-0">
+                                    <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <input
+                                      type="text"
+                                      placeholder="Nhập mã Tomy (ví dụ: 138, 105, A4...)"
+                                      value={tomySearchQuery}
+                                      onChange={(e) => setTomySearchQuery(e.target.value)}
+                                      className="w-full bg-transparent border-0 text-xs focus:ring-0 focus:outline-none font-bold text-slate-700"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                    {tomySearchQuery && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTomySearchQuery("");
+                                        }}
+                                        className="p-0.5 hover:bg-slate-200 text-slate-400 hover:text-slate-600 rounded-md"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Item options */}
+                                  <div className="overflow-y-auto flex-1 divide-y divide-slate-50/50">
+                                    {(() => {
+                                      const query = tomySearchQuery.trim().toLowerCase();
+                                      const filtered = TOMY_TEMPLATES_DATA.filter(item => 
+                                        item.name.toLowerCase().includes(query)
+                                      );
+
+                                      if (filtered.length === 0) {
+                                        return (
+                                          <div className="py-4 px-3 text-xs text-slate-450 font-semibold text-center italic">
+                                            Không tìm thấy dòng tem nào
+                                          </div>
+                                        );
+                                      }
+
+                                      return filtered.map((item) => {
+                                        const isSelected = labelConfig.name === item.name;
+                                        return (
+                                          <button
+                                            key={item.name}
+                                            type="button"
+                                            onClick={() => handleSelectTomyTemplate(item)}
+                                            className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                                              isSelected 
+                                                ? "bg-slate-100 text-[#00B63E] font-black" 
+                                                : "hover:bg-slate-50 text-slate-700 font-semibold"
+                                            }`}
+                                          >
+                                            <div className="flex flex-col">
+                                              <span className="font-extrabold">{item.name}</span>
+                                              <span className="text-[10px] text-slate-400 font-medium">
+                                                Giấy {item.paperSize} • {item.rows} hàng x {item.cols} cột ({item.width}x{item.height} mm)
+                                              </span>
+                                            </div>
+                                            {isSelected && <span className="text-[10px] bg-[#00B63E] text-white px-1 py-0.5 rounded font-black shrink-0 ml-1.5">Đã chọn</span>}
+                                          </button>
+                                        );
+                                      });
+                                    })()}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -2883,8 +3132,18 @@ export default function App() {
                     </div>
                   </button>
 
-                  {isStep2Expanded && (
+                   {isStep2Expanded && (
                     <div className="p-3 bg-white border border-slate-150 rounded-xl space-y-4 shadow-3xs">
+                      {labelConfig.name && labelConfig.name.includes("Tomy") && (
+                        <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11.5px] rounded-lg font-semibold flex items-start space-x-1.5 shadow-3xs animate-fadeIn no-print">
+                          <span className="text-sm mt-0.5">⚡</span>
+                          <div className="flex-1">
+                            <span className="text-emerald-950 font-extrabold block text-xs">Đã đồng bộ mẫu Tomy mặc định!</span>
+                            <span className="text-emerald-700 text-[10.5px] leading-tight block mt-0.5">Hệ thống đã tự động áp dụng khổ giấy <strong>{TOMY_TEMPLATES_DATA.find(t => t.name === labelConfig.name)?.paperSize || "A4/A5"}</strong> ({TOMY_TEMPLATES_DATA.find(t => t.name === labelConfig.name)?.orientation === "landscape" ? "Khổ ngang" : "Khổ dọc"}), các lề giấy chuẩn, số ô lưới và khe hở chính xác cho <strong className="text-emerald-950 font-bold">{labelConfig.name}</strong>.</span>
+                          </div>
+                        </div>
+                      )}
+                      
                       {/* 1. PRINT MODE SELECTOR */}
                       <section className="space-y-2.5">
                         <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center space-x-1.5 select-none mb-1">
