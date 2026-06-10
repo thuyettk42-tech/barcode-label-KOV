@@ -879,12 +879,18 @@ export default function App() {
   };
 
   // Generate print manifest of indices with strict safeguards to avoid crashing browser heaps
-  const printManifest = useMemo(() => {
+  const printManifestData = useMemo(() => {
     if (!excelData || excelData.length === 0) {
-      return [];
+      return { manifest: [], warning: null, hasExceeded: false };
     }
+
     const manifest: number[] = [];
+    let hasExceeded = false;
+    let lastSafeRow: number | null = null;
+    let warningMessage: string | null = null;
+
     if (printQuantityMode === "excel_column" && printQuantityColumn) {
+      let accumulatedSum = 0;
       for (let idx = 0; idx < excelData.length; idx++) {
         const row = excelData[idx];
         const rawVal = row[printQuantityColumn];
@@ -905,32 +911,73 @@ export default function App() {
         } else {
           qty = 1;
         }
-        for (let i = 0; i < qty; i++) {
-          if (manifest.length >= 10000) {
-            break; // Safeguard: limit total labels generated in a single manifest to 10000
-          }
-          manifest.push(idx);
-        }
-        if (manifest.length >= 10000) {
-          break; // Stop completely if limit reached
-        }
-      }
-    } else {
-      const copies = Math.min(Math.max(1, printCopies), 1000); // Safeguard copies to max 1000
-      for (let idx = 0; idx < excelData.length; idx++) {
-        for (let i = 0; i < copies; i++) {
-          if (manifest.length >= 10000) {
-            break; // Safeguard: limit total labels generated in a single manifest to 10000
-          }
-          manifest.push(idx);
-        }
-        if (manifest.length >= 10000) {
+
+        // Check if adding this row's copies exceeds the limit of 1000
+        if (accumulatedSum + qty > 1000) {
+          hasExceeded = true;
+          lastSafeRow = idx; // first index that fails
           break;
         }
+
+        for (let i = 0; i < qty; i++) {
+          manifest.push(idx);
+        }
+        accumulatedSum += qty;
+      }
+
+      if (hasExceeded && lastSafeRow !== null) {
+        // Find the index of the last row successfully included = lastSafeRow (since we processed lastSafeRow items, index starts at 0, so last successfully included data row is rows 1..lastSafeRow)
+        const lastSafeRowNumber = lastSafeRow; // 5th row of values (since idx is 0-indexed, if it breaks at idx=5, we successfully added index 0,1,2,3,4. There are 5 rows total, so 5th data row)
+        const lastSafeExcelLine = lastSafeRow + 1; // equivalent Excel row line number (including header)
+        
+        warningMessage = lastSafeRowNumber > 0 
+          ? `Vượt quá số lượng in cho phép, hệ thống chỉ có thể in tới hàng thứ ${lastSafeRowNumber} (dòng ${lastSafeExcelLine} trong tệp Excel), vui lòng xóa các dòng đã in để tiếp tục phần còn lại.`
+          : `Cảnh báo: Dòng đầu tiên trong Excel đã có số lượng vượt hạn mức 1.000 bản in cho phép!`;
+      }
+    } else if (printQuantityMode === "excel_column") {
+      // excel mode but no column selected (each row prints exactly 1 copy)
+      let accumulatedSum = 0;
+      for (let idx = 0; idx < excelData.length; idx++) {
+        if (accumulatedSum + 1 > 1000) {
+          hasExceeded = true;
+          lastSafeRow = idx;
+          break;
+        }
+        manifest.push(idx);
+        accumulatedSum += 1;
+      }
+      if (hasExceeded && lastSafeRow !== null) {
+        warningMessage = `Vượt quá số lượng in cho phép, hệ thống chỉ có thể in tới hàng thứ ${lastSafeRow} (dòng ${lastSafeRow + 1} trong tệp Excel), vui lòng xóa các dòng đã in để tiếp tục phần còn lại.`;
+      }
+    } else {
+      // printQuantityMode === "constant"
+      const copies = Math.min(Math.max(1, printCopies), 1000); // Safeguard copies to max 1000
+      let accumulatedSum = 0;
+      for (let idx = 0; idx < excelData.length; idx++) {
+        if (accumulatedSum + copies > 1000) {
+          hasExceeded = true;
+          lastSafeRow = idx;
+          break;
+        }
+        for (let i = 0; i < copies; i++) {
+          manifest.push(idx);
+        }
+        accumulatedSum += copies;
+      }
+      if (hasExceeded && lastSafeRow !== null) {
+        warningMessage = `Vượt quá số lượng in cho phép, hệ thống chỉ có thể in tới hàng thứ ${lastSafeRow} (dòng ${lastSafeRow + 1} trong tệp Excel), vui lòng xóa các dòng đã in để tiếp tục phần còn lại.`;
       }
     }
-    return manifest;
+
+    return {
+      manifest,
+      warning: warningMessage,
+      hasExceeded,
+    };
   }, [excelData, printQuantityMode, printQuantityColumn, printCopies]);
+
+  const printManifest = useMemo(() => printManifestData.manifest, [printManifestData]);
+  const printLimitWarning = useMemo(() => printManifestData.warning, [printManifestData]);
 
   // Wrapper for cell level dynamic object resolver that respects the repeating print count
   const resolveDynamicObjectsForCell = (objs: LabelObject[], globalCellIndex: number) => {
@@ -4197,7 +4244,7 @@ export default function App() {
                               <span className="block text-[10px] text-emerald-700 font-semibold leading-relaxed bg-emerald-50 p-1 rounded-md border border-emerald-150 mt-1">
                                 {printQuantityColumn
                                   ? `In dựa vào cột: ${printQuantityColumn}. Tổng in: ${printManifest.length} bản.`
-                                  : "Mỗi dòng trong Excel sẽ được in đúng 1 bản."}
+                                  : `Mỗi dòng trong Excel sẽ được in đúng 1 bản. Tổng in: ${printManifest.length} bản.`}
                               </span>
                             )}
                           </>
@@ -4206,6 +4253,12 @@ export default function App() {
                             Cần liên kết file dữ liệu trước trong tab <strong>"KHỔ TEM & GIẤY"</strong>.
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {printLimitWarning && (
+                      <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-lg leading-relaxed font-semibold animate-pulse shadow-xs max-h-[140px] overflow-y-auto select-text font-sans">
+                        ⚠️ <span className="font-bold">Cảnh báo an toàn:</span> {printLimitWarning}
                       </div>
                     )}
                   </div>
