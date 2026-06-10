@@ -342,8 +342,8 @@ def configure_devtools(window):
     # Chạy ngầm trong Thread để không gây lag/đơ cửa sổ UI chính lúc mở
     threading.Thread(target=run_config, daemon=True).start()
 
-def run_server(directory, port):
-    """Khởi chạy nền máy chủ HTTP để tránh lỗi CORS cho ES Modules trong môi trường cục bộ"""
+def run_server(directory, port_container):
+    """Khởi chạy nền máy chủ HTTP để tránh lỗi CORS cho ES Modules trong môi trường cục bộ, dò cổng nguyên tử"""
     class SafeHTTPRequestHandler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             # Directory parameter hỗ trợ từ Python 3.7+ dùng để phục vụ thư mục cụ thể
@@ -354,8 +354,16 @@ def run_server(directory, port):
             pass
 
     # Thiết lập server sử dụng địa chỉ localhost (127.0.0.1) an toàn, tránh mở kết nối ngoài mạng ngoài ý muốn
-    with TCPServer(('127.0.0.1', port), SafeHTTPRequestHandler) as httpd:
-        httpd.serve_forever()
+    # Kích hoạt allow_reuse_address tránh lỗi TIME_WAIT tái khởi động nhanh
+    TCPServer.allow_reuse_address = True
+    try:
+        with TCPServer(('127.0.0.1', 0), SafeHTTPRequestHandler) as httpd:
+            port_container['port'] = httpd.server_address[1]
+            port_container['ready'].set()
+            httpd.serve_forever()
+    except Exception as e:
+        print(f"[SERVER-ERROR] Lỗi nghiêm trọng khi khởi chạy máy chủ cục bộ: {e}")
+        port_container['ready'].set()
 
 def main():
     # Thư mục chứa giao diện web tĩnh sau khi chạy lệnh 'npm run build'
@@ -373,11 +381,30 @@ def main():
         input("Nhấn Enter để thoát...")
         sys.exit(1)
 
-    # Khởi chạy một server cực nhẹ ở background
-    port = find_free_port()
-    server_thread = threading.Thread(target=run_server, args=(dist_dir, port))
+    # Khởi chạy một server cực nhẹ ở background với cơ chế nhận diện cổng rảnh nguyên tử (atomic) chống treo và xung đột
+    port_container = {
+        'port': 0,
+        'ready': threading.Event()
+    }
+    server_thread = threading.Thread(target=run_server, args=(dist_dir, port_container))
     server_thread.daemon = True
     server_thread.start()
+
+    # Chờ tối đa 5 giây cho luồng server bind thành công và kích hoạt cổng thực tế rảnh 100%
+    is_ready = port_container['ready'].wait(timeout=5.0)
+    if not is_ready or port_container['port'] == 0:
+        print("[WARNING-SYSTEM] Máy chủ nền mất quá nhiều thời gian để phản hồi, sử dụng cơ chế dự phòng cổng...")
+        port = find_free_port()
+        try:
+            fallback_handler = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=dist_dir, **kwargs)
+            TCPServer.allow_reuse_address = True
+            httpd_fallback = TCPServer(('127.0.0.1', port), fallback_handler)
+            fallback_thread = threading.Thread(target=httpd_fallback.serve_forever, daemon=True)
+            fallback_thread.start()
+        except Exception as e:
+            print(f"[FALLBACK-ERROR] Không thể chạy server dự phòng: {e}")
+    else:
+        port = port_container['port']
 
     # URL trỏ đến máy chủ cục bộ vừa khởi chạy
     local_url = f"http://127.0.0.1:{port}"

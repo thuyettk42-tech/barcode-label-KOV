@@ -1198,7 +1198,8 @@ export default function App() {
     } else if (sheetConfig.mode === 'thermal' && (officePreviewMode === 'sheet' || isBatchPrinting)) {
       const cols = sheetConfig.cols || 1;
       const colGap = sheetConfig.colGap || 0;
-      const backingWidth = cols * labelConfig.width + (cols - 1) * colGap;
+      const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+      const backingWidth = cols * labelConfig.width + (cols - 1) * colGap + rollSideMargin * 2;
       root.style.setProperty("--print-width", `${backingWidth}mm`);
       root.style.setProperty("--print-height", `${labelConfig.height}mm`);
     } else {
