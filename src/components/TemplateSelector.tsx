@@ -28,11 +28,13 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
     if (norm.includes("mắt kính") || norm.includes("kính")) {
       return "glasses";
     }
+    if (norm.includes("trang sức") || norm.includes("vàng") || norm.includes("bạc")) {
+      return "jewelry";
+    }
     return "common"; // Default or common tag price
   };
 
   const getCountForCategory = (catId: string): number => {
-    if (catId === "jewelry") return 0;
     return LABEL_TEMPLATES.filter((t) => getCategoryOfTemplate(t.name) === catId).length;
   };
 

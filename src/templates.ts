@@ -724,5 +724,173 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         prefixText: "CL: "
       }
     ]
+  },
+  {
+    name: "Tem trang sức 75x10",
+    description: "Mẫu tem trang sức có râu treo tiêu chuẩn 75x10mm bao gồm tên hàng hóa, giá bán, barcode và tên cửa hàng.",
+    config: {
+      width: 75,
+      height: 10,
+      name: "Cấu hình tự chọn",
+      bgColor: "#ffffff"
+    },
+    sheetConfig: {
+      mode: "thermal",
+      paperSize: "A4",
+      customWidth: 210,
+      customHeight: 297,
+      orientation: "portrait",
+      marginTop: 10,
+      marginBottom: 10,
+      marginLeft: 10,
+      marginRight: 10,
+      rows: 8,
+      cols: 1,
+      rowGap: 3,
+      colGap: 0,
+      showBorder: false,
+      borderWidth: 1,
+      borderRadius: 2,
+      borderColor: "#9ca2af",
+      rollSideMargin: 1
+    },
+    objects: [
+      {
+        id: "text-1781059440043",
+        type: "text",
+        x: 2,
+        y: 0,
+        width: 15,
+        height: 4,
+        content: "Tên hàng hóa",
+        fontSize: 6,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "text-pasted-1781059492802-234-0",
+        type: "text",
+        x: 2,
+        y: 5,
+        width: 15,
+        height: 4,
+        content: "Giá: ",
+        fontSize: 6,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "text-1781059523322",
+        type: "text",
+        x: 19,
+        y: 0,
+        width: 22,
+        height: 4,
+        content: "Tên cửa hàng",
+        fontSize: 7,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "barcode-17810595503398",
+        type: "barcode",
+        x: 21,
+        y: 4,
+        width: 19,
+        height: 6,
+        content: "SP-2026-A1",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.5,
+        barcodeHeight: 10,
+        textFlowOrigin: "center",
+        barcodeFontSize: 5,
+        barcodeTextMargin: 0
+      }
+    ]
+  },
+  {
+    name: "Tem trang sức 85x12",
+    description: "Mẫu tem trang sức có râu treo tiêu chuẩn 85x12mm bao gồm tên hàng hóa, giá bán, barcode và tên cửa hàng.",
+    config: {
+      width: 85,
+      height: 12,
+      name: "Cấu hình tự chọn",
+      bgColor: "#ffffff"
+    },
+    sheetConfig: {
+      mode: "thermal",
+      paperSize: "A4",
+      customWidth: 210,
+      customHeight: 297,
+      orientation: "portrait",
+      marginTop: 10,
+      marginBottom: 10,
+      marginLeft: 10,
+      marginRight: 10,
+      rows: 8,
+      cols: 1,
+      rowGap: 3,
+      colGap: 0,
+      showBorder: false,
+      borderWidth: 1,
+      borderRadius: 2,
+      borderColor: "#9ca2af",
+      rollSideMargin: 1
+    },
+    objects: [
+      {
+        id: "text-1781059440043",
+        type: "text",
+        x: 4,
+        y: 1,
+        width: 19,
+        height: 4,
+        content: "Tên hàng hóa",
+        fontSize: 8,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "text-pasted-1781059492802-234-0",
+        type: "text",
+        x: 6,
+        y: 6,
+        width: 15,
+        height: 4,
+        content: "Giá: ",
+        fontSize: 8,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "text-1781059523322",
+        type: "text",
+        x: 26,
+        y: 0,
+        width: 22,
+        height: 4,
+        content: "Tên cửa hàng",
+        fontSize: 9,
+        fontWeight: "normal",
+        textAlign: "center"
+      },
+      {
+        id: "barcode-17810595503398",
+        type: "barcode",
+        x: 28,
+        y: 5,
+        width: 19,
+        height: 6,
+        content: "SP-2026-A1",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.5,
+        barcodeHeight: 13,
+        textFlowOrigin: "center",
+        barcodeFontSize: 5,
+        barcodeTextMargin: 0
+      }
+    ]
   }
 ];

@@ -4110,26 +4110,26 @@ export default function App() {
                 onClick={() => setIsPrintExpanded(!isPrintExpanded)}
                 className={`mx-3 mt-3 mb-2 px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl shadow-md transition-all duration-150 ${
                   isPrintExpanded
-                    ? "bg-emerald-50/95 border border-emerald-200/80 hover:bg-emerald-100/50 scale-[1.01]"
-                    : "bg-gradient-to-r from-kiot-green to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]"
+                    ? "bg-sky-50/95 border border-sky-200 hover:bg-sky-100/50 scale-[1.01]"
+                    : "bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]"
                 }`}
                 title="Nhấn để thiết lập số lượng bản in và thực hiện in nhãn"
               >
                 <div className="flex items-center space-x-2">
-                  <Printer className={`w-4 h-4 animate-pulse ${isPrintExpanded ? "text-emerald-600" : "text-white"}`} />
-                  <span className={`font-extrabold text-[12px] uppercase tracking-wider select-none ${isPrintExpanded ? "text-emerald-800" : "text-white"}`}>
-                    BƯỚC 4: NHẬP SỐ LƯỢNG VÀ IN
+                  <Printer className={`w-4 h-4 animate-pulse ${isPrintExpanded ? "text-kiot-cyan" : "text-white"}`} />
+                  <span className={`font-extrabold text-[12px] uppercase tracking-wider select-none ${isPrintExpanded ? "text-sky-850" : "text-white"}`}>
+                    BƯỚC 4: IN TEM
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`text-[10px] px-2 py-0.5 rounded font-black border font-mono transition-colors duration-150 ${
                     isPrintExpanded 
-                      ? "bg-emerald-100/80 text-emerald-800 border-emerald-200/60" 
+                      ? "bg-sky-100/80 text-sky-800 border-sky-200/60" 
                       : "bg-white/20 text-white border-white/30"
                   }`}>
                     {printQuantityMode === "constant" ? `${printCopies} bản` : 'Theo Excel'}
                   </span>
-                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-emerald-600" : "text-white/80 group-hover:text-white rotate-180"}`}>
+                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-kiot-cyan" : "text-white/80 group-hover:text-white rotate-180"}`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -4542,7 +4542,7 @@ export default function App() {
                         <span className="px-1.5 py-[1px] mt-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[11.3px] tracking-wide shrink-0 border border-amber-200">BƯỚC 4</span>
                         <div className="text-[13.8px] leading-snug flex-1">
                           <p className="font-extrabold text-[#0F172A] mb-0.5">In nhãn tem</p>
-                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN NHÃN</strong> hoặc <strong className="text-slate-700">Ctrl+P</strong> ở góc trái.</p>
+                          <p className="text-slate-500 font-semibold text-[12.8px] leading-tight font-sans">Chọn số lượng in và bấm <strong className="text-slate-700">IN TEM</strong> hoặc <strong className="text-slate-700">Ctrl+P</strong> ở góc trái.</p>
                         </div>
                       </div>
                     </div>
@@ -4589,6 +4589,24 @@ export default function App() {
             onUpdateGridSnapSize={setGridSnapSize}
             showHowToUse={showHowToUse}
             onToggleHowToUse={() => setShowHowToUse(!showHowToUse)}
+            onQuickPrint={() => {
+              setActiveSidebarTab('design');
+              setIsPrintExpanded(true);
+              // Wait a split second to transition tabs and open accordion, then focus/scroll to the accordion component
+              setTimeout(() => {
+                const step4Btn = document.querySelector('[title*="bản in và thực hiện in nhãn"]');
+                if (step4Btn) {
+                  step4Btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+              }, 150);
+            }}
+            printQuantityMode={printQuantityMode}
+            onUpdatePrintQuantityMode={setPrintQuantityMode}
+            printQuantityColumn={printQuantityColumn}
+            onUpdatePrintQuantityColumn={setPrintQuantityColumn}
+            numericExcelColumns={numericExcelColumns}
+            onUpdatePrintCopies={setPrintCopies}
+            onPrintLabel={handlePrintLabel}
           />
 
         </main>

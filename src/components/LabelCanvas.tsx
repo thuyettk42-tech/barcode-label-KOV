@@ -9,7 +9,7 @@ import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
 import { mmToPx, pxToMm, constrainCoordinates, BASE_DPI_SCALE } from "../utils";
-import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info } from "lucide-react";
+import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus } from "lucide-react";
 
 interface LabelCanvasProps {
   labelConfig: LabelConfig;
@@ -50,6 +50,14 @@ interface LabelCanvasProps {
   onUpdateGridSnapSize?: (size: number) => void;
   showHowToUse?: boolean;
   onToggleHowToUse?: () => void;
+  onQuickPrint?: () => void;
+  printQuantityMode?: 'constant' | 'excel_column';
+  onUpdatePrintQuantityMode?: (mode: 'constant' | 'excel_column') => void;
+  printQuantityColumn?: string;
+  onUpdatePrintQuantityColumn?: (col: string) => void;
+  numericExcelColumns?: string[];
+  onUpdatePrintCopies?: (copies: number) => void;
+  onPrintLabel?: () => void;
 }
 
 const getRotatedCursor = (
@@ -463,6 +471,14 @@ export function LabelCanvas({
   onUpdateGridSnapSize,
   showHowToUse,
   onToggleHowToUse,
+  onQuickPrint,
+  printQuantityMode,
+  onUpdatePrintQuantityMode,
+  printQuantityColumn,
+  onUpdatePrintQuantityColumn,
+  numericExcelColumns = [],
+  onUpdatePrintCopies,
+  onPrintLabel,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -475,6 +491,220 @@ export function LabelCanvas({
   const [isPrinting, setIsPrinting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [showLogsPopupBottom, setShowLogsPopupBottom] = useState(false);
+  const [isFloatingPrintOpen, setIsFloatingPrintOpen] = useState(true);
+
+  const renderFloatingQuickPrintPanel = () => {
+    return (
+      <div className="absolute top-4 right-4 flex flex-col space-y-2 z-50 no-print items-end select-none pointer-events-auto">
+        <div className="flex items-center space-x-2">
+          {/* Help Guide Toggle */}
+          {onToggleHowToUse && officePreviewMode === 'design' && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleHowToUse();
+              }}
+              className={`h-9 px-3 border flex items-center space-x-1 text-[11.5px] font-extrabold tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] hover:shadow-md ${
+                showHowToUse
+                  ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 hover:border-amber-600 shadow-amber-200"
+                  : "bg-white hover:bg-amber-50/70 border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-850 shadow-sm"
+              }`}
+              title={showHowToUse ? "Ẩn bảng hướng dẫn các bước thiết kế" : "Xem hướng dẫn các bước thiết kế"}
+            >
+              <Info className={`w-3.5 h-3.5 shrink-0 transition-transform duration-300 ${showHowToUse ? "rotate-12 text-white" : "text-amber-500"}`} />
+              <span>{showHowToUse ? "Thu gọn HD" : "Hướng dẫn"}</span>
+            </button>
+          )}
+
+          {/* Collapsible Panel Head Button / Toggle */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsFloatingPrintOpen(!isFloatingPrintOpen);
+            }}
+            className={`h-9 px-3.5 rounded-xl shadow-md border flex items-center space-x-2 text-[12.5px] font-extrabold tracking-wider transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] border-b-[3px] cursor-pointer ${
+              isFloatingPrintOpen
+                ? "bg-slate-700 hover:bg-slate-800 text-white border-slate-700 border-b-slate-900 shadow-sm"
+                : "border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white"
+            }`}
+            title="Đóng / mở bảng cấu hình số lượng in trực tiếp ngay trên màn hình thiết kế"
+          >
+            <Printer className={`w-4 h-4 stroke-[2.5] ${isFloatingPrintOpen ? "" : "animate-bounce"}`} />
+            <span>{isFloatingPrintOpen ? "THU GỌN" : "IN TEM"}</span>
+          </button>
+        </div>
+
+        {/* Collapsible Panel Content */}
+        {isFloatingPrintOpen && (
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            onMouseDown={(e) => e.stopPropagation()}
+            className="bg-white/98 backdrop-blur-md shadow-2xl border-2 border-kiot-cyan/55 rounded-2xl p-3.5 w-[290px] text-left select-none animate-fadeIn flex flex-col space-y-2.5 ring-4 ring-sky-500/10"
+          >
+            <div className="flex items-center justify-between border-b border-sky-100 pb-1.5">
+              <div className="flex flex-col">
+                <span className="text-[11px] font-black text-kiot-navy tracking-wide uppercase flex items-center space-x-1">
+                  <Printer className="w-3.5 h-3.5 text-kiot-cyan animate-pulse" />
+                  <span>CẤU HÌNH IN NHANH</span>
+                </span>
+                <span className="text-[8px] text-slate-400 font-extrabold uppercase mt-0.5">Bảng điều khiển độc lập</span>
+              </div>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            </div>
+
+            {/* Mode selection toggle */}
+            <div className="grid grid-cols-2 gap-1 bg-slate-105 p-0.5 rounded-lg border border-slate-200/60">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdatePrintQuantityMode?.('constant');
+                }}
+                className={`py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                  printQuantityMode === 'constant'
+                    ? "bg-white text-kiot-navy shadow-xs border border-gray-250 font-extrabold"
+                    : "text-slate-500 hover:text-slate-850 font-semibold"
+                }`}
+              >
+                Số lượng cố định
+              </button>
+              <button
+                type="button"
+                disabled={!excelData || excelData.length === 0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdatePrintQuantityMode?.('excel_column');
+                }}
+                className={`py-1 text-[10px] font-bold rounded-md transition-all flex items-center justify-center space-x-0.5 ${
+                  (!excelData || excelData.length === 0)
+                    ? "opacity-55 cursor-not-allowed text-slate-405 font-semibold"
+                    : printQuantityMode === 'excel_column'
+                    ? "bg-white text-emerald-800 shadow-xs border border-emerald-250 font-extrabold"
+                    : "text-slate-500 hover:text-slate-850 font-semibold cursor-pointer"
+                }`}
+                title={(!excelData || excelData.length === 0) ? "Hãy tải dữ liệu Excel trước" : "Lấy số bản in theo cột Excel"}
+              >
+                <span>Theo Excel</span>
+                {(!excelData || excelData.length === 0) && <span className="text-[7.5px] bg-slate-200 text-slate-505 px-1 rounded font-bold">Khóa</span>}
+              </button>
+            </div>
+
+            {/* Dynamic settings panel body */}
+            {printQuantityMode === 'constant' ? (
+              <div className="space-y-1">
+                <label className="block text-[9.5px] text-slate-500 font-bold uppercase select-none mb-0.5">
+                  Số lượng bản sao cần in:
+                </label>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdatePrintCopies?.(Math.max(1, (printCopies || 1) - 1));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-800 font-black active:scale-90 transition-all cursor-pointer select-none"
+                  >
+                    <Minus className="w-3 h-3 stroke-[3]" />
+                  </button>
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={printCopies || ""}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.currentTarget.select();
+                      }}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        const raw = e.target.value.replace(/\D/g, '');
+                        const val = parseInt(raw, 10);
+                        if (!isNaN(val) && val >= 1) {
+                          onUpdatePrintCopies?.(Math.min(1000, val));
+                        } else if (raw === "") {
+                          onUpdatePrintCopies?.(0);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        if (!printCopies || printCopies < 1) {
+                          onUpdatePrintCopies?.(1);
+                        }
+                      }}
+                      className="w-full text-center py-1 text-xs bg-white border border-slate-300 rounded-lg text-slate-850 font-black font-mono focus:border-kiot-cyan outline-none"
+                    />
+                    <span className="absolute right-2 top-1 text-[9px] text-slate-400 font-extrabold select-none">bản</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdatePrintCopies?.(Math.min(1000, (printCopies || 1) + 1));
+                    }}
+                    className="w-8 h-8 rounded-lg border border-slate-200 bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-800 font-black active:scale-90 transition-all cursor-pointer select-none"
+                  >
+                    <Plus className="w-3 h-3 stroke-[3]" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <label className="block text-[9.5px] text-slate-500 font-bold uppercase select-none mb-0.5">
+                  Chọn cột số lượng trong File:
+                </label>
+                {excelData && excelData.length > 0 ? (
+                  <select
+                    value={printQuantityColumn || ""}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      onUpdatePrintQuantityColumn?.(e.target.value || "");
+                    }}
+                    className="w-full text-[10px] font-extrabold font-mono py-1.5 px-1 bg-white border border-slate-250 rounded-lg text-[#0F172A] focus:border-kiot-cyan outline-none cursor-pointer"
+                  >
+                    <option value="">-- Mặc định: in 1 bản / dòng --</option>
+                    {(numericExcelColumns || []).map((col) => (
+                      <option key={col} value={col}>
+                        Cột số: [{col}]
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-[9.2px] text-orange-850 bg-orange-50 border border-orange-200/50 p-1.5 rounded-lg leading-normal">
+                    ⚠️ Chưa tải dữ liệu Excel phù hợp.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Print Quantity summary metadata info bar */}
+            <div className="text-[9.5px] text-slate-500 font-bold py-1 bg-slate-50 px-2 rounded-lg border border-slate-150 flex justify-between select-none">
+              <span>Tổng số bản in:</span>
+              <span className="text-kiot-navy font-black font-mono">
+                {printQuantityMode === "excel_column" && excelData && excelData.length > 0 
+                  ? `${printManifestLength || 0} bản` 
+                  : `${printCopies || 1} bản`}
+              </span>
+            </div>
+
+            {/* BIG ACTION BUTTON TO LAUNCH MAIN PRINT DIALOG */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPrintLabel?.();
+              }}
+              className="w-full py-2.5 border border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white flex items-center justify-center space-x-1.5 text-xs font-black tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px] rounded-xl shadow-md"
+              title="Truyền và gọi hộp thoại in tem nhãn"
+            >
+              <Printer className="w-4 h-4 stroke-[2.5]" />
+              <span className="uppercase tracking-widest font-black">IN TEM</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const handleBeforePrint = () => {
@@ -1329,7 +1559,9 @@ export function LabelCanvas({
 
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
-    const previewScale = BASE_DPI_SCALE; // Always use standard print DPI scale to ensure 100% accurate WYSIWYG
+    const isMobileOrPrint = isPrinting || isSystemPrinting;
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
     const pxSheetH = mmToPx(sH, previewScale);
@@ -1364,15 +1596,18 @@ export function LabelCanvas({
 
     return (
       <div
-        ref={containerRef}
         id="label-editor-workspace"
-        className="flex-1 flex flex-col items-center bg-slate-200/60 overflow-auto select-none p-2.5 relative print:p-0 print:m-0 print:bg-white"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            onSelectObject(null);
-          }
-        }}
+        className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
+        <div
+          ref={containerRef}
+          className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              onSelectObject(null);
+            }
+          }}
+        >
         {/* On screen preview header badge */}
         <div className="bg-white/95 rounded-lg border border-gray-200 p-3 mb-5 shadow-sm text-center max-w-xl z-20 no-print">
           <p className="text-[12px] font-bold text-[#1E293B] flex items-center justify-center space-x-1.5">
@@ -1402,10 +1637,10 @@ export function LabelCanvas({
         <div className="flex flex-col select-none items-center print:m-0 print:p-0">
           {Array.from({ length: safeLength(totalSheets) }).map((_, sIdx) => {
             if (limitPreview && sIdx >= 3) return null;
-            return (
+
+            const pageEl = (
               <div
-                key={`sheet-page-${sIdx}`}
-                className="office-print-page bg-white relative shadow-lg border border-gray-300 md:mb-8 shrink-0 print:m-0 print:shadow-none print:border-none"
+                className="office-print-page bg-white relative shadow-lg border border-gray-300 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
                     width: `${pxSheetW}px`,
@@ -1637,6 +1872,29 @@ export function LabelCanvas({
                 )}
               </div>
             );
+
+            return (
+              <div
+                key={`sheet-page-${sIdx}`}
+                className="md:mb-8 shrink-0 print:m-0 print:p-0 print:w-auto print:h-auto"
+                style={isMobileOrPrint ? undefined : {
+                  width: `${pxSheetW * zoomRatio}px`,
+                  height: `${pxSheetH * zoomRatio}px`,
+                }}
+              >
+                <div
+                  style={isMobileOrPrint ? undefined : {
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
+                    width: `${pxSheetW}px`,
+                    height: `${pxSheetH}px`,
+                  }}
+                  className="print:transform-none pointer-events-auto"
+                >
+                  {pageEl}
+                </div>
+              </div>
+            );
           })}
         </div>
 
@@ -1659,6 +1917,10 @@ export function LabelCanvas({
             </button>
           </div>
         )}
+        </div>
+
+        {/* Floating Quick Print Panel */}
+        {renderFloatingQuickPrintPanel()}
       </div>
     );
   }
@@ -1669,7 +1931,9 @@ export function LabelCanvas({
     isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
   if (showThermalSheetGrid && sheetConfig) {
-    const previewScale = BASE_DPI_SCALE; // Always use standard print DPI scale to ensure 100% accurate WYSIWYG
+    const isMobileOrPrint = isPrinting || isSystemPrinting;
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
@@ -1702,15 +1966,18 @@ export function LabelCanvas({
 
     return (
       <div
-        ref={containerRef}
         id="label-editor-workspace"
-        className="flex-1 flex flex-col items-center bg-slate-200/60 overflow-auto select-none p-2.5 relative print:p-0 print:m-0 print:bg-white"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            onSelectObject(null);
-          }
-        }}
+        className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
+        <div
+          ref={containerRef}
+          className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              onSelectObject(null);
+            }
+          }}
+        >
         {/* On screen preview header badge */}
         <div className="bg-white/95 rounded-lg border border-gray-200 p-3 mb-5 shadow-sm text-center max-w-xl z-20 no-print">
           <p className="text-[12px] font-bold text-[#1E293B] flex items-center justify-center space-x-1.5">
@@ -1732,9 +1999,9 @@ export function LabelCanvas({
         <div className="flex flex-col select-none items-center print:m-0 print:p-0">
           {Array.from({ length: safeLength(totalRows) }).map((_, rIdx) => {
             if (limitPreview && rIdx >= 20) return null;
-            return (
+
+            const rowEl = (
               <div
-                key={`thermal-row-${rIdx}`}
                 className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
                 style={
                   {
@@ -1744,7 +2011,6 @@ export function LabelCanvas({
                     flexDirection: "row",
                     gap: `${pxColGap}px`,
                     boxSizing: "border-box",
-                    marginBottom: `${pxRowGap}px`, // visual gap on screen
                     "--print-width": `${backingWidth}mm`,
                     "--print-height": `${labelH}mm`,
                     "--print-col-gap": `${colGap}mm`,
@@ -1949,6 +2215,29 @@ export function LabelCanvas({
                 })}
               </div>
             );
+
+            return (
+              <div
+                key={`thermal-row-${rIdx}`}
+                className="shrink-0 print:m-0 print:p-0 print:w-auto print:h-auto"
+                style={isMobileOrPrint ? { marginBottom: `${pxRowGap}px` } : {
+                  width: `${pxBackingW * zoomRatio}px`,
+                  height: `${(pxBackingH + pxRowGap) * zoomRatio}px`,
+                }}
+              >
+                <div
+                  style={isMobileOrPrint ? undefined : {
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
+                    width: `${pxBackingW}px`,
+                    height: `${pxBackingH}px`,
+                  }}
+                  className="print:transform-none pointer-events-auto"
+                >
+                  {rowEl}
+                </div>
+              </div>
+            );
           })}
         </div>
 
@@ -1971,16 +2260,23 @@ export function LabelCanvas({
             </button>
           </div>
         )}
+        </div>
+
+        {/* Floating Quick Print Panel */}
+        {renderFloatingQuickPrintPanel()}
       </div>
     );
   }
 
   return (
     <div
-      ref={containerRef}
       id="label-editor-workspace"
-      onMouseDown={handleLabelMouseDown}
-      className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-150/50 border border-gray-200 shadow-inner overflow-auto relative select-none"
+      className="flex-1 relative flex flex-col overflow-hidden select-none bg-gray-150/50"
+    >
+      <div
+        ref={containerRef}
+        onMouseDown={handleLabelMouseDown}
+        className="flex-1 flex flex-col items-center justify-center p-4 border border-gray-200 shadow-inner overflow-auto w-full h-full select-none"
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2590,25 +2886,10 @@ export function LabelCanvas({
         />
       )}
 
-      {/* Floating Guide Toggle Button (top-right, under the "Xóa hết" toolbar item) */}
-      {onToggleHowToUse && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleHowToUse();
-          }}
-          className={`absolute top-4 right-4 h-9 px-3.5 rounded-xl shadow-md border flex items-center space-x-1.5 text-[12.5px] font-extrabold tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] z-50 no-print hover:shadow-lg ${
-            showHowToUse
-              ? "bg-amber-500 hover:bg-amber-600 text-white border-amber-500 hover:border-amber-600 shadow-amber-200"
-              : "bg-white hover:bg-amber-50/70 border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-850"
-          }`}
-          title={showHowToUse ? "Ẩn bảng hướng dẫn các bước thiết kế" : "Xem hướng dẫn các bước thiết kế"}
-        >
-          <Info className={`w-4 h-4 shrink-0 transition-transform duration-300 ${showHowToUse ? "rotate-12 text-white" : "text-amber-500"}`} />
-          <span>{showHowToUse ? "Ẩn Hướng dẫn" : "Hướng dẫn"}</span>
-        </button>
-      )}
+      </div>
+
+      {/* Floating Quick Print Panel */}
+      {renderFloatingQuickPrintPanel()}
     </div>
   );
 }
