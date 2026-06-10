@@ -729,10 +729,10 @@ export function LabelCanvas({
   const limitPreview =
     !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
 
-  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
-  // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
+  // The scale used for rendering elements during printing must always be standard high-precision scale (8.4915)
+  // to guarantee 100% stable font wrapping metrics, scaled down via print-content-wrapper in print media CSS.
   const printScale =
-    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
+    isPrinting || isSystemPrinting ? 8.4915 : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -1597,7 +1597,7 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
@@ -1737,8 +1737,9 @@ export function LabelCanvas({
                             } as React.CSSProperties
                           }
                         >
-                          {/* Watermark/Background Image overlay */}
-                          {labelConfig.bgImage && (
+                          <div className="print-content-wrapper w-full h-full relative">
+                            {/* Watermark/Background Image overlay */}
+                            {labelConfig.bgImage && (
                             <div
                               className="absolute inset-0 pointer-events-none select-none"
                               style={{
@@ -1880,6 +1881,7 @@ export function LabelCanvas({
                               </div>
                             );
                           })}
+                          </div>
                         </div>
                       );
                     } else {
@@ -1972,7 +1974,7 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
@@ -2086,8 +2088,9 @@ export function LabelCanvas({
                           } as React.CSSProperties
                         }
                       >
-                        {/* Watermark/Background Image overlay */}
-                        {labelConfig.bgImage && (
+                        <div className="print-content-wrapper w-full h-full relative">
+                          {/* Watermark/Background Image overlay */}
+                          {labelConfig.bgImage && (
                           <div
                             className="absolute inset-0 pointer-events-none select-none"
                             style={{
@@ -2228,8 +2231,9 @@ export function LabelCanvas({
                             </div>
                           );
                         })}
-                      </div>
-                    );
+                          </div>
+                        </div>
+                      );
                   } else {
                     return (
                       <div
@@ -2458,8 +2462,9 @@ export function LabelCanvas({
           }}
           title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
         >
-          {/* Watermark/Background Image overlay */}
-          {labelConfig.bgImage && (
+          <div className="print-content-wrapper w-full h-full relative">
+            {/* Watermark/Background Image overlay */}
+            {labelConfig.bgImage && (
             <div
               className="absolute inset-0 pointer-events-none select-none"
               style={{
@@ -2796,6 +2801,7 @@ export function LabelCanvas({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 
