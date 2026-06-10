@@ -348,8 +348,8 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           textDecoration: deco,
           fontSize:
             pixelScale === BASE_DPI_SCALE
-              ? `${(fontSizeVal || obj.fontSize || 10) * 0.352777}mm`
-              : `${(fontSizeVal || obj.fontSize || 10) * 0.352777 * pixelScale}px`,
+              ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
+              : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -2608,7 +2608,7 @@ export function LabelCanvas({
                                     : "var(--font-sans)",
                           fontWeight: obj.fontWeight || "normal",
                           fontStyle: obj.fontStyle || "normal",
-                          fontSize: `${(obj.fontSize || 10) * 0.352777 * printScale}px`,
+                          fontSize: `${(obj.fontSize || 10) * 0.3528 * printScale}px`,
                           textAlign: obj.textAlign || "left",
                           lineHeight: "1.25",
                         }}

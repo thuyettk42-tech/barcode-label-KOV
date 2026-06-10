@@ -249,7 +249,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
+    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
@@ -324,7 +324,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 onDoubleClick={(e) => e.stopPropagation()}
                 style={{
                   fontFamily: resolvedFontFamily,
-                  fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
                   fontWeight: barcodeFontWeight,
                   fontStyle: barcodeFontStyle,
                   marginBottom: `${marginPx}px`,
@@ -380,7 +380,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 onDoubleClick={(e) => e.stopPropagation()}
                 style={{
                   fontFamily: resolvedFontFamily,
-                  fontSize: `${finalFontSizePt * 0.352777 * finalPixelScale}px`,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
                   fontWeight: barcodeFontWeight,
                   fontStyle: barcodeFontStyle,
                   marginTop: `${marginPx}px`,
