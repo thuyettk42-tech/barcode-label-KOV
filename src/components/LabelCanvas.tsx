@@ -1672,9 +1672,7 @@ export function LabelCanvas({
         </div>
 
         <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
-          {Array.from({ length: safeLength(totalSheets) }).map((_, sIdx) => {
-            if (limitPreview && sIdx >= 3) return null;
-
+          {Array.from({ length: safeLength(limitPreview ? Math.min(3, totalSheets) : totalSheets) }).map((_, sIdx) => {
             const pageEl = (
               <div
                 key={`sheet-page-print-${sIdx}`}
@@ -2039,9 +2037,7 @@ export function LabelCanvas({
         </div>
 
         <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
-          {Array.from({ length: safeLength(totalRows) }).map((_, rIdx) => {
-            if (limitPreview && rIdx >= 20) return null;
-
+          {Array.from({ length: safeLength(limitPreview ? Math.min(20, totalRows) : totalRows) }).map((_, rIdx) => {
             const rowEl = (
               <div
                 key={`thermal-row-print-${rIdx}`}

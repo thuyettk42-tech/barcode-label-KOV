@@ -4190,21 +4190,17 @@ export default function App() {
                             type="text"
                             value={printCopiesInput}
                             onChange={(e) => {
-                              const raw = e.target.value;
+                              const raw = e.target.value.replace(/\D/g, "");
                               setPrintCopiesInput(raw);
-                              const val = parseInt(raw, 10);
-                              if (!isNaN(val) && val >= 1) {
-                                setPrintCopies(val);
-                              }
                             }}
                             onBlur={() => {
                               const val = parseInt(printCopiesInput, 10);
                               if (isNaN(val) || val < 1) {
                                 setPrintCopies(1);
                                 setPrintCopiesInput("1");
-                              } else if (val > 500) {
-                                setPrintCopies(500);
-                                setPrintCopiesInput("500");
+                              } else if (val > 1000) {
+                                setPrintCopies(1000);
+                                setPrintCopiesInput("1000");
                               } else {
                                 setPrintCopies(val);
                                 setPrintCopiesInput(String(val));
