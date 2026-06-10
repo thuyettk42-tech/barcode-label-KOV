@@ -748,6 +748,11 @@ export function LabelCanvas({
     const showThermalSheetGrid =
       isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
+    let finalWStr = `${labelConfig.width}mm`;
+    let finalHStr = `${labelConfig.height}mm`;
+    let padLeft = "0mm";
+    let padRight = "0mm";
+
     if (showOfficeSheet && sheetConfig) {
       let baseWidth = 210; // A4
       let baseHeight = 297;
@@ -763,23 +768,55 @@ export function LabelCanvas({
         baseWidth = baseHeight;
         baseHeight = temp;
       }
-      root.style.setProperty("--print-width", `${baseWidth}mm`);
-      root.style.setProperty("--print-height", `${baseHeight}mm`);
+      finalWStr = `${baseWidth}mm`;
+      finalHStr = `${baseHeight}mm`;
+      
+      root.style.setProperty("--print-width", finalWStr);
+      root.style.setProperty("--print-height", finalHStr);
     } else if (showThermalSheetGrid && sheetConfig) {
       const cols = sheetConfig.cols || 1;
       const colGap = sheetConfig.colGap || 0;
       const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
       const backingWidth = cols * labelConfig.width + (cols - 1) * colGap + rollSideMargin * 2;
-      root.style.setProperty("--print-width", `${backingWidth}mm`);
-      root.style.setProperty("--print-height", `${labelConfig.height}mm`);
-      root.style.setProperty("--print-padding-left", `${rollSideMargin}mm`);
-      root.style.setProperty("--print-padding-right", `${rollSideMargin}mm`);
+      finalWStr = `${backingWidth}mm`;
+      finalHStr = `${labelConfig.height}mm`;
+      padLeft = `${rollSideMargin}mm`;
+      padRight = `${rollSideMargin}mm`;
+      
+      root.style.setProperty("--print-width", finalWStr);
+      root.style.setProperty("--print-height", finalHStr);
+      root.style.setProperty("--print-padding-left", padLeft);
+      root.style.setProperty("--print-padding-right", padRight);
     } else {
-      root.style.setProperty("--print-width", `${labelConfig.width}mm`);
-      root.style.setProperty("--print-height", `${labelConfig.height}mm`);
+      root.style.setProperty("--print-width", finalWStr);
+      root.style.setProperty("--print-height", finalHStr);
       root.style.setProperty("--print-padding-left", "0mm");
       root.style.setProperty("--print-padding-right", "0mm");
     }
+
+    // Dynamic style block injection to guarantee Chrome `@page` size matching perfectly with raw literals
+    let styleEl = document.getElementById("dynamic-print-page-style");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "dynamic-print-page-style";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.innerHTML = `
+      @media print {
+        @page {
+          size: ${finalWStr} ${finalHStr} !important;
+          margin: 0 !important;
+        }
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+      }
+    `;
+
+    return () => {
+      // Keep it active and clean up only when component completely unmounts
+    };
   }, [
     labelConfig.width,
     labelConfig.height,
@@ -1634,7 +1671,7 @@ export function LabelCanvas({
           </div>
         </div>
 
-        <div className="flex flex-col select-none items-center print:m-0 print:p-0">
+        <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
           {Array.from({ length: safeLength(totalSheets) }).map((_, sIdx) => {
             if (limitPreview && sIdx >= 3) return null;
 
@@ -1996,7 +2033,7 @@ export function LabelCanvas({
           </div>
         </div>
 
-        <div className="flex flex-col select-none items-center print:m-0 print:p-0">
+        <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
           {Array.from({ length: safeLength(totalRows) }).map((_, rIdx) => {
             if (limitPreview && rIdx >= 20) return null;
 
