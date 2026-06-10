@@ -56,6 +56,16 @@ import {
   Shapes
 } from "lucide-react";
 
+const InfoTooltip = ({ content }: { content: React.ReactNode }) => (
+  <span className="group relative inline-flex items-center ml-1.5 cursor-help select-none align-middle">
+    <Info className="w-3.5 h-3.5 text-sky-500 hover:text-sky-600 transition-colors duration-150" />
+    <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-64 -translate-x-1/2 rounded-lg bg-slate-900 p-2.5 text-[10.5px] font-normal leading-relaxed text-slate-100 opacity-0 shadow-xl transition-all duration-150 scale-95 origin-bottom group-hover:pointer-events-auto group-hover:opacity-100 group-hover:scale-100 font-sans normal-case tracking-normal text-left">
+      {content}
+      <span className="absolute top-full left-1/2 -mt-1 h-2 w-2 -translate-x-1/2 rotate-45 bg-slate-900" />
+    </span>
+  </span>
+);
+
 export default function App() {
   // 1. Core state for current active label
   const [labelConfig, setLabelConfig] = useState<LabelConfig>({
@@ -165,6 +175,130 @@ export default function App() {
   // 3. Selection state
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Clipboard state for copy & paste
+  const [clipboard, setClipboard] = useState<LabelObject[]>([]);
+
+  // Function to copy selected objects
+  const handleCopy = useCallback(() => {
+    if (selectedIds.length === 0) return;
+    const itemsToCopy = objects.filter((obj) => selectedIds.includes(obj.id));
+    if (itemsToCopy.length > 0) {
+      // Deep clone the objects so they are independent
+      setClipboard(JSON.parse(JSON.stringify(itemsToCopy)));
+    }
+  }, [objects, selectedIds]);
+
+  // Function to paste copied objects
+  const handlePaste = useCallback(() => {
+    if (clipboard.length === 0) return;
+
+    // Generate unique new IDs, shifting coordinates slightly
+    const pastedItems: LabelObject[] = clipboard.map((original, index) => {
+      const uniqueSuffix = Date.now() + "-" + Math.floor(Math.random() * 1000);
+      const newId = `${original.type}-pasted-${uniqueSuffix}-${index}`;
+      
+      const offset = 3; // 3mm offset
+      
+      let newX = original.x + offset;
+      let newY = original.y + offset;
+      
+      // If the shifted coordinate overflows, clamp or wrap-around
+      if (newX + original.width > labelConfig.width) {
+        newX = Math.max(0, labelConfig.width - original.width - 2);
+      }
+      if (newY + original.height > labelConfig.height) {
+        newY = Math.max(0, labelConfig.height - original.height - 2);
+      }
+
+      return {
+        ...original,
+        id: newId,
+        x: Math.round(newX * 10) / 10,
+        y: Math.round(newY * 10) / 10
+      };
+    });
+
+    // Update canvas with new cloned objects
+    setObjectsWithHistory((prev) => [...prev, ...pastedItems]);
+
+    // Automatically select the new pasted items for a smooth UX
+    if (pastedItems.length > 0) {
+      const lastPastedId = pastedItems[pastedItems.length - 1].id;
+      setSelectedId(lastPastedId);
+      setSelectedIds(pastedItems.map(item => item.id));
+    }
+
+    // Update the clipboard coordinates so that if the user pastes again immediately, 
+    // the next paste shifts from the newly pasted position!
+    setClipboard(pastedItems);
+  }, [clipboard, labelConfig.width, labelConfig.height, setObjectsWithHistory]);
+
+  // Function to scale selected objects proportionally (e.g. for zoom/shortcut resize)
+  const handleScaleSelectedObjects = useCallback((factor: number) => {
+    if (selectedIds.length === 0) return;
+    setObjectsWithHistory((prevObjects) =>
+      prevObjects.map((obj) => {
+        if (!selectedIds.includes(obj.id)) return obj;
+
+        // Apply scale factor to coordinates if multiple, but scaling dimensions & content layout is essential
+        let newWidth = Math.max(1, Math.round(obj.width * factor * 10) / 10);
+        let newHeight = Math.max(1, Math.round(obj.height * factor * 10) / 10);
+
+        // Constrain so they don't grow past the label's dimensions
+        newWidth = Math.min(newWidth, labelConfig.width);
+        newHeight = Math.min(newHeight, labelConfig.height);
+
+        const updated: LabelObject = {
+          ...obj,
+          width: newWidth,
+          height: newHeight,
+        };
+
+        if (obj.fontSize !== undefined) {
+          updated.fontSize = Math.max(4, Math.round(obj.fontSize * factor * 10) / 10);
+        }
+        if (obj.prefixFontSize !== undefined) {
+          updated.prefixFontSize = Math.max(4, Math.round(obj.prefixFontSize * factor * 10) / 10);
+        }
+        if (obj.suffixFontSize !== undefined) {
+          updated.suffixFontSize = Math.max(4, Math.round(obj.suffixFontSize * factor * 10) / 10);
+        }
+        if (obj.letterSpacing !== undefined) {
+          updated.letterSpacing = Math.round(obj.letterSpacing * factor * 100) / 100;
+        }
+
+        return updated;
+      })
+    );
+  }, [selectedIds, labelConfig.width, labelConfig.height, setObjectsWithHistory]);
+
+  // Function to toggle formatting properties on selected text objects
+  const handleToggleTextFormat = useCallback((formatType: 'bold' | 'italic' | 'underline' | 'lineThrough') => {
+    if (selectedIds.length === 0) return;
+    setObjectsWithHistory((prevObjects) =>
+      prevObjects.map((obj) => {
+        if (!selectedIds.includes(obj.id) || obj.type !== "text") return obj;
+
+        const updated = { ...obj };
+        switch (formatType) {
+          case 'bold':
+            updated.fontWeight = obj.fontWeight === 'bold' ? 'normal' : 'bold';
+            break;
+          case 'italic':
+            updated.fontStyle = obj.fontStyle === 'italic' ? 'normal' : 'italic';
+            break;
+          case 'underline':
+            updated.textDecorationUnderline = !obj.textDecorationUnderline;
+            break;
+          case 'lineThrough':
+            updated.textDecorationLineThrough = !obj.textDecorationLineThrough;
+            break;
+        }
+        return updated;
+      })
+    );
+  }, [selectedIds, setObjectsWithHistory]);
 
   const handleSelectObject = (id: string | null, isMultiSelect = false) => {
     if (id === null) {
@@ -386,6 +520,9 @@ export default function App() {
   const [printQuantityColumn, setPrintQuantityColumn] = useState<string>("");
   const [isBatchPrinting, setIsBatchPrinting] = useState<boolean>(false);
   const [isPrintExpanded, setIsPrintExpanded] = useState<boolean>(false);
+  const [isStep1Expanded, setIsStep1Expanded] = useState<boolean>(true);
+  const [isStep2Expanded, setIsStep2Expanded] = useState<boolean>(false);
+  const [isStep3Expanded, setIsStep3Expanded] = useState<boolean>(true);
   const [colGapUnit, setColGapUnit] = useState<'mm' | 'inch'>('mm');
   const [rowGapUnit, setRowGapUnit] = useState<'mm' | 'inch'>('mm');
   const [colGapInput, setColGapInput] = useState<string>("");
@@ -1975,10 +2112,68 @@ export default function App() {
           e.preventDefault();
           handleRedo();
         }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "c") {
+        if (!isEditingInput) {
+          e.preventDefault();
+          handleCopy();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
+        if (!isEditingInput) {
+          e.preventDefault();
+          handlePaste();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleScaleSelectedObjects(1.05);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "-") {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleScaleSelectedObjects(0.95);
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleToggleTextFormat("bold");
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleToggleTextFormat("italic");
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "u") {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleToggleTextFormat("underline");
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        if (!isEditingInput && selectedIds.length > 0) {
+          e.preventDefault();
+          handleToggleTextFormat("lineThrough");
+        }
       }
     };
+
+    // Global wheel listener for Ctrl + Scroll mouse wheel resize selected objects
+    const handleGlobalWheel = (e: WheelEvent) => {
+      if (e.ctrlKey && selectedIds.length > 0) {
+        // Prevent browser viewport from zoom-in and zoom-out
+        e.preventDefault();
+        const isEnlarge = e.deltaY < 0; // scrolling up (deltaY < 0) means larger
+        const factor = isEnlarge ? 1.05 : 0.95;
+        handleScaleSelectedObjects(factor);
+      }
+    };
+
     window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+    // Use { passive: false } to allow e.preventDefault() in Chrome & other browsers for wheel event
+    window.addEventListener("wheel", handleGlobalWheel, { passive: false });
+
+    return () => {
+      window.removeEventListener("keydown", handleGlobalKeyDown);
+      window.removeEventListener("wheel", handleGlobalWheel);
+    };
   }, [
     objects,
     labelConfig,
@@ -1990,12 +2185,18 @@ export default function App() {
     printQuantityMode,
     printQuantityColumn,
     selectedId,
+    selectedIds,
     customSaveName,
     currentFilePath,
     currentLocalStorageKey,
     savedDesigns,
     handleUndo,
-    handleRedo
+    handleRedo,
+    handleCopy,
+    handlePaste,
+    handleScaleSelectedObjects,
+    handleToggleTextFormat,
+    clipboard
   ]);
 
   // Print execution call triggers standard printer dialog
@@ -2260,13 +2461,45 @@ export default function App() {
             
             {/* TAB 1: PAPER & GRID LAYOUT */}
             {activeSidebarTab === 'layout' && (
-              <div className="space-y-5 text-kiot-slate">
-                {/* MODULE 1: CONTROL PANEL DIMENSIONS */}
-                <section className="border-b border-gray-150 pb-4 space-y-2.5">
-                  <h2 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider flex items-center space-x-2 select-none">
-                    <Compass className="w-3.5 h-3.5 text-blue-500" />
-                    <span>Kích thước tem nhãn ( 1 tem )</span>
-                  </h2>
+              <div className="space-y-4 text-kiot-slate">
+                
+                {/* BƯỚC 1 ACCORDION */}
+                <div className="space-y-1.5 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => setIsStep1Expanded(!isStep1Expanded)}
+                    className={`w-full px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl border transition-all duration-150 outline-none transform active:scale-[0.98] ${
+                      isStep1Expanded
+                        ? "bg-sky-100 text-sky-950 border-sky-300 shadow-sm"
+                        : "bg-sky-50/90 text-sky-900 border-sky-200 hover:bg-sky-100/60 hover:border-sky-300 shadow-3xs"
+                    }`}
+                    title="Cấu hình kích thước của tem nhãn dán, độ bo góc, đường viền"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] tracking-wide shrink-0 transition-colors border ${
+                        isStep1Expanded ? "bg-sky-600 text-white border-sky-700" : "bg-sky-100 text-sky-800 border-sky-200"
+                      }`}>
+                        BƯỚC 1
+                      </span>
+                      <span className={`font-extrabold text-[12.5px] uppercase tracking-wider transition-colors font-sans ${
+                        isStep1Expanded ? "text-sky-950" : "text-sky-900 group-hover:text-sky-950"
+                      }`}>
+                        Xác định khổ tem
+                      </span>
+                    </div>
+                    <div className={`transition-transform duration-150 ${isStep1Expanded ? "rotate-180 text-sky-600" : "text-sky-500 group-hover:text-sky-650"}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </button>
+
+                  {isStep1Expanded && (
+                    <div className="p-3 bg-white border border-slate-150 rounded-xl space-y-4 shadow-3xs">
+                      {/* MODULE 1: CONTROL PANEL DIMENSIONS */}
+                      <section className="pb-1 space-y-2.5">
+                        <h2 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider flex items-center space-x-2 select-none">
+                          <Compass className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Kích thước tem nhãn ( 1 tem )</span>
+                        </h2>
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -2465,7 +2698,7 @@ export default function App() {
                 </section>
 
                 {/* VIỀN TEM & BO GÓC */}
-                <section className="border-b border-gray-150 pb-4 space-y-3.5">
+                <section className="space-y-3.5">
                   <h2 className="text-[11px] font-bold text-[#64748B] uppercase tracking-wider flex items-center space-x-2 select-none">
                     <CheckSquare className="w-3.5 h-3.5 text-kiot-cyan" />
                     <span>Viền tem &amp; Bo góc</span>
@@ -2581,13 +2814,48 @@ export default function App() {
                     </div>
                   )}
                 </section>
+                
+                    </div>
+                  )}
+                </div>
 
-                {/* 1. PRINT MODE SELECTOR */}
-                <section className="border-b border-gray-150 pb-4 space-y-2.5">
-                  <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center space-x-1.5 select-none mb-1">
-                    <Grid3X3 className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Khổ giấy và máy in</span>
-                  </h2>
+                {/* BƯỚC 2 ACCORDION */}
+                <div className="space-y-1.5 animate-fadeIn">
+                  <button
+                    type="button"
+                    onClick={() => setIsStep2Expanded(!isStep2Expanded)}
+                    className={`w-full px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl border transition-all duration-150 outline-none transform active:scale-[0.98] ${
+                      isStep2Expanded
+                        ? "bg-indigo-100 text-indigo-950 border-indigo-300 shadow-sm"
+                        : "bg-indigo-50/90 text-indigo-900 border-indigo-200 hover:bg-indigo-100/60 hover:border-indigo-300 shadow-3xs"
+                    }`}
+                    title="Cấu hình kích thước khổ giấy văn phòng (A4/A5) hoặc thiết lập cuộn tem nhiệt"
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] tracking-wide shrink-0 transition-colors border ${
+                        isStep2Expanded ? "bg-indigo-600 text-white border-indigo-700" : "bg-indigo-100 text-indigo-800 border-indigo-200"
+                      }`}>
+                        BƯỚC 2
+                      </span>
+                      <span className={`font-extrabold text-[12.5px] uppercase tracking-wider transition-colors font-sans ${
+                        isStep2Expanded ? "text-indigo-950" : "text-indigo-900 group-hover:text-indigo-950"
+                      }`}>
+                        Thiết lập khổ giấy và máy in
+                      </span>
+                    </div>
+                    <div className={`transition-transform duration-150 ${isStep2Expanded ? "rotate-180 text-indigo-600" : "text-indigo-500 group-hover:text-indigo-600"}`}>
+                      <ChevronDown className="w-4 h-4" />
+                    </div>
+                  </button>
+
+                  {isStep2Expanded && (
+                    <div className="p-3 bg-white border border-slate-150 rounded-xl space-y-4 shadow-3xs">
+                      {/* 1. PRINT MODE SELECTOR */}
+                      <section className="space-y-2.5">
+                        <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-widest flex items-center space-x-1.5 select-none mb-1">
+                          <Grid3X3 className="w-3.5 h-3.5 text-slate-400" />
+                          <span>Khổ giấy và máy in</span>
+                        </h2>
                   <div className="grid grid-cols-2 gap-3 text-[12px]">
                     <button
                       type="button"
@@ -2926,7 +3194,7 @@ export default function App() {
                     </section>
 
                     {/* 5. KHE HỞ GIỮA CÁC Ô */}
-                    <section className="border-b border-gray-150 pb-4 space-y-3">
+                    <section className="space-y-3">
                       <h2 className="text-[12.5px] font-black text-[#475569] uppercase tracking-wider select-none">
                         Khoảng cách giữa các tem
                       </h2>
@@ -3003,87 +3271,92 @@ export default function App() {
 
                     {/* SET TARGET ROLL WIDTH */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex justify-between">
-                        <span>Bề rộng cuộn tem</span>
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex justify-between items-center">
+                        <span className="flex items-center gap-1">
+                          Bề rộng cuộn tem (mm)
+                          <InfoTooltip content="Tổng chiều rộng của cuộn giấy. Khi nhập số này, lề 2 bên sẽ tự động tính toán ngược lại." />
+                        </span>
                         <span className="text-kiot-cyan select-none capitalize">Tính ngược lề</span>
                       </label>
-                      <input
-                        id="roll-width-input"
-                        type="text"
-                        value={desiredRollWidthInput}
-                        onChange={(e) => {
-                          const s = e.target.value;
-                          setDesiredRollWidthInput(s);
-                          const w = parseFloat(s);
-                          if (!isNaN(w) && w >= 10) {
-                            const val = Math.min(w, 500);
-                            setDesiredRollWidth(val);
-                            // Reverse calculation: Lề 2 bên = (Bề rộng cuộn - dán tem - khoảng hở) / 2
-                            const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
-                            let computedSideMargin = (val - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
-                            computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
-                            setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
-                          }
-                        }}
-                        onBlur={() => {
-                          let w = parseFloat(desiredRollWidthInput);
-                          if (isNaN(w) || w < 10) {
-                            w = 10;
-                          } else if (w > 500) {
-                            w = 500;
-                          }
-                           setDesiredRollWidth(w);
-                           setDesiredRollWidthInput(String(w));
-                           const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
-                           let computedSideMargin = (w - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
-                           computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
-                           setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
-                        }}
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
-                        placeholder="Ví dụ: 75, 110..."
-                      />
-                      <span className="block text-[9px] text-gray-400 select-none">
-                        Tổng chiều rộng của cuộn giấy. Khi nhập số này, lề 2 bên sẽ tự động tính toán ngược lại.
-                      </span>
+                      <div className="relative">
+                        <input
+                          id="roll-width-input"
+                          type="text"
+                          value={desiredRollWidthInput}
+                          onChange={(e) => {
+                            const s = e.target.value;
+                            setDesiredRollWidthInput(s);
+                            const w = parseFloat(s);
+                            if (!isNaN(w) && w >= 10) {
+                              const val = Math.min(w, 500);
+                              setDesiredRollWidth(val);
+                              // Reverse calculation: Lề 2 bên = (Bề rộng cuộn - dán tem - khoảng hở) / 2
+                              const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
+                              let computedSideMargin = (val - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
+                              computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
+                              setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
+                            }
+                          }}
+                          onBlur={() => {
+                            let w = parseFloat(desiredRollWidthInput);
+                            if (isNaN(w) || w < 10) {
+                              w = 10;
+                            } else if (w > 500) {
+                              w = 500;
+                            }
+                             setDesiredRollWidth(w);
+                             setDesiredRollWidthInput(String(w));
+                             const colGaps = (sheetConfig.cols - 1) * (sheetConfig.colGap || 0);
+                             let computedSideMargin = (w - (labelConfig.width * sheetConfig.cols) - colGaps) / 2;
+                             computedSideMargin = Math.max(0, Math.round(computedSideMargin * 10) / 10);
+                             setSheetConfig(prev => ({ ...prev, rollSideMargin: computedSideMargin }));
+                          }}
+                          className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
+                          placeholder="Ví dụ: 75, 110..."
+                        />
+                        <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">mm</span>
+                      </div>
                     </div>
 
                     {/* SET ROLL SIDE MARGIN */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
-                        Lề 2 bên (mm)
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex items-center gap-1">
+                        <span>Lề 2 bên (mm)</span>
+                        <InfoTooltip content="Khoảng trống lề từ hai viền mép ngoài của phôi cuộn giấy đến viền ngoài của tem dán." />
                       </label>
-                      <input
-                        id="roll-side-margin-input"
-                        type="text"
-                        value={rollSideMarginInput}
-                        onChange={(e) => {
-                          const s = e.target.value;
-                          setRollSideMarginInput(s);
-                          const m = parseFloat(s);
-                          if (!isNaN(m) && m >= 0) {
-                            setSheetConfig(prev => ({ ...prev, rollSideMargin: Math.min(m, 50) }));
-                          }
-                        }}
-                        onBlur={() => {
-                          const m = parseFloat(rollSideMarginInput);
-                          if (isNaN(m) || m < 0) {
-                            setSheetConfig(prev => ({ ...prev, rollSideMargin: 0 }));
-                            setRollSideMarginInput("0");
-                          } else if (m > 50) {
-                            setSheetConfig(prev => ({ ...prev, rollSideMargin: 50 }));
-                            setRollSideMarginInput("50");
-                          } else {
-                            const rounded = Math.round(m * 10) / 10;
-                            setSheetConfig(prev => ({ ...prev, rollSideMargin: rounded }));
-                            setRollSideMarginInput(String(rounded));
-                          }
-                        }}
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
-                        placeholder="Ví dụ: 1.5, 2, 5..."
-                      />
-                      <span className="block text-[9px] text-gray-400 select-none">
-                        Khoảng trống lề từ hai viền mép ngoài của phôi cuộn giấy đến viền ngoài của tem dán.
-                      </span>
+                      <div className="relative">
+                        <input
+                          id="roll-side-margin-input"
+                          type="text"
+                          value={rollSideMarginInput}
+                          onChange={(e) => {
+                            const s = e.target.value;
+                            setRollSideMarginInput(s);
+                            const m = parseFloat(s);
+                            if (!isNaN(m) && m >= 0) {
+                              setSheetConfig(prev => ({ ...prev, rollSideMargin: Math.min(m, 50) }));
+                            }
+                          }}
+                          onBlur={() => {
+                            const m = parseFloat(rollSideMarginInput);
+                            if (isNaN(m) || m < 0) {
+                              setSheetConfig(prev => ({ ...prev, rollSideMargin: 0 }));
+                              setRollSideMarginInput("0");
+                            } else if (m > 50) {
+                              setSheetConfig(prev => ({ ...prev, rollSideMargin: 50 }));
+                              setRollSideMarginInput("50");
+                            } else {
+                              const rounded = Math.round(m * 10) / 10;
+                              setSheetConfig(prev => ({ ...prev, rollSideMargin: rounded }));
+                              setRollSideMarginInput(String(rounded));
+                            }
+                          }}
+                          className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
+                          placeholder="Ví dụ: 1.5, 2, 5..."
+                        />
+                        <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">mm</span>
+                      </div>
+
 
                       {/* WARNING BADGE IF ROLL WIDTH IS SMALLER THAN LABELS */}
                       {(() => {
@@ -3112,39 +3385,43 @@ export default function App() {
                       <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
                         Thiết lập số tem 1 hàng
                       </label>
-                      <input
-                        id="cols-roll-input"
-                        type="text"
-                        value={colsInput}
-                        onChange={(e) => {
-                          const s = e.target.value;
-                          setColsInput(s);
-                          const c = parseInt(s);
-                          if (!isNaN(c) && c >= 1) {
-                            setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 20) }));
-                          }
-                        }}
-                        onBlur={() => {
-                          const c = parseInt(colsInput);
-                          if (isNaN(c) || c < 1) {
-                            setSheetConfig(prev => ({ ...prev, cols: 1 }));
-                            setColsInput("1");
-                          } else if (c > 20) {
-                            setSheetConfig(prev => ({ ...prev, cols: 20 }));
-                            setColsInput("20");
-                          }
-                        }}
-                        className="w-full bg-white border border-gray-300 rounded px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 focus:ring-1 focus:ring-kiot-cyan focus:border-kiot-cyan"
-                        placeholder="Nhập số tem ví dụ: 1, 2, 3, 4..."
-                      />
+                      <div className="relative">
+                        <input
+                          id="cols-roll-input"
+                          type="text"
+                          value={colsInput}
+                          onChange={(e) => {
+                            const s = e.target.value;
+                            setColsInput(s);
+                            const c = parseInt(s);
+                            if (!isNaN(c) && c >= 1) {
+                              setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 20) }));
+                            }
+                          }}
+                          onBlur={() => {
+                            const c = parseInt(colsInput);
+                            if (isNaN(c) || c < 1) {
+                              setSheetConfig(prev => ({ ...prev, cols: 1 }));
+                              setColsInput("1");
+                            } else if (c > 20) {
+                              setSheetConfig(prev => ({ ...prev, cols: 20 }));
+                              setColsInput("20");
+                            }
+                          }}
+                          className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
+                          placeholder="Nhập số tem ví dụ: 1, 2, 3, 4..."
+                        />
+                        <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">tem</span>
+                      </div>
                     </div>
 
                     {/* SET COL GAP */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
-                        Khoảng cách giữa các tem 1 hàng
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex items-center gap-1">
+                        <span>Khoảng cách giữa các tem 1 hàng</span>
+                        <InfoTooltip content="Khoảng hở ngang giữa các tem cạnh nhau trên cùng một dòng." />
                       </label>
-                      <div className="flex border border-gray-300 rounded overflow-hidden focus-within:ring-1 focus-within:ring-kiot-cyan focus-within:border-kiot-cyan">
+                      <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-kiot-cyan focus-within:ring-offset-0 focus-within:border-kiot-cyan">
                         <input
                           id="col-gap-input"
                           type="text"
@@ -3162,7 +3439,7 @@ export default function App() {
                               setSheetConfig(prev => ({ ...prev, colGap: 0 }));
                             }
                           }}
-                          className="flex-1 px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 bg-white"
+                          className="flex-1 pl-2 pr-2 py-1.5 text-sm font-bold font-mono text-slate-800 bg-white outline-none"
                           placeholder="0.0"
                         />
                         <select
@@ -3177,23 +3454,22 @@ export default function App() {
                               setColGapInput(String(val));
                             }
                           }}
-                          className="bg-gray-50 border-l border-gray-300 px-2 py-1.5 text-xs font-semibold outline-none text-slate-700 cursor-pointer"
+                          className="bg-gray-50 border-l border-gray-300 px-2.5 py-1.5 text-xs font-extrabold outline-none text-slate-600 hover:text-slate-900 cursor-pointer"
                         >
                           <option value="mm">mm</option>
                           <option value="inch">inch</option>
                         </select>
                       </div>
-                      <span className="block text-[9px] text-gray-400 select-none">
-                        Khoảng hở ngang giữa các tem cạnh nhau trên cùng một dòng.
-                      </span>
+
                     </div>
 
                     {/* SET ROW GAP (GAP BETWEEN ROWS) */}
                     <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
-                        Khoảng cách giữa các hàng tem (gap)
+                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex items-center gap-1">
+                        <span>Khoảng cách giữa các hàng tem (gap)</span>
+                        <InfoTooltip content={<>Khoảng trống phân cách hàng (Gap sensor). Giá trị mặc định phổ biến của cuộn decal nhãn thường là <strong>3.0 mm</strong>.</>} />
                       </label>
-                      <div className="flex border border-gray-300 rounded overflow-hidden focus-within:ring-1 focus-within:ring-kiot-cyan focus-within:border-kiot-cyan">
+                      <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-kiot-cyan focus-within:ring-offset-0 focus-within:border-kiot-cyan">
                         <input
                           id="row-gap-input"
                           type="text"
@@ -3211,7 +3487,7 @@ export default function App() {
                               setSheetConfig(prev => ({ ...prev, rowGap: 3 }));
                             }
                           }}
-                          className="flex-1 px-2.5 py-1.5 text-xs outline-none font-semibold font-mono text-slate-800 bg-white"
+                          className="flex-1 pl-2 pr-2 py-1.5 text-sm font-bold font-mono text-slate-800 bg-white outline-none"
                           placeholder="3.0"
                         />
                         <select
@@ -3226,15 +3502,13 @@ export default function App() {
                               setRowGapInput(String(val));
                             }
                           }}
-                          className="bg-gray-50 border-l border-gray-300 px-2 py-1.5 text-xs font-semibold outline-none text-slate-700 cursor-pointer"
+                          className="bg-gray-50 border-l border-gray-300 px-2.5 py-1.5 text-xs font-extrabold outline-none text-slate-600 hover:text-slate-900 cursor-pointer"
                         >
                           <option value="mm">mm</option>
                           <option value="inch">inch</option>
                         </select>
                       </div>
-                      <span className="block text-[9px] text-gray-400 leading-normal select-none">
-                        Khoảng trống phân cách hàng (Gap sensor). Giá trị mặc định phổ biến của cuộn decal nhãn thường là <strong>3.0 mm</strong>.
-                      </span>
+
                     </div>
 
                     {/* NÚT TỐI ƯU HÓA HOÀN HẢO CHO IN NHÃN CUỘN */}
@@ -3258,6 +3532,10 @@ export default function App() {
                     </button>
                   </div>
                 )}
+                    </div>
+                  )}
+                </div>
+
               </div>
             )}
 
@@ -3277,87 +3555,299 @@ export default function App() {
                     </div>
                   )}
 
-                  {/* MODULE 2: DESIGN TOOLBOX (Add text, barcode, and QR code) */}
-                  <section className="border-b border-gray-150 pt-5 pb-4 space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-[12.5px] font-black text-kiot-navy uppercase tracking-wider flex items-center space-x-2 select-none">
-                        <Plus className="w-3.5 h-3.5 text-kiot-cyan" />
-                        <span>Thêm thông tin vào tem</span>
-                      </h2>
+                  {/* BƯỚC 3 ACCORDION */}
+                  <div className="space-y-1.5 animate-fadeIn mb-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsStep3Expanded(!isStep3Expanded)}
+                      className={`w-full px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl border transition-all duration-150 outline-none transform active:scale-[0.98] ${
+                        isStep3Expanded
+                          ? "bg-emerald-100 text-emerald-950 border-emerald-300 shadow-sm"
+                          : "bg-emerald-50/90 text-emerald-900 border-emerald-200 hover:bg-emerald-100/60 hover:border-emerald-300 shadow-3xs"
+                      }`}
+                      title="Cấu hình nội dung thiết kế, thêm văn bản, mã vạch, QR, ảnh nền, watermark"
+                    >
+                      <div className="flex items-center space-x-2.5 font-sans">
+                        <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] tracking-wide shrink-0 transition-colors border ${
+                          isStep3Expanded ? "bg-emerald-600 text-white border-emerald-700" : "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        }`}>
+                          BƯỚC 3
+                        </span>
+                        <span className={`font-extrabold text-[12.5px] uppercase tracking-wider transition-colors leading-none ${
+                          isStep3Expanded ? "text-emerald-950" : "text-emerald-900 group-hover:text-emerald-950"
+                        }`}>
+                          Thiết kế mẫu tem
+                        </span>
+                      </div>
+                      <div className={`transition-transform duration-150 ${isStep3Expanded ? "rotate-180 text-emerald-650" : "text-emerald-500 group-hover:text-emerald-600"}`}>
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
+                    </button>
+
+                    {isStep3Expanded && (
+                      <div className="p-3 bg-white border border-slate-150 rounded-xl space-y-4 shadow-3xs">
+                        {/* MODULE 2: DESIGN TOOLBOX (Add text, barcode, and QR code) */}
+                        <section className="border-b border-gray-150 pt-5 pb-4 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <h2 className="text-[12.5px] font-black text-kiot-navy uppercase tracking-wider flex items-center space-x-2 select-none">
+                              <Plus className="w-3.5 h-3.5 text-kiot-cyan" />
+                              <span>Thêm thông tin vào tem</span>
+                            </h2>
+                          </div>
+
+                          <div className="grid grid-cols-1 gap-2">
+                            <button
+                              onClick={() => handleAddObject("text")}
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              title="Thêm một đoạn dòng văn bản mới ở giữa nhãn"
+                            >
+                              <span className="flex items-center space-x-2">
+                                 <FileText className="w-4 h-4 text-kiot-cyan" />
+                                 <span>Văn bản</span>
+                              </span>
+                              <span className="p-0.5 rounded-full bg-sky-50 text-kiot-cyan border border-kiot-cyan/30 group-hover:bg-kiot-cyan group-hover:text-white transition-colors duration-150 shadow-2xs">
+                                 <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => handleAddObject("barcode")}
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              title="Thêm một hình vẽ mã vạch chuẩn 1D ở giữa nhãn"
+                            >
+                              <span className="flex items-center space-x-2">
+                                <Barcode className="w-4 h-4 text-emerald-500" />
+                                <span>Mã vạch</span>
+                              </span>
+                              <span className="p-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                                <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => handleAddObject("qrcode")}
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              title="Thêm một hình vẽ mã QR code ở giữa nhãn"
+                            >
+                              <span className="flex items-center space-x-2">
+                                <QrCode className="w-4 h-4 text-blue-500" />
+                                <span>Mã QR</span>
+                              </span>
+                              <span className="p-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                                <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => setShowImageImportModal(true)}
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              title="Chèn logo, con dấu hoặc hình ảnh bất kỳ vào nhãn"
+                            >
+                              <span className="flex items-center space-x-2">
+                                <Image className="w-4 h-4 text-rose-500" />
+                                <span>Hình ảnh</span>
+                              </span>
+                              <span className="p-0.5 rounded-full bg-rose-50 text-rose-650 border border-rose-500/30 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                                <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => handleAddObject("shape", "line")}
+                              className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[14px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
+                              title="Thêm nét kẻ ngang / dọc hoặc hình khối bất kỳ vào nhãn"
+                            >
+                              <span className="flex items-center space-x-2">
+                                <Shapes className="w-4 h-4 text-indigo-500" />
+                                <span>Đường kẻ &amp; Hình khối</span>
+                              </span>
+                              <span className="p-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
+                                <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
+                              </span>
+                            </button>
+                          </div>
+                        </section>
+
+                  {/* CHẾ ĐỘ NỀN & WATERMARK */}
+                  <div id="bg-config-section" className="bg-slate-50/50 rounded-xl p-3.5 transition-all duration-150 shadow-3xs space-y-3 animate-fadeIn">
+                    <div className="flex items-center space-x-2">
+                      <Palette className="w-4 h-4 text-kiot-cyan" />
+                      <span className="font-extrabold text-[12px] text-[#1E293B] uppercase tracking-wider font-sans select-none">
+                        🎨 Chế độ nền &amp; Watermark
+                      </span>
                     </div>
 
-                    <div className="grid grid-cols-1 gap-2">
-                      <button
-                        onClick={() => handleAddObject("text")}
-                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-                        title="Thêm một đoạn dòng văn bản mới ở giữa nhãn"
-                      >
-                        <span className="flex items-center space-x-2">
-                           <FileText className="w-4 h-4 text-kiot-cyan" />
-                           <span>Văn bản</span>
-                        </span>
-                        <span className="p-0.5 rounded-full bg-sky-50 text-kiot-cyan border border-kiot-cyan/30 group-hover:bg-kiot-cyan group-hover:text-white transition-colors duration-150 shadow-2xs">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
-                        </span>
-                      </button>
+                    <div className="space-y-3 pt-2 text-[13px] border-t border-slate-200/80">
+                      {/* 1. Background Color selector */}
+                      <div className="flex items-center justify-between">
+                        <label className="font-bold text-[#475569] select-none">Màu nền tem nhãn:</label>
+                        <div className="flex items-center space-x-2 font-sans">
+                          {/* Nút 1: Chọn màu (Mặc định là Màu trắng #ffffff) */}
+                          <div className={`relative w-8 h-8 rounded-md border flex items-center justify-center transition duration-150 cursor-pointer shrink-0 ${
+                            labelConfig.bgColor !== "transparent"
+                              ? "border-kiot-cyan bg-kiot-cyan/5 ring-1 ring-kiot-cyan font-semibold"
+                              : "border-slate-250 bg-white hover:bg-slate-100/80"
+                          }`}>
+                            <input
+                              type="color"
+                              id="bg-color-picker"
+                              value={(labelConfig.bgColor && labelConfig.bgColor !== "transparent") ? labelConfig.bgColor : "#ffffff"}
+                              onChange={(e) => {
+                                setLabelConfig({
+                                  ...labelConfig,
+                                  bgColor: e.target.value
+                                });
+                              }}
+                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
+                              title="Chọn mã màu nền tùy ý"
+                            />
+                            <span 
+                              className="w-5 h-5 rounded-full border border-slate-350 shrink-0 shadow-sm z-10 transition-transform duration-100 hover:scale-110"
+                              style={{ backgroundColor: (labelConfig.bgColor && labelConfig.bgColor !== "transparent") ? labelConfig.bgColor : "#ffffff" }}
+                            />
+                          </div>
 
-                      <button
-                        onClick={() => handleAddObject("barcode")}
-                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-                        title="Thêm một hình vẽ mã vạch chuẩn 1D ở giữa nhãn"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <Barcode className="w-4 h-4 text-emerald-500" />
-                          <span>Mã vạch</span>
-                        </span>
-                        <span className="p-0.5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
-                        </span>
-                      </button>
+                          {/* Nút 2: Trong suốt */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLabelConfig({
+                                ...labelConfig,
+                                bgColor: "transparent"
+                              });
+                            }}
+                            className={`w-8 h-8 rounded-md border flex items-center justify-center transition duration-150 cursor-pointer relative overflow-hidden shrink-0 ${
+                              labelConfig.bgColor === "transparent"
+                                ? "border-kiot-cyan bg-kiot-cyan/5 ring-1 ring-kiot-cyan"
+                                : "border-slate-250 bg-white hover:bg-slate-50"
+                            }`}
+                            title="Nền trong suốt"
+                          >
+                            {/* Caro mô phỏng trong suốt */}
+                            <div className="absolute inset-1.5 opacity-30 grid grid-cols-2 grid-rows-2">
+                              <div className="bg-slate-400"></div>
+                              <div className="bg-white"></div>
+                              <div className="bg-white"></div>
+                              <div className="bg-slate-400"></div>
+                            </div>
+                            {/* Đường gạch chéo đỏ biểu hiệu trong suốt */}
+                            <div className="absolute w-[140%] h-[1.5px] bg-red-500 rotate-45 transform origin-center z-10 opacity-80" />
+                          </button>
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => handleAddObject("qrcode")}
-                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-                        title="Thêm một hình vẽ mã QR code ở giữa nhãn"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <QrCode className="w-4 h-4 text-blue-500" />
-                          <span>Mã QR</span>
-                        </span>
-                        <span className="p-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-500/30 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
-                        </span>
-                      </button>
+                      {/* 2. Watermark / Background Image Upload */}
+                      <div className="space-y-1.5">
+                        <label className="block font-bold text-[#475569] select-none">Ảnh nền hoặc Watermark:</label>
+                        <div className="flex items-center space-x-1.5">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            id="bg-image-uploader"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  if (event.target?.result) {
+                                    setLabelConfig({
+                                      ...labelConfig,
+                                      bgImage: event.target.result as string,
+                                      bgImageOpacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
+                                      bgImageSize: labelConfig.bgImageSize || "contain"
+                                    });
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => document.getElementById("bg-image-uploader")?.click()}
+                            className="flex-1 py-1.5 px-2.5 border border-dashed border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-kiot-cyan rounded font-bold text-center transition flex items-center justify-center space-x-1 cursor-pointer select-none text-[12.5px]"
+                          >
+                            <Upload className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{labelConfig.bgImage ? "Thay ảnh nền" : "Tải ảnh nền/Watermark"}</span>
+                          </button>
+                          {labelConfig.bgImage && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLabelConfig({
+                                  ...labelConfig,
+                                  bgImage: undefined,
+                                  bgImageOpacity: undefined,
+                                  bgImageSize: undefined
+                                });
+                                const inp = document.getElementById("bg-image-uploader") as HTMLInputElement;
+                                if (inp) inp.value = "";
+                              }}
+                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded transition border border-red-200 cursor-pointer animate-scaleIn"
+                              title="Xóa ảnh nền/watermark"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-                      <button
-                        onClick={() => setShowImageImportModal(true)}
-                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-                        title="Chèn logo, con dấu hoặc hình ảnh bất kỳ vào nhãn"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <Image className="w-4 h-4 text-rose-500" />
-                          <span>Hình ảnh</span>
-                        </span>
-                        <span className="p-0.5 rounded-full bg-rose-50 text-rose-650 border border-rose-500/30 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-150 shadow-2xs">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
-                        </span>
-                      </button>
+                      {labelConfig.bgImage && (
+                        <>
+                          {/* 3. Watermark Opacity Slider */}
+                          <div className="space-y-1 bg-slate-50 p-2 rounded border border-slate-100 animate-fadeIn">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-slate-500">Độ mờ ảnh (Watermark):</span>
+                              <span className="font-mono text-[10px] font-bold text-slate-750 bg-slate-200 px-1.5 py-0.5 rounded leading-tight select-none">
+                                {Math.round((labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3) * 100)}%
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              min={0.05}
+                              max={1.0}
+                              step={0.05}
+                              value={labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3}
+                              onChange={(e) => {
+                                setLabelConfig({
+                                  ...labelConfig,
+                                  bgImageOpacity: parseFloat(e.target.value)
+                                });
+                              }}
+                              className="w-full accent-kiot-cyan cursor-pointer h-1.5"
+                            />
+                          </div>
 
-                      <button
-                        onClick={() => handleAddObject("shape", "line")}
-                        className="group py-2 px-3.5 bg-white hover:bg-slate-50 border border-gray-200 hover:border-kiot-cyan text-kiot-charcoal hover:text-kiot-cyan text-[13px] font-extrabold rounded-lg transition duration-150 flex items-center justify-between cursor-pointer shadow-xs focus:ring-1 focus:ring-kiot-cyan focus:outline-none disabled:cursor-not-allowed disabled:bg-gray-50 disabled:border-gray-200 disabled:text-gray-400"
-                        title="Thêm nét kẻ ngang / dọc hoặc hình khối bất kỳ vào nhãn"
-                      >
-                        <span className="flex items-center space-x-2">
-                          <Shapes className="w-4 h-4 text-indigo-500" />
-                          <span>Đường kẻ &amp; Hình khối</span>
-                        </span>
-                        <span className="p-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-500/30 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-150 shadow-2xs">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={3.5} />
-                        </span>
-                      </button>
+                          {/* 4. Background Image Fitting */}
+                          <div className="flex items-center justify-between animate-fadeIn">
+                            <span className="font-bold text-slate-500">Tỷ lệ tương thích:</span>
+                            <div className="relative">
+                              <select
+                                value={labelConfig.bgImageSize || "contain"}
+                                onChange={(e) => {
+                                  setLabelConfig({
+                                    ...labelConfig,
+                                    bgImageSize: e.target.value as any
+                                  });
+                                }}
+                                className="appearance-none pl-2.5 pr-7 py-1 bg-white border border-slate-250 rounded text-[11.5px] font-bold text-slate-700 focus:outline-none cursor-pointer"
+                              >
+                                <option value="contain">Co giãn vừa (Contain)</option>
+                                <option value="cover">Lấp đầy (Cover)</option>
+                                <option value="repeat">Lặp lại (Repeat)</option>
+                                <option value="auto">Kích thước gốc (Auto)</option>
+                              </select>
+                              <ChevronDown className="absolute right-2 top-2 w-3 h-3 text-slate-400 pointer-events-none" />
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
-                  </section>
+                  </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* PERSISTENT / COLLAPSIBLE DATA FILE INTEGRATION ("LIÊN KẾT FILE DATA") */}
@@ -3552,203 +4042,26 @@ export default function App() {
                           </div>
                         )}
                       </section>
-
-                      {/* Sections 2, 3, 4 for navigating rows and batch toggles removed as requested by user */}
-                        
-                      </div>
-                    )}
-                  </div>
-
-                  {/* CHẾ ĐỘ NỀN & WATERMARK */}
-                  <div id="bg-config-section" className="bg-white border border-slate-200 rounded-lg p-3.5 transition-all duration-150 shadow-sm mb-4 space-y-3 animate-fadeIn">
-                    <div className="flex items-center space-x-2">
-                      <Palette className="w-4 h-4 text-kiot-cyan" />
-                      <span className="font-extrabold text-[12px] text-[#1E293B] uppercase tracking-wider font-sans select-none">
-                        🎨 Chế độ nền &amp; Watermark
-                      </span>
                     </div>
+                  )}
+                </div>
 
-                    <div className="space-y-3 pt-2 text-xs border-t border-slate-100">
-                      {/* 1. Background Color selector */}
-                      <div className="flex items-center justify-between">
-                        <label className="font-bold text-[#475569] select-none">Màu nền tem nhãn:</label>
-                        <div className="flex items-center space-x-2 font-sans">
-                          {/* Nút 1: Chọn màu (Mặc định là Màu trắng #ffffff) */}
-                          <div className={`relative w-8 h-8 rounded-md border flex items-center justify-center transition duration-150 cursor-pointer shrink-0 ${
-                            labelConfig.bgColor !== "transparent"
-                              ? "border-kiot-cyan bg-kiot-cyan/5 ring-1 ring-kiot-cyan font-semibold"
-                              : "border-slate-250 bg-white hover:bg-slate-100/80"
-                          }`}>
-                            <input
-                              type="color"
-                              id="bg-color-picker"
-                              value={(labelConfig.bgColor && labelConfig.bgColor !== "transparent") ? labelConfig.bgColor : "#ffffff"}
-                              onChange={(e) => {
-                                setLabelConfig({
-                                  ...labelConfig,
-                                  bgColor: e.target.value
-                                });
-                              }}
-                              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-20"
-                              title="Chọn mã màu nền tùy ý"
-                            />
-                            <span 
-                              className="w-5 h-5 rounded-full border border-slate-350 shrink-0 shadow-sm z-10 transition-transform duration-100 hover:scale-110"
-                              style={{ backgroundColor: (labelConfig.bgColor && labelConfig.bgColor !== "transparent") ? labelConfig.bgColor : "#ffffff" }}
-                            />
-                          </div>
-
-                          {/* Nút 2: Trong suốt */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLabelConfig({
-                                ...labelConfig,
-                                bgColor: "transparent"
-                              });
-                            }}
-                            className={`w-8 h-8 rounded-md border flex items-center justify-center transition duration-150 cursor-pointer relative overflow-hidden shrink-0 ${
-                              labelConfig.bgColor === "transparent"
-                                ? "border-kiot-cyan bg-kiot-cyan/5 ring-1 ring-kiot-cyan"
-                                : "border-slate-250 bg-white hover:bg-slate-50"
-                            }`}
-                            title="Nền trong suốt"
-                          >
-                            {/* Caro mô phỏng trong suốt */}
-                            <div className="absolute inset-1.5 opacity-30 grid grid-cols-2 grid-rows-2">
-                              <div className="bg-slate-400"></div>
-                              <div className="bg-white"></div>
-                              <div className="bg-white"></div>
-                              <div className="bg-slate-400"></div>
-                            </div>
-                            {/* Đường gạch chéo đỏ biểu hiệu trong suốt */}
-                            <div className="absolute w-[140%] h-[1.5px] bg-red-500 rotate-45 transform origin-center z-10 opacity-80" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* 2. Watermark / Background Image Upload */}
-                      <div className="space-y-1.5">
-                        <label className="block font-bold text-[#475569] select-none">Ảnh nền hoặc Watermark:</label>
-                        <div className="flex items-center space-x-1.5">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            id="bg-image-uploader"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    setLabelConfig({
-                                      ...labelConfig,
-                                      bgImage: event.target.result as string,
-                                      bgImageOpacity: labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3,
-                                      bgImageSize: labelConfig.bgImageSize || "contain"
-                                    });
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => document.getElementById("bg-image-uploader")?.click()}
-                            className="flex-1 py-1.5 px-2.5 border border-dashed border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-kiot-cyan rounded font-bold text-center transition flex items-center justify-center space-x-1 cursor-pointer select-none text-[11px]"
-                          >
-                            <Upload className="w-3.5 h-3.5 shrink-0" />
-                            <span className="truncate">{labelConfig.bgImage ? "Thay ảnh nền" : "Tải ảnh nền/Watermark"}</span>
-                          </button>
-                          {labelConfig.bgImage && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setLabelConfig({
-                                  ...labelConfig,
-                                  bgImage: undefined,
-                                  bgImageOpacity: undefined,
-                                  bgImageSize: undefined
-                                });
-                                const inp = document.getElementById("bg-image-uploader") as HTMLInputElement;
-                                if (inp) inp.value = "";
-                              }}
-                              className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded transition border border-red-200 cursor-pointer animate-scaleIn"
-                              title="Xóa ảnh nền/watermark"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {labelConfig.bgImage && (
-                        <>
-                          {/* 3. Watermark Opacity Slider */}
-                          <div className="space-y-1 bg-slate-50 p-2 rounded border border-slate-100 animate-fadeIn">
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-slate-500">Độ mờ ảnh (Watermark):</span>
-                              <span className="font-mono text-[10px] font-bold text-slate-750 bg-slate-200 px-1.5 py-0.5 rounded leading-tight select-none">
-                                {Math.round((labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3) * 100)}%
-                              </span>
-                            </div>
-                            <input
-                              type="range"
-                              min={0.05}
-                              max={1.0}
-                              step={0.05}
-                              value={labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3}
-                              onChange={(e) => {
-                                setLabelConfig({
-                                  ...labelConfig,
-                                  bgImageOpacity: parseFloat(e.target.value)
-                                });
-                              }}
-                              className="w-full accent-kiot-cyan cursor-pointer h-1.5"
-                            />
-                          </div>
-
-                          {/* 4. Background Image Fitting */}
-                          <div className="flex items-center justify-between animate-fadeIn">
-                            <span className="font-bold text-slate-500">Tỷ lệ tương thích:</span>
-                            <div className="relative">
-                              <select
-                                value={labelConfig.bgImageSize || "contain"}
-                                onChange={(e) => {
-                                  setLabelConfig({
-                                    ...labelConfig,
-                                    bgImageSize: e.target.value as any
-                                  });
-                                }}
-                                className="appearance-none pl-2.5 pr-7 py-1 bg-white border border-slate-250 rounded text-[11.5px] font-bold text-slate-700 focus:outline-none cursor-pointer"
-                              >
-                                <option value="contain">Co giãn vừa (Contain)</option>
-                                <option value="cover">Lấp đầy (Cover)</option>
-                                <option value="repeat">Lặp lại (Repeat)</option>
-                                <option value="auto">Kích thước gốc (Auto)</option>
-                              </select>
-                              <ChevronDown className="absolute right-2 top-2 w-3 h-3 text-slate-400 pointer-events-none" />
-                            </div>
-                          </div>
-                        </>
-                      )}
+                {isStep3Expanded && (
+                  <div className="space-y-4">
+                    {/* NÚT KHỚP VỪA VỚI NHÃN - KHÔNG TIÊU ĐỀ, KHÔNG MÔ TẢ THEO YÊU CẦU */}
+                    <div className="mb-4">
+                      <button
+                        type="button"
+                        onClick={handleFitObjectsToLabel}
+                        disabled={objects.length === 0}
+                        className="w-full py-2.5 bg-gradient-to-r from-kiot-cyan to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white rounded-lg text-xs font-black text-center select-none cursor-pointer transition flex items-center justify-center space-x-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-[0.98]"
+                        title="Tự động co giãn tất cả đối tượng vừa vặn vào khổ tem và giữ nguyên vị trí cân đối"
+                      >
+                        ⚡ <span>Khớp vừa với nhãn</span>
+                      </button>
                     </div>
                   </div>
-
-                  {/* NÚT KHỚP VỪA VỚI NHÃN - KHÔNG TIÊU ĐỀ, KHÔNG MÔ TẢ THEO YÊU CẦU */}
-                  <div className="mb-4">
-                    <button
-                      type="button"
-                      onClick={handleFitObjectsToLabel}
-                      disabled={objects.length === 0}
-                      className="w-full py-2.5 bg-gradient-to-r from-kiot-cyan to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white rounded-lg text-xs font-black text-center select-none cursor-pointer transition flex items-center justify-center space-x-1.5 shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transform active:scale-[0.98]"
-                      title="Tự động co giãn tất cả đối tượng vừa vặn vào khổ tem và giữ nguyên vị trí cân đối"
-                    >
-                      ⚡ <span>Khớp vừa với nhãn</span>
-                    </button>
-                  </div>
+                )}
               </>
             )}
 
@@ -3771,7 +4084,7 @@ export default function App() {
                 <div className="flex items-center space-x-2">
                   <Printer className={`w-4 h-4 animate-pulse ${isPrintExpanded ? "text-emerald-600" : "text-white"}`} />
                   <span className={`font-extrabold text-[12px] uppercase tracking-wider select-none ${isPrintExpanded ? "text-emerald-800" : "text-white"}`}>
-                    Nhập số lượng và In
+                    BƯỚC 4: NHẬP SỐ LƯỢNG VÀ IN
                   </span>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -3782,7 +4095,7 @@ export default function App() {
                   }`}>
                     {printQuantityMode === "constant" ? `${printCopies} bản` : 'Theo Excel'}
                   </span>
-                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-emerald-600 rotate-180" : "text-white/80 group-hover:text-white"}`}>
+                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-emerald-600" : "text-white/80 group-hover:text-white rotate-180"}`}>
                     <ChevronDown className="w-4 h-4" />
                   </div>
                 </div>
@@ -3805,10 +4118,10 @@ export default function App() {
                         onClick={() => {
                           setPrintQuantityMode('constant');
                         }}
-                        className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all cursor-pointer ${
+                        className={`px-1.5 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                           printQuantityMode === 'constant'
-                            ? "bg-white text-kiot-navy shadow-xs border border-gray-250"
-                            : "text-slate-500 hover:text-slate-800"
+                            ? "bg-white text-kiot-navy shadow-xs border border-gray-250 font-extrabold"
+                            : "text-slate-500 hover:text-slate-800 font-semibold"
                         }`}
                       >
                         Số lượng cố định
@@ -3819,17 +4132,17 @@ export default function App() {
                         onClick={() => {
                           setPrintQuantityMode('excel_column');
                         }}
-                        className={`px-1.5 py-1.5 text-[11px] font-black rounded transition-all flex items-center justify-center space-x-0.5 ${
+                        className={`px-1.5 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center space-x-0.5 ${
                           excelData.length === 0
-                            ? "opacity-55 cursor-not-allowed text-slate-400"
+                            ? "opacity-55 cursor-not-allowed text-slate-400 font-semibold"
                             : printQuantityMode === 'excel_column'
-                            ? "bg-white text-emerald-700 shadow-xs border border-emerald-250"
-                            : "text-slate-500 hover:text-slate-800 cursor-pointer"
+                            ? "bg-white text-emerald-700 shadow-xs border border-emerald-250 font-extrabold"
+                            : "text-slate-500 hover:text-slate-800 cursor-pointer font-semibold"
                         }`}
                         title={excelData.length === 0 ? "Hãy tải dữ liệu Excel trước" : "Lấy số bản in theo cột Excel"}
                       >
                         <span>SL theo file</span>
-                        {excelData.length === 0 && <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded">Khóa</span>}
+                        {excelData.length === 0 && <span className="text-[8px] bg-slate-200 text-slate-500 px-1 rounded font-bold">Khóa</span>}
                       </button>
                     </div>
 
@@ -3839,33 +4152,36 @@ export default function App() {
                         <label className="block text-[10px] text-slate-500 font-bold uppercase select-none mb-0.5">
                           Nhập số bản sao cần in:
                         </label>
-                        <input
-                          id="print-copies-input"
-                          type="text"
-                          value={printCopiesInput}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            setPrintCopiesInput(raw);
-                            const val = parseInt(raw, 10);
-                            if (!isNaN(val) && val >= 1) {
-                              setPrintCopies(val);
-                            }
-                          }}
-                          onBlur={() => {
-                            const val = parseInt(printCopiesInput, 10);
-                            if (isNaN(val) || val < 1) {
-                              setPrintCopies(1);
-                              setPrintCopiesInput("1");
-                            } else if (val > 500) {
-                              setPrintCopies(500);
-                              setPrintCopiesInput("500");
-                            } else {
-                              setPrintCopies(val);
-                              setPrintCopiesInput(String(val));
-                            }
-                          }}
-                          className="w-full px-2.5 py-1.5 text-xs border border-gray-250 rounded font-mono font-bold text-slate-800 bg-white"
-                        />
+                        <div className="relative">
+                          <input
+                            id="print-copies-input"
+                            type="text"
+                            value={printCopiesInput}
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              setPrintCopiesInput(raw);
+                              const val = parseInt(raw, 10);
+                              if (!isNaN(val) && val >= 1) {
+                                setPrintCopies(val);
+                              }
+                            }}
+                            onBlur={() => {
+                              const val = parseInt(printCopiesInput, 10);
+                              if (isNaN(val) || val < 1) {
+                                setPrintCopies(1);
+                                setPrintCopiesInput("1");
+                              } else if (val > 500) {
+                                setPrintCopies(500);
+                                setPrintCopiesInput("500");
+                              } else {
+                                setPrintCopies(val);
+                                setPrintCopiesInput(String(val));
+                              }
+                            }}
+                            className="w-full pl-2 pr-8 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
+                          />
+                          <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">bản</span>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-1.5 pt-1">
@@ -3877,7 +4193,7 @@ export default function App() {
                             <select
                               value={printQuantityColumn || ""}
                               onChange={(e) => setPrintQuantityColumn(e.target.value || null)}
-                              className="w-full text-xs font-bold font-mono py-1 px-1.5 bg-white border border-gray-250 rounded focus:outline-none"
+                              className="w-full text-xs font-extrabold font-mono py-1.5 px-2 bg-white border border-gray-300 rounded-lg text-slate-800 focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none cursor-pointer"
                             >
                               <option value="">-- Tự động in mỗi dòng 1 tem --</option>
                               {numericExcelColumns.map((col) => (
@@ -4147,7 +4463,7 @@ export default function App() {
                       <div className="py-2 px-3 flex items-start space-x-2 transition-all hover:bg-slate-50/50 border-t md:border-t-0 md:border-l border-blue-100/60">
                         <span className="px-1.5 py-[1px] mt-0.5 rounded bg-indigo-100 text-[#4338CA] font-extrabold text-[10px] tracking-wide shrink-0 border border-indigo-200">BƯỚC 2</span>
                         <div className="text-[12.5px] leading-snug flex-1">
-                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập máy / hàng cột</p>
+                          <p className="font-extrabold text-[#0F172A] mb-0.5">Thiết lập khổ giấy và máy in</p>
                           <p className="text-slate-500 font-semibold text-[11.5px] leading-tight">Chọn loại giấy lẻ hoặc A4/A5 và căn lề giấy phù hợp.</p>
                         </div>
                       </div>
@@ -4205,6 +4521,14 @@ export default function App() {
             gridSnapSize={gridSnapSize}
             onSelectObject={(id) => handleSelectObject(id, false)}
             onSelectObjectWithModifier={handleSelectObject}
+            onSelectMultipleObjects={(ids) => {
+              setSelectedIds(ids);
+              if (ids.length > 0) {
+                setSelectedId(ids[ids.length - 1]);
+              } else {
+                setSelectedId(null);
+              }
+            }}
             onUpdateObjectCoordinates={handleUpdateCoordinates}
             onUpdateMultipleObjectsCoordinates={handleUpdateMultipleObjectsCoordinates}
             onUpdateObjectGeometry={handleUpdateGeometry}

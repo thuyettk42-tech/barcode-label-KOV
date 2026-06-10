@@ -215,6 +215,37 @@
     width: 117.647vw !important;
     height: 117.647vh !important;
   }
+
+  /* Tăng các kích thước chữ tùy biến của Tailwind thêm 1pt (khoảng 1.33px) */
+  .no-print .text-\[9px\] { font-size: 10.33px !important; }
+  .no-print .text-\[9\.5px\] { font-size: 10.83px !important; }
+  .no-print .text-\[10px\] { font-size: 11.33px !important; }
+  .no-print .text-\[10\.5px\] { font-size: 11.83px !important; }
+  .no-print .text-\[11px\] { font-size: 12.33px !important; }
+  .no-print .text-\[11\.5px\] { font-size: 12.83px !important; }
+  .no-print .text-\[12px\] { font-size: 13.33px !important; }
+  .no-print .text-\[12\.5px\] { font-size: 13.83px !important; }
+  .no-print .text-\[13px\] { font-size: 14.33px !important; }
+  .no-print .text-\[14px\] { font-size: 15.33px !important; }
+  .no-print .text-\[14\.5px\] { font-size: 15.83px !important; }
+  .no-print .text-\[15px\] { font-size: 16.33px !important; }
+  .no-print .text-\[16px\] { font-size: 17.33px !important; }
+
+  /* Tăng các kích thước chữ mặc định của Tailwind thêm 1pt */
+  .no-print .text-xs { font-size: 13.33px !important; }
+  .no-print .text-sm { font-size: 15.33px !important; }
+  .no-print .text-base { font-size: 17.33px !important; }
+  .no-print .text-lg { font-size: 19.33px !important; }
+  .no-print .text-xl { font-size: 21.33px !important; }
+  .no-print .text-2xl { font-size: 25.33px !important; }
+  .no-print .text-3xl { font-size: 31.33px !important; }
+
+  /* Đảm bảo chiều cao của dòng hiển thị rộng rãi, cân đối khi cỡ chữ được nâng lên */
+  .no-print select,
+  .no-print input,
+  .no-print button {
+    line-height: inherit !important;
+  }
 }
 
 

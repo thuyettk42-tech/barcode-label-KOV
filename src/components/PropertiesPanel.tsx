@@ -366,6 +366,49 @@ export function PropertiesPanel({
               </div>
             </div>
 
+            {/* Quick Rotate Buttons Panel */}
+            <div className="pt-2 border-t border-slate-200 bg-slate-50/50 p-1.5 rounded-sm">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <span className="text-[11px] text-slate-600 font-extrabold flex items-center space-x-1">
+                  <span>Góc Xoay Nhanh:</span>
+                </span>
+                <div className="relative w-20">
+                  <input
+                    {...getNumericInputProps(
+                      "angle",
+                      selectedObject.angle !== undefined ? selectedObject.angle : 0,
+                      (val) => {
+                        let aVal = Math.round(val % 360);
+                        if (aVal < 0) aVal += 360;
+                        handleAttributeChange("angle", aVal);
+                      },
+                      0,
+                    )}
+                    className="w-full pl-2 pr-5 py-0.5 text-xs text-center border border-gray-200 rounded focus:border-kiot-cyan focus:outline-none bg-white font-mono font-bold text-slate-800"
+                  />
+                  <span className="absolute right-1.5 top-0.5 text-[10px] text-gray-400 font-mono">
+                    °
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-1">
+                {[0, 45, 90, 135, 180, 215, 270, 305].map((deg) => (
+                  <button
+                    key={deg}
+                    type="button"
+                    onClick={() => handleAttributeChange("angle", deg)}
+                    className={`py-1 px-px text-[10px] border rounded transition font-black focus:outline-none cursor-pointer text-center ${
+                      (selectedObject.angle || 0) === deg
+                        ? "border-kiot-cyan bg-kiot-cyan/10 text-kiot-navy"
+                        : "border-gray-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300"
+                    }`}
+                  >
+                    {deg}°
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Alignment Controls Mapping inside expanded details */}
             <div className="pt-2 border-t border-gray-200/60">
               <span className="block text-[10px] text-slate-400 font-black mb-1.5 text-center uppercase tracking-wide">
@@ -431,9 +474,6 @@ export function PropertiesPanel({
     return (
       <div id="properties-panel" className="space-y-2.5 pb-8 font-sans">
         <main className="space-y-2.5">
-          {/* Coordinates quick panel */}
-          {renderPositionPanel()}
-
           {/* TEXT EXCLUSIVE ATTRIBUTES */}
         {selectedObject.type === "text" && (
           <div className="space-y-2.5 animate-fadeIn">

@@ -20,6 +20,7 @@ interface LabelCanvasProps {
   gridSnapSize: number; // snappy size in mm (e.g., 1mm. 0 means none)
   onSelectObject: (id: string | null) => void;
   onSelectObjectWithModifier?: (id: string | null, isMultiSelect: boolean) => void;
+  onSelectMultipleObjects?: (ids: string[]) => void;
   onUpdateObjectCoordinates: (id: string, x: number, y: number) => void;
   onUpdateMultipleObjectsCoordinates?: (coordsList: Array<{ id: string; x: number; y: number }>) => void;
   onUpdateObjectGeometry: (
@@ -439,6 +440,7 @@ export function LabelCanvas({
   gridSnapSize,
   onSelectObject,
   onSelectObjectWithModifier,
+  onSelectMultipleObjects,
   onUpdateObjectCoordinates,
   onUpdateMultipleObjectsCoordinates,
   onUpdateObjectGeometry,
@@ -460,6 +462,10 @@ export function LabelCanvas({
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
+
+  // Dynamic values in pixels (defined at top to allow safe closure referencing in drag and marquee handlers)
+  const pxWidth = mmToPx(labelConfig.width, pixelScale);
+  const pxHeight = mmToPx(labelConfig.height, pixelScale);
 
   const [showAllPagesOnScreen, setShowAllPagesOnScreen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -681,6 +687,7 @@ export function LabelCanvas({
             labelConfig.width,
             labelConfig.height,
             gridSnapSize,
+            obj.angle || 0,
           );
           return { id, x: coords.x, y: coords.y };
         }).filter(Boolean) as Array<{ id: string; x: number; y: number }>;
@@ -713,11 +720,118 @@ export function LabelCanvas({
     onDeleteObject,
   ]);
 
-  // Pointer dragging handler on canvas area
+  // Marquee selection state
+  const [marqueeState, setMarqueeState] = useState<{
+    startX: number;
+    startY: number;
+    currentX: number;
+    currentY: number;
+  } | null>(null);
+
+  // Mousemove and mouseup handlers for marquee selection box
+  useEffect(() => {
+    if (!marqueeState) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      
+      const currentX = e.clientX - rect.left;
+      const currentY = e.clientY - rect.top;
+
+      setMarqueeState((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          currentX,
+          currentY,
+        };
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (!containerRef.current) {
+        setMarqueeState(null);
+        return;
+      }
+      
+      const x1 = Math.min(marqueeState.startX, marqueeState.currentX);
+      const x2 = Math.max(marqueeState.startX, marqueeState.currentX);
+      const y1 = Math.min(marqueeState.startY, marqueeState.currentY);
+      const y2 = Math.max(marqueeState.startY, marqueeState.currentY);
+      
+      const boxW = x2 - x1;
+      const boxH = y2 - y1;
+      
+      if (boxW > 3 || boxH > 3) {
+        const newlySelectedIds: string[] = [];
+        const containerRect = containerRef.current.getBoundingClientRect();
+        
+        // Compute selection bounds in viewport coordinate values for pixel-perfect intersection
+        const selLeft = containerRect.left + x1;
+        const selRight = containerRect.left + x2;
+        const selTop = containerRect.top + y1;
+        const selBottom = containerRect.top + y2;
+        
+        objects.forEach((obj) => {
+          const el = document.getElementById(`object-${obj.id}`);
+          if (el) {
+            const elRect = el.getBoundingClientRect();
+            const isOverlapping = 
+              elRect.left < selRight &&
+              elRect.right > selLeft &&
+              elRect.top < selBottom &&
+              elRect.bottom > selTop;
+              
+            if (isOverlapping) {
+              newlySelectedIds.push(obj.id);
+            }
+          }
+        });
+        
+        if (onSelectMultipleObjects) {
+          onSelectMultipleObjects(newlySelectedIds);
+        } else if (newlySelectedIds.length > 0) {
+          onSelectObject(newlySelectedIds[0]);
+        } else {
+          onSelectObject(null);
+        }
+      }
+
+      setMarqueeState(null);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [marqueeState, objects, onSelectMultipleObjects, onSelectObject]);
+
+  // Pointer dragging handler on canvas area or workspace body
   const handleLabelMouseDown = (e: React.MouseEvent) => {
-    // Click outside deselects
-    if (e.target === labelRef.current) {
-      onSelectObject(null);
+    // Only proceed if mouse down is NOT on a handle or an object wrapper
+    const target = e.target as HTMLElement;
+    const isInteractive = target.closest(
+      ".resize-handle, .rotate-handle, .object-print-class, input, button, select, textarea, [role=\"button\"], a"
+    );
+    if (isInteractive) {
+      return; 
+    }
+
+    onSelectObject(null);
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const startX = e.clientX - rect.left;
+      const startY = e.clientY - rect.top;
+      setMarqueeState({
+        startX,
+        startY,
+        currentX: startX,
+        currentY: startY,
+      });
     }
   };
 
@@ -793,6 +907,7 @@ export function LabelCanvas({
         labelConfig.width,
         labelConfig.height,
         gridSnapSize,
+        activeObj.angle || 0,
       );
 
       // Snapped delta
@@ -803,20 +918,27 @@ export function LabelCanvas({
         const item = objects.find((o) => o.id === pos.id);
         const w = item ? item.width : 10;
         const h = item ? item.height : 10;
+        const ang = item ? (item.angle || 0) : 0;
 
         let activeX = pos.x + snappedDeltaX;
         let activeY = pos.y + snappedDeltaY;
 
-        // Constraint boundaries for each item
-        if (activeX < 0) activeX = 0;
-        if (activeY < 0) activeY = 0;
-        if (activeX + w > labelConfig.width) activeX = labelConfig.width - w;
-        if (activeY + h > labelConfig.height) activeY = labelConfig.height - h;
+        // Constraint boundaries for each item based on its rotation angle
+        const constrained = constrainCoordinates(
+          activeX,
+          activeY,
+          w,
+          h,
+          labelConfig.width,
+          labelConfig.height,
+          0, // no snapping again
+          ang,
+        );
 
         return {
           id: pos.id,
-          x: Math.round(activeX * 10) / 10,
-          y: Math.round(activeY * 10) / 10,
+          x: constrained.x,
+          y: constrained.y,
         };
       });
 
@@ -1176,9 +1298,7 @@ export function LabelCanvas({
     };
   }, [rotateState, objects, onUpdateObject]);
 
-  // Dynamic values in pixels
-  const pxWidth = mmToPx(labelConfig.width, pixelScale);
-  const pxHeight = mmToPx(labelConfig.height, pixelScale);
+  // Ticks and helper structures can safely read top-level pxWidth and pxHeight values
 
   // Generate ticks for Rulers (1 tick per 5mm, numeric label every 10mm)
   const topTicksCount = Math.floor(labelConfig.width / 5);
@@ -1855,12 +1975,8 @@ export function LabelCanvas({
     <div
       ref={containerRef}
       id="label-editor-workspace"
+      onMouseDown={handleLabelMouseDown}
       className="flex-1 flex flex-col items-center justify-center p-4 bg-gray-150/50 border border-gray-200 shadow-inner overflow-auto relative select-none"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onSelectObject(null);
-        }
-      }}
       onDragOver={(e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -2455,6 +2571,20 @@ export function LabelCanvas({
           </div>
         </div>
       </div>
+
+      {/* Marquee Selection Rectangle Overlay */}
+      {marqueeState && (
+        <div
+          className="absolute border-2 border-kiot-cyan bg-kiot-cyan/15 pointer-events-none z-50 rounded"
+          style={{
+            left: `${Math.min(marqueeState.startX, marqueeState.currentX)}px`,
+            top: `${Math.min(marqueeState.startY, marqueeState.currentY)}px`,
+            width: `${Math.abs(marqueeState.startX - marqueeState.currentX)}px`,
+            height: `${Math.abs(marqueeState.startY - marqueeState.currentY)}px`,
+            borderStyle: "dashed",
+          }}
+        />
+      )}
     </div>
   );
 }

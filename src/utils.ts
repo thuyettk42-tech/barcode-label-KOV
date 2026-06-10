@@ -32,7 +32,8 @@ export function constrainCoordinates(
   height: number,
   canvasWidth: number,
   canvasHeight: number,
-  snapSize: number = 0 // 0 means no snapping
+  snapSize: number = 0, // 0 means no snapping
+  angle: number = 0
 ): { x: number; y: number } {
   let finalX = x;
   let finalY = y;
@@ -43,18 +44,43 @@ export function constrainCoordinates(
     finalY = Math.round(finalY / snapSize) * snapSize;
   }
 
-  // Bound limits
-  if (finalX < 0) finalX = 0;
-  if (finalX + width > canvasWidth) {
-    finalX = canvasWidth - width;
-  }
-  if (finalX < 0) finalX = 0; // Check again in case width is wider than canvas
+  // Rotated Bounding Box support
+  if (angle && angle !== 0) {
+    const rad = (angle * Math.PI) / 180;
+    const cosVal = Math.abs(Math.cos(rad));
+    const sinVal = Math.abs(Math.sin(rad));
 
-  if (finalY < 0) finalY = 0;
-  if (finalY + height > canvasHeight) {
-    finalY = canvasHeight - height;
+    // Dynamic dimensions of the rotated rectangle bounding box
+    const rotatedW = width * cosVal + height * sinVal;
+    const rotatedH = width * sinVal + height * cosVal;
+
+    // Minimum and maximum allowable coordinates for the base unrotated origin
+    // to keep the rotated box strictly inside the label canvas
+    const minX = (rotatedW - width) / 2;
+    const maxX = canvasWidth - (rotatedW + width) / 2;
+
+    const minY = (rotatedH - height) / 2;
+    const maxY = canvasHeight - (rotatedH + height) / 2;
+
+    if (finalX < minX) finalX = minX;
+    if (finalX > maxX) finalX = maxX;
+
+    if (finalY < minY) finalY = minY;
+    if (finalY > maxY) finalY = maxY;
+  } else {
+    // Bound limits for unrotated object
+    if (finalX < 0) finalX = 0;
+    if (finalX + width > canvasWidth) {
+      finalX = canvasWidth - width;
+    }
+    if (finalX < 0) finalX = 0; // Check again in case width is wider than canvas
+
+    if (finalY < 0) finalY = 0;
+    if (finalY + height > canvasHeight) {
+      finalY = canvasHeight - height;
+    }
+    if (finalY < 0) finalY = 0;
   }
-  if (finalY < 0) finalY = 0;
 
   return { 
     x: Math.round(finalX * 10) / 10, 
