@@ -4109,29 +4109,26 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setIsPrintExpanded(!isPrintExpanded)}
-                className={`mx-3 mt-3 mb-2 px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl shadow-md transition-all duration-150 ${
-                  isPrintExpanded
-                    ? "bg-sky-50/95 border border-sky-200 hover:bg-sky-100/50 scale-[1.01]"
-                    : "bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99]"
-                }`}
+                className="mx-3 mt-3 mb-2 px-4 py-3 flex items-center justify-between cursor-pointer select-none group rounded-xl shadow-md transition-all duration-150 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-400 text-white scale-[1.01] hover:scale-[1.02] active:scale-[0.99] border border-sky-600/30 border-b-[3px] border-b-sky-700/80"
                 title="Nhấn để thiết lập số lượng bản in và thực hiện in nhãn"
               >
-                <div className="flex items-center space-x-2">
-                  <Printer className={`w-4 h-4 animate-pulse ${isPrintExpanded ? "text-kiot-cyan" : "text-white"}`} />
-                  <span className={`font-extrabold text-[12px] uppercase tracking-wider select-none ${isPrintExpanded ? "text-sky-850" : "text-white"}`}>
-                    BƯỚC 4: IN TEM
+                <div className="flex items-center space-x-2.5">
+                  <span className="px-2 py-0.5 rounded font-extrabold text-[10px] tracking-wide shrink-0 border bg-white/20 text-white border-white/30 group-hover:bg-white/30 transition-colors">
+                    BƯỚC 4
                   </span>
+                  <div className="flex items-center space-x-1.5">
+                    <Printer className="w-4 h-4 animate-pulse select-none shrink-0 text-white" />
+                    <span className="font-extrabold text-[12.5px] uppercase tracking-wider font-sans text-white leading-none">
+                      IN TEM
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-black border font-mono transition-colors duration-150 ${
-                    isPrintExpanded 
-                      ? "bg-sky-100/80 text-sky-800 border-sky-200/60" 
-                      : "bg-white/20 text-white border-white/30"
-                  }`}>
+                  <span className="text-[10px] px-2 py-0.5 rounded font-black border font-mono transition-colors duration-150 bg-white/20 text-white border-white/30">
                     {printQuantityMode === "constant" ? `${printCopies} bản` : 'Theo Excel'}
                   </span>
-                  <div className={`transition-transform duration-150 ${isPrintExpanded ? "text-kiot-cyan" : "text-white/80 group-hover:text-white rotate-180"}`}>
-                    <ChevronDown className="w-4 h-4" />
+                  <div className={`transition-transform duration-150 text-white ${isPrintExpanded ? "rotate-180" : ""}`}>
+                    <ChevronDown className="w-4 h-4 text-white" />
                   </div>
                 </div>
               </button>
