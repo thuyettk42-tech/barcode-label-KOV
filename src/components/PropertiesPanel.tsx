@@ -106,23 +106,10 @@ export function PropertiesPanel({
     key: "x" | "y" | "width" | "height",
     val: number,
   ) => {
-    // Avoid returning negative sizes
     let cleanVal = Number(isNaN(val) ? 0 : val);
-    if (cleanVal < 0) cleanVal = 0;
 
-    // Boundary constraints for absolute values manually inputted
-    if (key === "x") {
-      if (cleanVal > labelConfig.width) cleanVal = labelConfig.width - 2;
-    } else if (key === "y") {
-      if (cleanVal > labelConfig.height) cleanVal = labelConfig.height - 2;
-    } else if (key === "width") {
-      if (cleanVal + selectedObject.x > labelConfig.width) {
-        cleanVal = Math.max(1, labelConfig.width - selectedObject.x);
-      }
-    } else if (key === "height") {
-      if (cleanVal + selectedObject.y > labelConfig.height) {
-        cleanVal = Math.max(1, labelConfig.height - selectedObject.y);
-      }
+    if (key === "width" || key === "height") {
+      if (cleanVal < 0.5) cleanVal = 0.5;
     }
 
     const updated = {
@@ -149,17 +136,69 @@ export function PropertiesPanel({
     });
   };
 
-  // Alignment Helper Triggers
-  const alignLeft = () => handlePositionChange("x", 0);
-  const alignTop = () => handlePositionChange("y", 0);
-  const alignRight = () =>
-    handlePositionChange("x", labelConfig.width - selectedObject.width);
-  const alignBottom = () =>
-    handlePositionChange("y", labelConfig.height - selectedObject.height);
-  const alignCenterHoriz = () =>
-    handlePositionChange("x", (labelConfig.width - selectedObject.width) / 2);
-  const alignCenterVerti = () =>
-    handlePositionChange("y", (labelConfig.height - selectedObject.height) / 2);
+  // Alignment Helper Triggers (Center-relative coordinate origin 0,0 at center of label)
+  const origin = selectedObject.textFlowOrigin || (selectedObject.type === "text" ? "top-left" : "center");
+
+  const getAnchorOffset = (originStr: string, w: number, h: number) => {
+    let dx = 0;
+    let dy = 0;
+    switch (originStr) {
+      case "top-left":
+        dx = 0; dy = 0; break;
+      case "top-center":
+        dx = w / 2; dy = 0; break;
+      case "top-right":
+        dx = w; dy = 0; break;
+      case "center-left":
+        dx = 0; dy = h / 2; break;
+      case "center":
+        dx = w / 2; dy = h / 2; break;
+      case "center-right":
+        dx = w; dy = h / 2; break;
+      case "bottom-left":
+        dx = 0; dy = h; break;
+      case "bottom-center":
+        dx = w / 2; dy = h; break;
+      case "bottom-right":
+        dx = w; dy = h; break;
+      default:
+        dx = 0; dy = 0;
+    }
+    return { dx, dy };
+  };
+
+  const { dx, dy } = getAnchorOffset(origin, selectedObject.width, selectedObject.height);
+
+  const alignLeft = () => {
+    const targetX_tl = 0 + dx;
+    const targetX_center = targetX_tl - labelConfig.width / 2;
+    handlePositionChange("x", Math.round(targetX_center * 10) / 10);
+  };
+  const alignRight = () => {
+    const targetX_tl = (labelConfig.width - selectedObject.width) + dx;
+    const targetX_center = targetX_tl - labelConfig.width / 2;
+    handlePositionChange("x", Math.round(targetX_center * 10) / 10);
+  };
+  const alignCenterHoriz = () => {
+    const targetX_tl = ((labelConfig.width - selectedObject.width) / 2) + dx;
+    const targetX_center = targetX_tl - labelConfig.width / 2;
+    handlePositionChange("x", Math.round(targetX_center * 10) / 10);
+  };
+  const alignTop = () => {
+    const targetY_tl = 0 + dy;
+    const targetY_center = targetY_tl - labelConfig.height / 2;
+    handlePositionChange("y", Math.round(targetY_center * 10) / 10);
+  };
+  const alignBottom = () => {
+    const targetY_tl = (labelConfig.height - selectedObject.height) + dy;
+    const targetY_center = targetY_tl - labelConfig.height / 2;
+    handlePositionChange("y", Math.round(targetY_center * 10) / 10);
+  };
+  const alignCenterVerti = () => {
+    const targetY_tl = ((labelConfig.height - selectedObject.height) / 2) + dy;
+    const targetY_center = targetY_tl - labelConfig.height / 2;
+    handlePositionChange("y", Math.round(targetY_center * 10) / 10);
+  };
 
   // Modular component for linking elements to Excel data columns
   const renderExcelLinker = () => {
@@ -1313,8 +1352,35 @@ export function PropertiesPanel({
                         align = "center";
                       if (origin.endsWith("right")) align = "right";
 
-                      handleAttributeChange("textFlowOrigin", origin);
-                      handleAttributeChange("textAlign", align);
+                      const getAnchorMultipliers = (o: string) => {
+                        let mx = 0, my = 0;
+                        if (o.includes("center") || o === "center") mx = 0.5;
+                        if (o.endsWith("right")) mx = 1;
+                        if (o.startsWith("center") || o === "center") my = 0.5;
+                        if (o.startsWith("bottom")) my = 1;
+                        return { mx, my };
+                      };
+
+                      const currentOrigin = selectedObject.textFlowOrigin || "top-left";
+                      const oldMultipliers = getAnchorMultipliers(currentOrigin);
+                      const newMultipliers = getAnchorMultipliers(origin);
+
+                      const visualLeft = selectedObject.x - oldMultipliers.mx * selectedObject.width;
+                      const visualTop = selectedObject.y - oldMultipliers.my * selectedObject.height;
+
+                      const newX = visualLeft + newMultipliers.mx * selectedObject.width;
+                      const newY = visualTop + newMultipliers.my * selectedObject.height;
+
+                      const roundedX = Math.round(newX * 10) / 10;
+                      const roundedY = Math.round(newY * 10) / 10;
+
+                      onChangeObject({
+                        ...selectedObject,
+                        textFlowOrigin: origin,
+                        textAlign: align,
+                        x: roundedX,
+                        y: roundedY
+                      });
                     }}
                     className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-bold text-slate-800 cursor-pointer appearance-none"
                   >
@@ -1744,10 +1810,36 @@ export function PropertiesPanel({
                   id="barcode-flow-origin-select"
                   value={selectedObject.textFlowOrigin || "center"}
                   onChange={(e) => {
-                    handleAttributeChange(
-                      "textFlowOrigin",
-                      e.target.value as any,
-                    );
+                    const origin = e.target.value as any;
+
+                    const getAnchorMultipliers = (o: string) => {
+                      let mx = 0, my = 0;
+                      if (o.includes("center") || o === "center") mx = 0.5;
+                      if (o.endsWith("right")) mx = 1;
+                      if (o.startsWith("center") || o === "center") my = 0.5;
+                      if (o.startsWith("bottom")) my = 1;
+                      return { mx, my };
+                    };
+
+                    const currentOrigin = selectedObject.textFlowOrigin || "center";
+                    const oldMultipliers = getAnchorMultipliers(currentOrigin);
+                    const newMultipliers = getAnchorMultipliers(origin);
+
+                    const visualLeft = selectedObject.x - oldMultipliers.mx * selectedObject.width;
+                    const visualTop = selectedObject.y - oldMultipliers.my * selectedObject.height;
+
+                    const newX = visualLeft + newMultipliers.mx * selectedObject.width;
+                    const newY = visualTop + newMultipliers.my * selectedObject.height;
+
+                    const roundedX = Math.round(newX * 10) / 10;
+                    const roundedY = Math.round(newY * 10) / 10;
+
+                    onChangeObject({
+                      ...selectedObject,
+                      textFlowOrigin: origin,
+                      x: roundedX,
+                      y: roundedY
+                    });
                   }}
                   className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-bold text-slate-800 cursor-pointer appearance-none animate-none"
                 >
@@ -1898,10 +1990,36 @@ export function PropertiesPanel({
                   id="qrcode-flow-origin-select"
                   value={selectedObject.textFlowOrigin || "center"}
                   onChange={(e) => {
-                    handleAttributeChange(
-                      "textFlowOrigin",
-                      e.target.value as any,
-                    );
+                    const origin = e.target.value as any;
+
+                    const getAnchorMultipliers = (o: string) => {
+                      let mx = 0, my = 0;
+                      if (o.includes("center") || o === "center") mx = 0.5;
+                      if (o.endsWith("right")) mx = 1;
+                      if (o.startsWith("center") || o === "center") my = 0.5;
+                      if (o.startsWith("bottom")) my = 1;
+                      return { mx, my };
+                    };
+
+                    const currentOrigin = selectedObject.textFlowOrigin || "center";
+                    const oldMultipliers = getAnchorMultipliers(currentOrigin);
+                    const newMultipliers = getAnchorMultipliers(origin);
+
+                    const visualLeft = selectedObject.x - oldMultipliers.mx * selectedObject.width;
+                    const visualTop = selectedObject.y - oldMultipliers.my * selectedObject.height;
+
+                    const newX = visualLeft + newMultipliers.mx * selectedObject.width;
+                    const newY = visualTop + newMultipliers.my * selectedObject.height;
+
+                    const roundedX = Math.round(newX * 10) / 10;
+                    const roundedY = Math.round(newY * 10) / 10;
+
+                    onChangeObject({
+                      ...selectedObject,
+                      textFlowOrigin: origin,
+                      x: roundedX,
+                      y: roundedY
+                    });
                   }}
                   className="w-full pl-2 pr-6 py-1 text-xs border border-gray-200 rounded-md focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan focus:outline-none bg-white font-bold text-slate-800 cursor-pointer appearance-none animate-none"
                 >
@@ -2098,8 +2216,11 @@ export function PropertiesPanel({
                         else if (newType === "circle") nm = "Hình tròn";
                         else if (newType === "oval") nm = "Hình oval";
                         
-                        handleAttributeChange("shapeType", newType);
-                        handleAttributeChange("content", nm);
+                        onChangeObject({
+                          ...selectedObject,
+                          shapeType: newType,
+                          content: nm
+                        });
                       }}
                       className={`flex items-center space-x-1.5 p-2 rounded-lg border text-[11px] font-bold transition-all cursor-pointer ${
                         isSelected

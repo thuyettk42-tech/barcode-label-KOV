@@ -139,8 +139,8 @@ export default function App() {
     {
       id: "init-text-1",
       type: "text",
-      x: 3,
-      y: 4,
+      x: -29.5,
+      y: -18.5,
       width: 59,
       height: 5,
       content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
@@ -151,8 +151,8 @@ export default function App() {
     {
       id: "init-barcode-1",
       type: "barcode",
-      x: 3,
-      y: 11,
+      x: -29.5,
+      y: -11.5,
       width: 38,
       height: 18,
       content: "VND-2026-06",
@@ -165,8 +165,8 @@ export default function App() {
     {
       id: "init-text-2",
       type: "text",
-      x: 3,
-      y: 34,
+      x: -29.5,
+      y: 11.5,
       width: 59,
       height: 5,
       content: "Hotline: 1900 1234 - Địa chỉ: Hà Nội",
@@ -176,8 +176,8 @@ export default function App() {
     {
       id: "init-qrcode-1",
       type: "qrcode",
-      x: 44,
-      y: 11,
+      x: 11.5,
+      y: -11.5,
       width: 18,
       height: 18,
       content: "https://create-barcode-label.vercel.app/"
@@ -1291,18 +1291,15 @@ export default function App() {
       h = 30;
     }
 
-    // Centering calculations boundary-clipped
-    const rawX = (labelConfig.width - w) / 2;
-    const rawY = (labelConfig.height - h) / 2;
-    const cleanX = Math.round(Math.max(2, rawX) * 10) / 10;
-    const cleanY = Math.round(Math.max(2, rawY) * 10) / 10;
-
+    // Centering positions calculated relative to the label's center (0, 0 position)
+    // - For elements with center anchors (barcode, qrcode, image, shapes): x = 0, y = 0
+    // - For elements with top-left anchors (text by default): x = -w/2, y = -h/2
     if (type === "text") {
       newObject = {
         id: timestampId,
         type: "text",
-        x: cleanX,
-        y: cleanY,
+        x: Math.round(-(w / 2) * 10) / 10,
+        y: Math.round(-(h / 2) * 10) / 10,
         width: w,
         height: h,
         content: customContent || "NỘI DUNG VĂN BẢN MỚI",
@@ -1314,8 +1311,8 @@ export default function App() {
       newObject = {
         id: timestampId,
         type: "barcode",
-        x: cleanX,
-        y: cleanY,
+        x: 0,
+        y: 0,
         width: w,
         height: h,
         content: customContent || "SP-2026-A1",
@@ -1330,8 +1327,8 @@ export default function App() {
       newObject = {
         id: timestampId,
         type: "qrcode",
-        x: cleanX,
-        y: cleanY,
+        x: 0,
+        y: 0,
         width: w,
         height: h,
         content: customContent || "https://vi.wikipedia.org",
@@ -1341,8 +1338,8 @@ export default function App() {
       newObject = {
         id: timestampId,
         type: "image",
-        x: cleanX,
-        y: cleanY,
+        x: 0,
+        y: 0,
         width: w,
         height: h,
         content: customContent || `data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="%234f46e5" stroke-dasharray="3 3" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`,
@@ -1365,16 +1362,11 @@ export default function App() {
         shapeH = 15;
       }
 
-      const rawShapeX = (labelConfig.width - shapeW) / 2;
-      const rawShapeY = (labelConfig.height - shapeH) / 2;
-      const shapeX = Math.round(Math.max(2, rawShapeX) * 10) / 10;
-      const shapeY = Math.round(Math.max(2, rawShapeY) * 10) / 10;
-
       newObject = {
         id: timestampId,
         type: "shape",
-        x: shapeX,
-        y: shapeY,
+        x: 0,
+        y: 0,
         width: shapeW,
         height: shapeH,
         content: sType === "line" ? "Đường kẻ" : sType === "rect" ? "Hình chữ nhật" : sType === "circle" ? "Hình tròn" : "Hình oval",
@@ -1489,17 +1481,22 @@ export default function App() {
   const handleFitObjectsToLabel = () => {
     if (objects.length === 0) return;
 
-    // 1. Calculate collective boundaries of all items in mm
+    const centerX = labelConfig.width / 2;
+    const centerY = labelConfig.height / 2;
+
+    // 1. Calculate collective boundaries of all items in standard mm space
     let minX = 999999;
     let minY = 999999;
     let maxX = -999999;
     let maxY = -999999;
 
     objects.forEach((obj) => {
-      if (obj.x < minX) minX = obj.x;
-      if (obj.y < minY) minY = obj.y;
-      if (obj.x + obj.width > maxX) maxX = obj.x + obj.width;
-      if (obj.y + obj.height > maxY) maxY = obj.y + obj.height;
+      const absX = centerX + obj.x;
+      const absY = centerY + obj.y;
+      if (absX < minX) minX = absX;
+      if (absY < minY) minY = absY;
+      if (absX + obj.width > maxX) maxX = absX + obj.width;
+      if (absY + obj.height > maxY) maxY = absY + obj.height;
     });
 
     const gW = maxX - minX;
@@ -1529,19 +1526,25 @@ export default function App() {
 
     // Recompute dimension mapping of every individual item
     const scaledObjects = objects.map((obj) => {
-      const relX = obj.x - minX;
-      const relY = obj.y - minY;
+      const absX = centerX + obj.x;
+      const absY = centerY + obj.y;
+      const relX = absX - minX;
+      const relY = absY - minY;
 
-      const newX = parseFloat((newMinX + relX * scale).toFixed(1));
-      const newY = parseFloat((newMinY + relY * scale).toFixed(1));
+      const newAbsX = parseFloat((newMinX + relX * scale).toFixed(1));
+      const newAbsY = parseFloat((newMinY + relY * scale).toFixed(1));
       const newW = parseFloat((obj.width * scale).toFixed(1));
       const newH = parseFloat((obj.height * scale).toFixed(1));
+
+      // Standard new positions converted back to center-relative positions
+      const newCentX = parseFloat((newAbsX - centerX).toFixed(1));
+      const newCentY = parseFloat((newAbsY - centerY).toFixed(1));
 
       // Construct scaled object
       const updatedObj: LabelObject = {
         ...obj,
-        x: newX,
-        y: newY,
+        x: newCentX,
+        y: newCentY,
         width: newW,
         height: newH,
       };
@@ -1564,7 +1567,14 @@ export default function App() {
   const restoreDesignAndExcel = (parsedData: any) => {
     if (parsedData && parsedData.labelConfig && parsedData.objects) {
       setLabelConfig(parsedData.labelConfig);
-      setObjects(parsedData.objects);
+      
+      const converted = migrateObjectsToCenterRelative(
+        parsedData.objects,
+        parsedData.labelConfig.width,
+        parsedData.labelConfig.height
+      );
+      setObjects(converted);
+
       if (parsedData.sheetConfig) {
         setSheetConfig(parsedData.sheetConfig);
       }
@@ -2235,6 +2245,22 @@ export default function App() {
     }
   };
 
+  const migrateObjectsToCenterRelative = (objs: LabelObject[], labelW: number, labelH: number): LabelObject[] => {
+    return objs.map(obj => {
+      if ((obj as any).isCenterRelative) {
+        return obj;
+      }
+      const centerX = labelW / 2;
+      const centerY = labelH / 2;
+      return {
+        ...obj,
+        x: Math.round((obj.x - centerX) * 10) / 10,
+        y: Math.round((obj.y - centerY) * 10) / 10,
+        isCenterRelative: true
+      };
+    });
+  };
+
   // Load preset template
   const handleSelectTemplate = (
     config: LabelConfig, 
@@ -2242,7 +2268,8 @@ export default function App() {
     templateSheetConfig?: Partial<SheetLayoutConfig>
   ) => {
     setLabelConfig(config);
-    setObjects(templateObjects);
+    const converted = migrateObjectsToCenterRelative(templateObjects, config.width, config.height);
+    setObjects(converted);
     if (templateSheetConfig) {
       setSheetConfig((prev) => ({
         ...prev,

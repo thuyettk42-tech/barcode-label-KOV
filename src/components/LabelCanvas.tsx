@@ -3,12 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
-import { mmToPx, pxToMm, constrainCoordinates, BASE_DPI_SCALE } from "../utils";
+import { mmToPx, pxToMm, BASE_DPI_SCALE } from "../utils";
 import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal } from "lucide-react";
 
 interface LabelCanvasProps {
@@ -202,6 +202,9 @@ export const formatLabelText = (obj: LabelObject): string => {
   let rawValue = obj.content;
   if (!rawValue) return "";
 
+  // Thống nhất các ký tự xuống dòng từ file/database dạng literal \\n thành \n thực tế để HTML CSS render đúng
+  rawValue = rawValue.replace(/\\n/g, "\n");
+
   if (obj.dataFormatType === "number") {
     // Keep prefix/suffix cleaner by removing non-numeric chars for the internal parsed decimal formatter
     const cleanStr = rawValue.replace(/[^\d.-]/g, "");
@@ -265,15 +268,8 @@ const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: numb
   );
 };
 
-const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: number }) => {
+const renderTextElement = (obj: LabelObject, pixelScale: number) => {
   const displayContent = formatLabelText(obj);
-  const [fontSize, setFontSize] = useState<number>(obj.fontSize || 10);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  // Reset to original designed size whenever the content, dimension, or scale changes to re-evaluate auto-fit correctly
-  useEffect(() => {
-    setFontSize(obj.fontSize || 10);
-  }, [displayContent, obj.fontSize, obj.width, obj.height, pixelScale]);
 
   const resolveFontFamily = (family: string | undefined) => {
     if (family === "Arial") return "Arial, Helvetica, sans-serif";
@@ -325,7 +321,6 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
     lineThroughVal?: boolean,
     superSubVal?: "normal" | "subscript" | "superscript",
     colorVal?: string,
-    activeFontSize?: number,
   ) => {
     let decs = [];
     if (underlineVal) decs.push("underline");
@@ -347,8 +342,6 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
       );
     }
 
-    const currentFontSize = activeFontSize || fontSizeVal || obj.fontSize || 10;
-
     return (
       <span
         style={{
@@ -358,8 +351,8 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
           textDecoration: deco,
           fontSize:
             pixelScale === BASE_DPI_SCALE
-              ? `${currentFontSize * 0.3528}mm`
-              : `${currentFontSize * 0.3528 * pixelScale}px`,
+              ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
+              : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -375,46 +368,30 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
         ? "flex-end"
         : "flex-start";
 
-  // Dynamic Auto-fit Auto-sizing feedback loop
-  useLayoutEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    // Bounding target constraints
-    const maxPxWidth = Math.ceil(obj.width * pixelScale) + 1.5;
-    const maxPxHeight = Math.ceil(obj.height * pixelScale) + 1.5;
-
-    // Current live overflow height & width metrics
-    const currentScrollWidth = el.scrollWidth;
-    const currentScrollHeight = el.scrollHeight;
-
-    // Minimum typography legibility boundary
-    const minAllowedFontSize = 4.5;
-
-    if (
-      (currentScrollHeight > maxPxHeight || currentScrollWidth > maxPxWidth) &&
-      fontSize > minAllowedFontSize
-    ) {
-      // Step-down size incrementally for precise layout boundary fit
-      setFontSize((prev) => Math.max(minAllowedFontSize, prev - 0.4));
-    }
-  }, [fontSize, obj.width, obj.height, pixelScale, displayContent]);
+  const lineH_mm = (obj.fontSize || 10) * 0.3528 * 1.25;
+  const maxLines = Math.max(1, Math.floor(obj.height / lineH_mm));
 
   return (
     <div
-      ref={containerRef}
-      className={`w-full h-full select-none leading-normal break-words overflow-hidden flex flex-col ${justifyClass} ${alignClass}`}
+      className={`w-full h-full select-none overflow-hidden flex flex-col ${justifyClass} ${alignClass}`}
       style={{
         textAlign: textalign as any,
-        whiteSpace: "pre-wrap",
         color: obj.color || "#000000",
-        maxWidth: `${obj.width * pixelScale}px`,
-        maxHeight: `${obj.height * pixelScale}px`,
+        lineHeight: "1.25",
       }}
     >
       <div
-        className="max-w-full w-full flex flex-wrap items-baseline"
-        style={{ justifyContent: flexJustify }}
+        className="max-w-full w-full overflow-hidden"
+        style={{
+          textAlign: textalign as any,
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+          display: "-webkit-box",
+          WebkitLineClamp: maxLines,
+          WebkitBoxOrient: "vertical",
+          maxHeight: "100%",
+        }}
       >
         {obj.prefixText &&
           renderSegment(
@@ -427,7 +404,6 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
             obj.prefixTextDecorationLineThrough,
             obj.prefixTextSuperSub,
             obj.prefixColor,
-            obj.prefixFontSize ? (obj.prefixFontSize * (fontSize / (obj.fontSize || 10))) : fontSize
           )}
         {renderSegment(
           displayContent,
@@ -439,7 +415,6 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
           obj.textDecorationLineThrough,
           obj.textSuperSub,
           obj.color,
-          fontSize
         )}
         {obj.suffixText &&
           renderSegment(
@@ -452,7 +427,6 @@ const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale
             obj.suffixTextDecorationLineThrough,
             obj.suffixTextSuperSub,
             obj.suffixColor,
-            obj.suffixFontSize ? (obj.suffixFontSize * (fontSize / (obj.fontSize || 10))) : fontSize
           )}
       </div>
     </div>
@@ -994,17 +968,18 @@ export function LabelCanvas({
           const obj = objects.find(o => o.id === id);
           if (!obj) return null;
 
-          const coords = constrainCoordinates(
-            obj.x + dx,
-            obj.y + dy,
-            obj.width,
-            obj.height,
-            labelConfig.width,
-            labelConfig.height,
-            gridSnapSize,
-            obj.angle || 0,
-          );
-          return { id, x: coords.x, y: coords.y };
+          let targetX = obj.x + dx;
+          let targetY = obj.y + dy;
+
+          if (gridSnapSize > 0) {
+            targetX = Math.round(targetX / gridSnapSize) * gridSnapSize;
+            targetY = Math.round(targetY / gridSnapSize) * gridSnapSize;
+          }
+
+          const finalX = Math.round(targetX * 10) / 10;
+          const finalY = Math.round(targetY * 10) / 10;
+
+          return { id, x: finalX, y: finalY };
         }).filter(Boolean) as Array<{ id: string; x: number; y: number }>;
 
         if (updatedCoords.length > 0) {
@@ -1213,47 +1188,28 @@ export function LabelCanvas({
       const targetMainX = mainOrigPos.x + deltaXmm;
       const targetMainY = mainOrigPos.y + deltaYmm;
 
-      // Constrain inside label boundary with grid snapping
-      const mainCoords = constrainCoordinates(
-        targetMainX,
-        targetMainY,
-        activeObj.width,
-        activeObj.height,
-        labelConfig.width,
-        labelConfig.height,
-        gridSnapSize,
-        activeObj.angle || 0,
-      );
+      // Snapping without confining boundary clamps
+      let snappedMainX = targetMainX;
+      let snappedMainY = targetMainY;
+      if (gridSnapSize > 0) {
+        snappedMainX = Math.round(snappedMainX / gridSnapSize) * gridSnapSize;
+        snappedMainY = Math.round(snappedMainY / gridSnapSize) * gridSnapSize;
+      }
+      snappedMainX = Math.round(snappedMainX * 10) / 10;
+      snappedMainY = Math.round(snappedMainY * 10) / 10;
 
       // Snapped delta
-      const snappedDeltaX = mainCoords.x - mainOrigPos.x;
-      const snappedDeltaY = mainCoords.y - mainOrigPos.y;
+      const snappedDeltaX = snappedMainX - mainOrigPos.x;
+      const snappedDeltaY = snappedMainY - mainOrigPos.y;
 
       const updatedList = origPositions.map((pos) => {
-        const item = objects.find((o) => o.id === pos.id);
-        const w = item ? item.width : 10;
-        const h = item ? item.height : 10;
-        const ang = item ? (item.angle || 0) : 0;
-
         let activeX = pos.x + snappedDeltaX;
         let activeY = pos.y + snappedDeltaY;
 
-        // Constraint boundaries for each item based on its rotation angle
-        const constrained = constrainCoordinates(
-          activeX,
-          activeY,
-          w,
-          h,
-          labelConfig.width,
-          labelConfig.height,
-          0, // no snapping again
-          ang,
-        );
-
         return {
           id: pos.id,
-          x: constrained.x,
-          y: constrained.y,
+          x: Math.round(activeX * 10) / 10,
+          y: Math.round(activeY * 10) / 10,
         };
       });
 
@@ -1469,16 +1425,6 @@ export function LabelCanvas({
 
       newX = cx_new - newWidth / 2;
       newY = cy_new - newHeight / 2;
-
-      // Keep inside label boundaries
-      if (newX < 0) newX = 0;
-      if (newY < 0) newY = 0;
-      if (newX + newWidth > labelConfig.width) {
-        newX = Math.max(0, labelConfig.width - newWidth);
-      }
-      if (newY + newHeight > labelConfig.height) {
-        newY = Math.max(0, labelConfig.height - newHeight);
-      }
 
       // Final fallback boundaries check
       if (newWidth >= MIN_SIZE_MM && newHeight >= MIN_SIZE_MM) {
@@ -1803,18 +1749,20 @@ export function LabelCanvas({
                             />
                           )}
                           {resolvedObjs.map((obj) => {
-                            const itemX = mmToPx(obj.x, previewScale);
-                            const itemY = mmToPx(obj.y, previewScale);
+                            const stdX = (labelConfig.width / 2) + obj.x;
+                            const stdY = (labelConfig.height / 2) + obj.y;
+                            const itemX = mmToPx(stdX, previewScale);
+                            const itemY = mmToPx(stdY, previewScale);
                             const itemW = mmToPx(obj.width, previewScale);
                             const itemH = mmToPx(obj.height, previewScale);
-                            const xPct = (obj.x / labelConfig.width) * 100;
-                            const yPct = (obj.y / labelConfig.height) * 100;
+                            const xPct = (stdX / labelConfig.width) * 100;
+                            const yPct = (stdY / labelConfig.height) * 100;
                             const wPct = (obj.width / labelConfig.width) * 100;
                             const hPct =
                               (obj.height / labelConfig.height) * 100;
                             const trans =
                               obj.type === "text"
-                                ? getTextTransform(obj.textFlowOrigin)
+                               ? getTextTransform(obj.textFlowOrigin)
                                 : "none";
                             const rotationStr = obj.angle
                               ? `rotate(${obj.angle}deg)`
@@ -1832,12 +1780,7 @@ export function LabelCanvas({
                                     left: `${xPct}%`,
                                     top: `${yPct}%`,
                                     width: `${wPct}%`,
-                                    height:
-                                      obj.type === "text" ? "auto" : `${hPct}%`,
-                                    minHeight:
-                                      obj.type === "text"
-                                        ? `${hPct}%`
-                                        : undefined,
+                                    height: `${hPct}%`,
                                     transform: finalTransform,
                                     transformOrigin: obj.angle
                                       ? "center center"
@@ -1845,26 +1788,19 @@ export function LabelCanvas({
                                     "--o-transform-origin": obj.angle
                                       ? "center center"
                                       : "top left",
-                                    "--o-x": `${obj.x}mm`,
-                                    "--o-y": `${obj.y}mm`,
+                                    "--o-x": `${stdX}mm`,
+                                    "--o-y": `${stdY}mm`,
                                     "--o-w": `${obj.width}mm`,
                                     "--o-h": `${obj.height}mm`,
-                                    "--o-print-height":
-                                      obj.type === "text"
-                                        ? "auto"
-                                        : `${obj.height}mm`,
-                                    "--o-print-min-height":
-                                      obj.type === "text"
-                                        ? `${obj.height}mm`
-                                        : "0mm",
+                                    "--o-print-height": `${obj.height}mm`,
+                                    "--o-print-min-height": "0mm",
                                     "--o-transform": finalTransform,
                                   } as React.CSSProperties
                                 }
                               >
                                 <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                                  {obj.type === "text" && (
-                                    <TextElementRenderer obj={obj} pixelScale={previewScale} />
-                                  )}
+                                  {obj.type === "text" &&
+                                    renderTextElement(obj, previewScale)}
 
                                   {obj.type === "barcode" && (
                                     <BarcodeRenderer
@@ -2153,12 +2089,14 @@ export function LabelCanvas({
                           />
                         )}
                         {resolvedObjs.map((obj) => {
-                          const itemX = mmToPx(obj.x, previewScale);
-                          const itemY = mmToPx(obj.y, previewScale);
+                          const stdX = (labelConfig.width / 2) + obj.x;
+                          const stdY = (labelConfig.height / 2) + obj.y;
+                          const itemX = mmToPx(stdX, previewScale);
+                          const itemY = mmToPx(stdY, previewScale);
                           const itemW = mmToPx(obj.width, previewScale);
                           const itemH = mmToPx(obj.height, previewScale);
-                          const xPct = (obj.x / labelConfig.width) * 100;
-                          const yPct = (obj.y / labelConfig.height) * 100;
+                          const xPct = (stdX / labelConfig.width) * 100;
+                          const yPct = (stdY / labelConfig.height) * 100;
                           const wPct = (obj.width / labelConfig.width) * 100;
                           const hPct = (obj.height / labelConfig.height) * 100;
                           const trans =
@@ -2181,12 +2119,7 @@ export function LabelCanvas({
                                   left: `${xPct}%`,
                                   top: `${yPct}%`,
                                   width: `${wPct}%`,
-                                  height:
-                                    obj.type === "text" ? "auto" : `${hPct}%`,
-                                  minHeight:
-                                    obj.type === "text"
-                                      ? `${hPct}%`
-                                      : undefined,
+                                  height: `${hPct}%`,
                                   transform: finalTransform,
                                   transformOrigin: obj.angle
                                     ? "center center"
@@ -2194,26 +2127,19 @@ export function LabelCanvas({
                                   "--o-transform-origin": obj.angle
                                     ? "center center"
                                     : "top left",
-                                  "--o-x": `${obj.x}mm`,
-                                  "--o-y": `${obj.y}mm`,
+                                  "--o-x": `${stdX}mm`,
+                                  "--o-y": `${stdY}mm`,
                                   "--o-w": `${obj.width}mm`,
                                   "--o-h": `${obj.height}mm`,
-                                  "--o-print-height":
-                                    obj.type === "text"
-                                      ? "auto"
-                                      : `${obj.height}mm`,
-                                  "--o-print-min-height":
-                                    obj.type === "text"
-                                      ? `${obj.height}mm`
-                                      : "0mm",
+                                  "--o-print-height": `${obj.height}mm`,
+                                  "--o-print-min-height": "0mm",
                                   "--o-transform": finalTransform,
                                 } as React.CSSProperties
                               }
                             >
                               <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                                {obj.type === "text" && (
-                                  <TextElementRenderer obj={obj} pixelScale={previewScale} />
-                                )}
+                                {obj.type === "text" &&
+                                  renderTextElement(obj, previewScale)}
 
                                 {obj.type === "barcode" && (
                                   <BarcodeRenderer
@@ -2547,12 +2473,14 @@ export function LabelCanvas({
               ? localResizeDims.height
               : obj.height;
 
-            const itemX = mmToPx(activeX, printScale);
-            const itemY = mmToPx(activeY, printScale);
+            const stdX = (labelConfig.width / 2) + activeX;
+            const stdY = (labelConfig.height / 2) + activeY;
+            const itemX = mmToPx(stdX, printScale);
+            const itemY = mmToPx(stdY, printScale);
             const itemW = mmToPx(activeW, printScale);
             const itemH = mmToPx(activeH, printScale);
-            const xPct = (activeX / labelConfig.width) * 100;
-            const yPct = (activeY / labelConfig.height) * 100;
+            const xPct = (stdX / labelConfig.width) * 100;
+            const yPct = (stdY / labelConfig.height) * 100;
             const wPct = (activeW / labelConfig.width) * 100;
             const hPct = (activeH / labelConfig.height) * 100;
 
@@ -2595,8 +2523,7 @@ export function LabelCanvas({
                     left: `${xPct}%`,
                     top: `${yPct}%`,
                     width: `${wPct}%`,
-                    height: obj.type === "text" ? "auto" : `${hPct}%`,
-                    minHeight: obj.type === "text" ? `${hPct}%` : undefined,
+                    height: `${hPct}%`,
                     transform: finalTransform,
                     transformOrigin: activeAngle ? "center center" : "top left",
                     "--o-transform-origin": activeAngle ? "center center" : "top left",
@@ -2605,10 +2532,8 @@ export function LabelCanvas({
                     "--o-y": `${activeY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
-                    "--o-print-height":
-                      obj.type === "text" ? "auto" : `${activeH}mm`,
-                    "--o-print-min-height":
-                      obj.type === "text" ? `${activeH}mm` : "0mm",
+                    "--o-print-height": `${activeH}mm`,
+                    "--o-print-min-height": "0mm",
                     "--o-transform": finalTransform,
                   } as React.CSSProperties
                 }
@@ -2657,7 +2582,7 @@ export function LabelCanvas({
                         }}
                       />
                     ) : (
-                      <TextElementRenderer obj={obj} pixelScale={printScale} />
+                      renderTextElement(obj, printScale)
                     ))}
 
                   {obj.type === "barcode" && (
@@ -2821,6 +2746,39 @@ export function LabelCanvas({
                       className="absolute top-1/2 right-0 w-2 h-2 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
                       title="Kéo cạnh để thay đổi kích thước"
                     />
+
+                    {/* Visual Anchor Indicator (Target Crosshair ⌖) */}
+                    {(() => {
+                      const origin = obj.textFlowOrigin || (obj.type === "text" ? "top-left" : "center");
+                      let mLeft = "0%";
+                      let mTop = "0%";
+                      if (origin.includes("center") || origin === "center") mLeft = "50%";
+                      if (origin.endsWith("right")) mLeft = "100%";
+                      if (origin.startsWith("center") || origin === "center") mTop = "50%";
+                      if (origin.startsWith("bottom")) mTop = "100%";
+
+                      return (
+                        <div
+                          className="absolute pointer-events-none z-50 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 no-print"
+                          style={{
+                            left: mLeft,
+                            top: mTop,
+                            width: "20px",
+                            height: "20px",
+                          }}
+                          title={`Điểm neo: ${origin}`}
+                        >
+                          <div className="relative w-5 h-5 rounded-full border-2 border-red-500 bg-white/85 shadow-md flex items-center justify-center ring-1 ring-red-400 animate-pulse">
+                            {/* Horizontal line */}
+                            <div className="absolute w-4 h-[1.5px] bg-red-550" />
+                            {/* Vertical line */}
+                            <div className="absolute h-4 w-[1.5px] bg-red-550" />
+                            {/* Central dot */}
+                            <div className="w-1.5 h-1.5 bg-red-650 rounded-full z-10" />
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-kiot-navy text-[12px] text-white px-2 py-1 rounded-lg shadow-xl whitespace-nowrap opacity-100 font-mono font-bold select-none z-50 flex items-center space-x-1.5 pointer-events-none no-print border-2 border-kiot-cyan/40">
                       <span>X: {obj.x}mm</span>
