@@ -89,30 +89,82 @@ class DesktopApi:
             return {"status": "error", "message": "Cửa sổ chính chưa được cấu hình"}
             
         print("[DESKTOP-API] Đang yêu cầu mở DevTools...")
-        # 1. Thử gọi phương thức chính thức của pywebview
+        
+        # 1. Thử gọi phương thức chính thức của pywebview trực tiếp
         try:
             self._window.show_devtools()
-            print("[DESKTOP-API] Đã mở DevTools thành công qua pywebview.")
+            print("[DESKTOP-API] Đã mở DevTools thành công qua pywebview.show_devtools().")
             return {"status": "success"}
         except Exception as e_pv:
-            print(f"[DESKTOP-API] Thử gọi pywebview thất bại: {e_pv}. Chuyển hướng sang phương thức Native WebView2...")
+            print(f"[DESKTOP-API] Thử gọi pywebview show_devtools thất bại: {e_pv}. Chuyển hướng sang quét tìm kiếm WebView2...")
+
+        # 2. Thủ thuật quét thông minh để định vị đối tượng CoreWebView2 của Microsoft từ các nốt đối tượng
+        def find_core_webview2_native(root, visited=None):
+            if visited is None:
+                visited = set()
+            if root is None or id(root) in visited:
+                return None
+            visited.add(id(root))
             
-        # 2. Thử truy cập đối tượng Native CoreWebView2 (trên Windows) để mở trực tiếp
+            # Thử nhận diện trực tiếp
+            if hasattr(root, 'CoreWebView2') and root.CoreWebView2:
+                return root.CoreWebView2
+            if hasattr(root, 'OpenDevToolsWindow'):
+                return root
+                
+            # Duyệt qua các Controls con của WinForms Form
+            if hasattr(root, 'Controls'):
+                try:
+                    controls = root.Controls
+                    for i in range(getattr(controls, 'Count', 0)):
+                        ctrl = controls.get_Item(i)
+                        found = find_core_webview2_native(ctrl, visited)
+                        if found:
+                            return found
+                except Exception:
+                    pass
+                    
+            # Duyệt tất cả thuộc tính của đối tượng hiện tại
+            for attr in dir(root):
+                if attr.startswith('__'):
+                    continue
+                try:
+                    val = getattr(root, attr, None)
+                    if val is not None:
+                        if hasattr(val, 'CoreWebView2') and val.CoreWebView2:
+                            return val.CoreWebView2
+                        if hasattr(val, 'OpenDevToolsWindow'):
+                            return val
+                        # Chỉ đệ quy sâu tầm trung bình để tối ưu tốc độ và tránh nổ Call Stack
+                        if len(visited) < 150:
+                            found = find_core_webview2_native(val, visited)
+                            if found:
+                                return found
+                except Exception:
+                    pass
+            return None
+
+        # Tiến hành quét trên window và native window
+        core_wv2 = None
         try:
-            native_window = getattr(self._window, 'native', None)
-            if native_window:
-                browser = getattr(native_window, 'browser', None)
-                if browser:
-                    web_view = getattr(browser, 'web_view', None)
-                    if web_view and hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
-                        # Gọi trực tiếp phương thức mở DevTools của Microsoft.Web.WebView2
-                        web_view.CoreWebView2.OpenDevToolsWindow()
-                        print("[DESKTOP-API] Đã mở DevTools thành công qua CoreWebView2.OpenDevToolsWindow().")
-                        return {"status": "success"}
-        except Exception as e_native:
-            print(f"[DESKTOP-API] Trình gọi Native CoreWebView2 thất bại: {e_native}")
-            return {"status": "error", "message": f"Không thể mở DevTools: {e_native}"}
-            
+            core_wv2 = find_core_webview2_native(self._window)
+            if not core_wv2:
+                native_window = getattr(self._window, 'native', None)
+                if native_window:
+                    core_wv2 = find_core_webview2_native(native_window)
+        except Exception as e_scan:
+            print(f"[DESKTOP-API] Lỗi trong quá trình quét tự động WebView2: {e_scan}")
+
+        # 3. Nếu tìm thấy CoreWebView2, kích hoạt mở cửa sổ DevTools trực tiếp từ lớp Microsoft SDK
+        if core_wv2:
+            try:
+                core_wv2.OpenDevToolsWindow()
+                print("[DESKTOP-API] Đã kích hoạt và mở DevTools thành công qua CoreWebView2.OpenDevToolsWindow() quét được.")
+                return {"status": "success"}
+            except Exception as e_open:
+                print(f"[DESKTOP-API] Gọi hỏng OpenDevToolsWindow: {e_open}")
+                return {"status": "error", "message": f"Kích hoạt hỏng CoreWebView2 SDK: {e_open}"}
+
         return {"status": "error", "message": "Không tìm thấy giao diện WebView2 hoạt động"}
 
     def mark_app_loaded(self):
