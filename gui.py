@@ -427,7 +427,7 @@ def main():
 
     win.events.closed += on_window_closed
 
-    # Chạy ứng dụng webview (Đặt debug=False để tránh tự động bùng màn hình DevTools lúc khởi động)
+    # Chạy ứng dụng webview (Đặt debug=False nhưng được tối ưu hóa bật sẵn DevTools độc lập qua CoreWebView2 Settings ở trên để tránh trễ 4 giây do quét cổng mạng và proxy console)
     webview.start(debug=False, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
 
 if __name__ == "__main__":
