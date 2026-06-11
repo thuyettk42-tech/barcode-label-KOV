@@ -82,6 +82,17 @@ class DesktopApi:
         self._release_lock_file()
         return {"status": "success"}
 
+    def show_devtools(self):
+        """API cho phép React yêu cầu hiển thị cửa sổ DevTools."""
+        if self._window:
+            try:
+                self._window.show_devtools()
+                return {"status": "success"}
+            except Exception as e:
+                print(f"[DESKTOP-API] Không thể mở DevTools: {e}")
+                return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Cửa sổ chính chưa được cấu hình"}
+
     def save_file_native(self, filename, content_str):
         """Mở hộp thoại lưu tệp gốc (Native Save Dialog) của Windows/macOS/Linux và ghi file."""
         if not self._window:

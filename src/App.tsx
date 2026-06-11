@@ -2247,6 +2247,19 @@ export default function App() {
   // Synchronise global hotkey intercept for Ctrl+P, Ctrl+S, Ctrl+O, etc.
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Bắt phím mở DevTools (F12 hoặc Ctrl+Shift+I) cho ứng dụng Desktop chạy Offline
+      if (
+        e.key === "F12" || 
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i")
+      ) {
+        const pw = (window as any).pywebview;
+        if (pw && pw.api && typeof pw.api.show_devtools === "function") {
+          e.preventDefault();
+          pw.api.show_devtools();
+          return;
+        }
+      }
+
       const activeEl = document.activeElement;
       const isEditingInput = activeEl && (
         activeEl.tagName === "INPUT" || 
