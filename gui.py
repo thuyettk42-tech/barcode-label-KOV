@@ -40,6 +40,7 @@ class DesktopApi:
     def __init__(self):
         self._window = None
         self._active_lock_path = None
+        self._app_loaded = False
 
     def _create_lock_file(self, target_path):
         """Tạo file khóa tạm thời (lock file) trong cùng thư mục với file chính để đánh dấu đang chỉnh sửa."""
@@ -84,14 +85,41 @@ class DesktopApi:
 
     def show_devtools(self):
         """API cho phép React yêu cầu hiển thị cửa sổ DevTools."""
-        if self._window:
-            try:
-                self._window.show_devtools()
-                return {"status": "success"}
-            except Exception as e:
-                print(f"[DESKTOP-API] Không thể mở DevTools: {e}")
-                return {"status": "error", "message": str(e)}
-        return {"status": "error", "message": "Cửa sổ chính chưa được cấu hình"}
+        if not self._window:
+            return {"status": "error", "message": "Cửa sổ chính chưa được cấu hình"}
+            
+        print("[DESKTOP-API] Đang yêu cầu mở DevTools...")
+        # 1. Thử gọi phương thức chính thức của pywebview
+        try:
+            self._window.show_devtools()
+            print("[DESKTOP-API] Đã mở DevTools thành công qua pywebview.")
+            return {"status": "success"}
+        except Exception as e_pv:
+            print(f"[DESKTOP-API] Thử gọi pywebview thất bại: {e_pv}. Chuyển hướng sang phương thức Native WebView2...")
+            
+        # 2. Thử truy cập đối tượng Native CoreWebView2 (trên Windows) để mở trực tiếp
+        try:
+            native_window = getattr(self._window, 'native', None)
+            if native_window:
+                browser = getattr(native_window, 'browser', None)
+                if browser:
+                    web_view = getattr(browser, 'web_view', None)
+                    if web_view and hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
+                        # Gọi trực tiếp phương thức mở DevTools của Microsoft.Web.WebView2
+                        web_view.CoreWebView2.OpenDevToolsWindow()
+                        print("[DESKTOP-API] Đã mở DevTools thành công qua CoreWebView2.OpenDevToolsWindow().")
+                        return {"status": "success"}
+        except Exception as e_native:
+            print(f"[DESKTOP-API] Trình gọi Native CoreWebView2 thất bại: {e_native}")
+            return {"status": "error", "message": f"Không thể mở DevTools: {e_native}"}
+            
+        return {"status": "error", "message": "Không tìm thấy giao diện WebView2 hoạt động"}
+
+    def mark_app_loaded(self):
+        """API được React gọi khi giao diện React đã render và khởi động thành công."""
+        self._app_loaded = True
+        print("[DESKTOP-API] Nhận dạng: Ứng dụng React đã tải thành công hoàn tất!")
+        return {"status": "success"}
 
     def save_file_native(self, filename, content_str):
         """Mở hộp thoại lưu tệp gốc (Native Save Dialog) của Windows/macOS/Linux và ghi file."""
@@ -368,6 +396,78 @@ def run_server(directory, port):
     with TCPServer(('127.0.0.1', port), SafeHTTPRequestHandler) as httpd:
         httpd.serve_forever()
 
+def start_app_load_watchdog(api):
+    """
+    Theo dõi chủ động thời gian tải của giao diện React. 
+    Nếu sau 15 giây kể từ lúc bắt đầu mà React chưa phản hồi lại qua API,
+    hệ thống sẽ tự động xuất tệp tin log.txt báo cáo phân tích chi tiết lỗi.
+    """
+    def check():
+        import time
+        # Chờ 15 giây để React tải các tài nguyên CSS, JS và dựng giao diện.
+        time.sleep(15.0)
+        if not api._app_loaded:
+            print("[CRITICAL-WATCHDOG] CẢNH BÁO: Ứng dụng không phản hồi thành công sau 15 giây! Đang sinh file log.txt...")
+            try:
+                # Tìm thư mục chạy phần mềm chính chủ
+                exec_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+                log_file = os.path.join(exec_dir, "log.txt")
+                
+                # Quét và đánh giá trạng thái thư mục dist của app
+                dist_dir = get_resource_path("dist")
+                dist_exists = os.path.exists(dist_dir)
+                index_exists = False
+                files_list = []
+                
+                if dist_exists:
+                    index_exists = os.path.exists(os.path.join(dist_dir, "index.html"))
+                    try:
+                        files_list = os.listdir(dist_dir)
+                    except Exception:
+                        pass
+                
+                # Ghi nhận thời điểm hiện tại và cấu hình chẩn đoán
+                with open(log_file, "w", encoding="utf-8") as f:
+                    f.write("="*80 + "\n")
+                    f.write("BÁO CÁO CHẨN ĐOÁN LỖI KHỞI ĐỘNG CHỦ ĐỘNG (KiotLabel Designer Offline)\n")
+                    f.write("="*80 + "\n")
+                    f.write(f"Thời gian phân tích: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    f.write(f"Hệ điều hành thích ứng: {sys.platform}\n")
+                    f.write(f"Phiên bản Python: {sys.version}\n")
+                    f.write(f"Trạng thái nạp React: CHƯA PHẢN HỒI (Trong khoảng thời gian giới hạn 15 giây)\n")
+                    f.write("-"*80 + "\n")
+                    f.write("THÔNG SỐ CHẨN ĐOÁN TÀI NGUYÊN:\n")
+                    f.write(f"- Đường dẫn tài nguyên (get_resource_path): {dist_dir}\n")
+                    f.write(f"- Thư mục dist tồn tại thực tế: {dist_exists}\n")
+                    f.write(f"- Tệp index.html tồn tại: {index_exists}\n")
+                    f.write(f"- Danh sách tệp tin trong thư mục dist/: {files_list}\n")
+                    f.write("-"*80 + "\n")
+                    f.write("CÁC NGUYÊN NHÂN LỖI THƯỜNG GẶP & GIẢI PHÁP ĐỀ XUẤT:\n")
+                    f.write("\n")
+                    f.write("1. XUNG ĐỘT HOẶC CHẶN KHỞI CHẠY LỚP MẠNG NỘI BỘ (Local Network / Firewall block):\n")
+                    f.write("   - Mô tả: Hệ thống khởi tạo một máy chủ web nội bộ siêu nhẹ để nạp file. Một số phần mềm diệt virus (Kaspersky, Avast, Windows Defender) hoặc chính sách Firewall của máy chủ công ty có thể chặn máy chủ nội bộ 127.0.0.1.\n")
+                    f.write("   - Để khắc phục: Thử cấp quyền chạy cho ứng dụng, hoặc tạm thời tắt tường lửa mạng kiểm tra.\n")
+                    f.write("\n")
+                    f.write("2. LỖI THỰC THI TRONG BẢN BUNDLE JAVASCRIPT (Web Runtime JS Error):\n")
+                    f.write("   - Mô tả: Một lỗi nhỏ trong plugin, CSS hỏng hoặc lỗi logic trong React khiến toàn bộ trang web bị lỗi trắng màn hình (White Screen) khi tải ban đầu.\n")
+                    f.write("   - Để khắc phục: Sử dụng tính năng chuột phải chọn 'Inspect' (Kiểm tra) hoặc nhấn phím F12/Ctrl+Shift+I để mở DevTools, qua đó chọn tab 'Console' của trình giám sát để xem lỗi báo đỏ (JS Exception).\n")
+                    f.write("\n")
+                    f.write("3. THƯ VIỆN MICROSOFT EDGE WEBVIEW2 RUNTIME CHƯA ĐƯỢC CHUẨN BỊ (Windows Only):\n")
+                    f.write("   - Mô tả: WebView2 là nền tảng cốt lõi của Microsoft giúp dựng webview trên Windows 10/11. Nếu máy tính của bạn dùng hệ điều hành cũ (nhên Windows 7) hoặc WebView2 bị vô hiệu hóa/hỏng, giao diện sẽ không hiển thị.\n")
+                    f.write("   - Để khắc phục: Tìm kiếm trên Google và cài đặt 'Edge WebView2 Runtime' mới nhất từ trang chủ Microsoft.\n")
+                    f.write("\n")
+                    f.write("4. QUÁ TẢI PHẦN CỨNG HOẶC TRỄ KHỞI ĐỘNG TRÊN MÁY PHÂN KHÚC THẤP (Performance limit):\n")
+                    f.write("   - Mô tả: Máy tính có CPU/RAM cũ cần nhiều hơn 15 giây để khởi động toàn bộ tiến trình nạp webview.\n")
+                    f.write("   - Lưu ý: Nếu sau thời gian này giao diện vẫn tự động tải xong, bạn có thể xóa tệp tin log.txt này đi và sử dụng bình thường.\n")
+                    f.write("="*80 + "\n")
+                print(f"[CRITICAL-WATCHDOG] Đã xuất báo cáo lỗi khởi động chủ động thành công vào file: {log_file}")
+            except Exception as e_write:
+                print(f"[CRITICAL-WATCHDOG] Không thể ghi tệp tin log.txt: {e_write}")
+        else:
+            print("[CRITICAL-WATCHDOG] Tuyệt vời! Ứng dụng đã khởi động thành công trong thời gian cho phép.")
+
+    threading.Thread(target=check, daemon=True).start()
+
 def main():
     # Thư mục chứa giao diện web tĩnh sau khi chạy lệnh 'npm run build'
     dist_dir = get_resource_path("dist")
@@ -414,6 +514,9 @@ def main():
     
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
     api._window = win
+
+    # Kích hoạt bộ kiểm soát nạp lỗi chủ động (15 giây watchdog)
+    start_app_load_watchdog(api)
 
     # Đăng ký tự động cấu hình, bật DevTools và đổi icon khi cửa sổ xuất hiện
     def on_window_shown():

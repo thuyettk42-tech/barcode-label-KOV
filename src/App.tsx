@@ -451,6 +451,30 @@ export default function App() {
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
 
+  // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
+  useEffect(() => {
+    const reportLoaded = () => {
+      const pw = (window as any).pywebview;
+      if (pw && pw.api && typeof pw.api.mark_app_loaded === "function") {
+        pw.api.mark_app_loaded()
+          .then((res: any) => console.log("[DESKTOP] Đã báo cáo tải ứng dụng React thành công.", res))
+          .catch((err: any) => console.error("[DESKTOP] Lỗi gọi API báo cáo tải:", err));
+      }
+    };
+
+    if ((window as any).pywebview) {
+      reportLoaded();
+    } else {
+      window.addEventListener("pywebviewready", reportLoaded);
+      // Backup kiểm tra thăm dò trễ phòng trường hợp pywebview nạp bất đồng bộ
+      const timer = setTimeout(reportLoaded, 1500);
+      return () => {
+        window.removeEventListener("pywebviewready", reportLoaded);
+        clearTimeout(timer);
+      };
+    }
+  }, []);
+
   // Temporary string states for numeric inputs to allow easy deletion/re-typing
   const [widthInput, setWidthInput] = useState<string>("65");
   const [heightInput, setHeightInput] = useState<string>("45");
