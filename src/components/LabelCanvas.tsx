@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
 import { flushSync } from "react-dom";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
@@ -265,8 +265,15 @@ const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: numb
   );
 };
 
-const renderTextElement = (obj: LabelObject, pixelScale: number) => {
+const TextElementRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: number }) => {
   const displayContent = formatLabelText(obj);
+  const [fontSize, setFontSize] = useState<number>(obj.fontSize || 10);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset to original designed size whenever the content, dimension, or scale changes to re-evaluate auto-fit correctly
+  useEffect(() => {
+    setFontSize(obj.fontSize || 10);
+  }, [displayContent, obj.fontSize, obj.width, obj.height, pixelScale]);
 
   const resolveFontFamily = (family: string | undefined) => {
     if (family === "Arial") return "Arial, Helvetica, sans-serif";
@@ -318,6 +325,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
     lineThroughVal?: boolean,
     superSubVal?: "normal" | "subscript" | "superscript",
     colorVal?: string,
+    activeFontSize?: number,
   ) => {
     let decs = [];
     if (underlineVal) decs.push("underline");
@@ -339,6 +347,8 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
       );
     }
 
+    const currentFontSize = activeFontSize || fontSizeVal || obj.fontSize || 10;
+
     return (
       <span
         style={{
@@ -348,8 +358,8 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           textDecoration: deco,
           fontSize:
             pixelScale === BASE_DPI_SCALE
-              ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
-              : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+              ? `${currentFontSize * 0.3528}mm`
+              : `${currentFontSize * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -365,13 +375,41 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
         ? "flex-end"
         : "flex-start";
 
+  // Dynamic Auto-fit Auto-sizing feedback loop
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    // Bounding target constraints
+    const maxPxWidth = Math.ceil(obj.width * pixelScale) + 1.5;
+    const maxPxHeight = Math.ceil(obj.height * pixelScale) + 1.5;
+
+    // Current live overflow height & width metrics
+    const currentScrollWidth = el.scrollWidth;
+    const currentScrollHeight = el.scrollHeight;
+
+    // Minimum typography legibility boundary
+    const minAllowedFontSize = 4.5;
+
+    if (
+      (currentScrollHeight > maxPxHeight || currentScrollWidth > maxPxWidth) &&
+      fontSize > minAllowedFontSize
+    ) {
+      // Step-down size incrementally for precise layout boundary fit
+      setFontSize((prev) => Math.max(minAllowedFontSize, prev - 0.4));
+    }
+  }, [fontSize, obj.width, obj.height, pixelScale, displayContent]);
+
   return (
     <div
+      ref={containerRef}
       className={`w-full h-full select-none leading-normal break-words overflow-hidden flex flex-col ${justifyClass} ${alignClass}`}
       style={{
         textAlign: textalign as any,
         whiteSpace: "pre-wrap",
         color: obj.color || "#000000",
+        maxWidth: `${obj.width * pixelScale}px`,
+        maxHeight: `${obj.height * pixelScale}px`,
       }}
     >
       <div
@@ -389,6 +427,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
             obj.prefixTextDecorationLineThrough,
             obj.prefixTextSuperSub,
             obj.prefixColor,
+            obj.prefixFontSize ? (obj.prefixFontSize * (fontSize / (obj.fontSize || 10))) : fontSize
           )}
         {renderSegment(
           displayContent,
@@ -400,6 +439,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           obj.textDecorationLineThrough,
           obj.textSuperSub,
           obj.color,
+          fontSize
         )}
         {obj.suffixText &&
           renderSegment(
@@ -412,6 +452,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
             obj.suffixTextDecorationLineThrough,
             obj.suffixTextSuperSub,
             obj.suffixColor,
+            obj.suffixFontSize ? (obj.suffixFontSize * (fontSize / (obj.fontSize || 10))) : fontSize
           )}
       </div>
     </div>
@@ -1821,8 +1862,9 @@ export function LabelCanvas({
                                 }
                               >
                                 <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                                  {obj.type === "text" &&
-                                    renderTextElement(obj, previewScale)}
+                                  {obj.type === "text" && (
+                                    <TextElementRenderer obj={obj} pixelScale={previewScale} />
+                                  )}
 
                                   {obj.type === "barcode" && (
                                     <BarcodeRenderer
@@ -2169,8 +2211,9 @@ export function LabelCanvas({
                               }
                             >
                               <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
-                                {obj.type === "text" &&
-                                  renderTextElement(obj, previewScale)}
+                                {obj.type === "text" && (
+                                  <TextElementRenderer obj={obj} pixelScale={previewScale} />
+                                )}
 
                                 {obj.type === "barcode" && (
                                   <BarcodeRenderer
@@ -2614,7 +2657,7 @@ export function LabelCanvas({
                         }}
                       />
                     ) : (
-                      renderTextElement(obj, printScale)
+                      <TextElementRenderer obj={obj} pixelScale={printScale} />
                     ))}
 
                   {obj.type === "barcode" && (
