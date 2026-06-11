@@ -92,98 +92,77 @@ class DesktopApi:
 
         # Định nghĩa hành động mở DevTools thực tế
         def open_action():
-            # Thử sạc sẵn và kích hoạt cài đặt AreDevToolsEnabled của Microsoft SDK
             try:
                 native_window = getattr(self._window, 'native', None)
-                if native_window:
-                    browser = getattr(native_window, 'browser', None)
-                    if browser:
-                        web_view = getattr(browser, 'web_view', None)
-                        if web_view and hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
+                if not native_window:
+                    print("[DESKTOP-API] Không tìm thấy native_window.")
+                    return False
+
+                # 1. Thử lấy browser control từ native_window trực tiếp
+                browser = getattr(native_window, 'browser', None)
+                if browser:
+                    # Trong các phiên bản pywebview mới/cũ, đối tượng WebView2 có thể là browser hoặc browser.web_view
+                    web_view = getattr(browser, 'web_view', None) or browser
+                    if web_view and hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
+                        try:
+                            # Cấu hình nóng AreDevToolsEnabled & AreDefaultContextMenusEnabled trước khi mở
                             settings = web_view.CoreWebView2.Settings
                             settings.AreDevToolsEnabled = True
                             settings.AreDefaultContextMenusEnabled = True
-                            print("[DESKTOP-API] Đã đảm bảo thiết lập AreDevToolsEnabled = True")
-            except Exception as e_cfg:
-                print(f"[DESKTOP-API] Không thể cài đặt nóng Settings cho WebView2: {e_cfg}")
-
-            # 1. Thử gọi phương thức chính thức của pywebview trực tiếp
-            try:
-                self._window.show_devtools()
-                print("[DESKTOP-API] Đã mở DevTools thành công qua pywebview.show_devtools().")
-                return True
-            except Exception as e_pv:
-                print(f"[DESKTOP-API] Thử gọi pywebview.show_devtools() thất bại: {e_pv}. Tiếp tục gọi trực tiếp bằng SDK...")
-
-            # 2. Thử truy cập đối tượng Native CoreWebView2 (trên Windows) để mở trực tiếp từ SDK WebView2
-            try:
-                native_window = getattr(self._window, 'native', None)
-                if native_window:
-                    browser = getattr(native_window, 'browser', None)
-                    if browser:
-                        web_view = getattr(browser, 'web_view', None)
-                        if web_view and hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
+                            print("[DESKTOP-API] Đã cấu hình nóng Settings (AreDevToolsEnabled = True)")
+                        except Exception as e_cfg:
+                            print(f"[DESKTOP-API] Cảnh báo khi cấu hình Settings cho WebView2: {e_cfg}")
+                        
+                        try:
                             web_view.CoreWebView2.OpenDevToolsWindow()
-                            print("[DESKTOP-API] Đã mở DevTools thành công qua CoreWebView2.OpenDevToolsWindow() của native browser.")
+                            print("[DESKTOP-API] Đã mở DevTools thành công qua CoreWebView2.OpenDevToolsWindow()!")
                             return True
-            except Exception as e_native:
-                print(f"[DESKTOP-API] Trình gọi Native CoreWebView2 thất bại: {e_native}")
+                        except Exception as e_open:
+                            print(f"[DESKTOP-API] Thử gọi OpenDevToolsWindow trực tiếp thất bại: {e_open}")
 
-            # 3. Thủ thuật quét sâu tuần tự các controls để đề phòng phiên bản pywebview tuỳ biến
-            def find_core_webview2_native(root, visited=None):
-                if visited is None:
-                    visited = set()
-                if root is None or id(root) in visited:
-                    return None
-                visited.add(id(root))
-                
-                if hasattr(root, 'CoreWebView2') and root.CoreWebView2:
-                    return root.CoreWebView2
-                if hasattr(root, 'OpenDevToolsWindow'):
-                    return root
-                    
-                if hasattr(root, 'Controls'):
+                # 2. Thử duyệt qua danh sách các Controls con cấp cơ sở một tầng để định vị WebView2 (Flat scan - tránh lặp vô hạn)
+                if hasattr(native_window, 'Controls'):
                     try:
-                        controls = root.Controls
+                        controls = native_window.Controls
                         for i in range(getattr(controls, 'Count', 0)):
                             ctrl = controls.get_Item(i)
-                            found = find_core_webview2_native(ctrl, visited)
-                            if found:
-                                return found
-                    except Exception:
-                        pass
-                        
-                for attr in dir(root):
-                    if attr.startswith('__'):
-                        continue
-                    try:
-                        val = getattr(root, attr, None)
-                        if val is not None:
-                            if hasattr(val, 'CoreWebView2') and val.CoreWebView2:
-                                return val.CoreWebView2
-                            if hasattr(val, 'OpenDevToolsWindow'):
-                                return val
-                            if len(visited) < 150:
-                                found = find_core_webview2_native(val, visited)
-                                if found:
-                                    return found
-                    except Exception:
-                        pass
-                return None
+                            if ctrl:
+                                # Nếu control trực tiếp có CoreWebView2
+                                if hasattr(ctrl, 'CoreWebView2') and ctrl.CoreWebView2:
+                                    try:
+                                        settings = ctrl.CoreWebView2.Settings
+                                        settings.AreDevToolsEnabled = True
+                                        settings.AreDefaultContextMenusEnabled = True
+                                        ctrl.CoreWebView2.OpenDevToolsWindow()
+                                        print("[DESKTOP-API] Đã định vị và mở DevTools thành công trên Control quét được!")
+                                        return True
+                                    except Exception:
+                                        pass
+                                # Nếu control có thuộc tính browser hoặc web_view
+                                sub_browser = getattr(ctrl, 'browser', None) or getattr(ctrl, 'web_view', None)
+                                if sub_browser and hasattr(sub_browser, 'CoreWebView2') and sub_browser.CoreWebView2:
+                                    try:
+                                        settings = sub_browser.CoreWebView2.Settings
+                                        settings.AreDevToolsEnabled = True
+                                        settings.AreDefaultContextMenusEnabled = True
+                                        sub_browser.CoreWebView2.OpenDevToolsWindow()
+                                        print("[DESKTOP-API] Đã định vị và mở DevTools thành công trên Control con phụ quét được!")
+                                        return True
+                                    except Exception:
+                                        pass
+                    except Exception as e_ctrls:
+                        print(f"[DESKTOP-API] Lỗi khi quét danh sách Control: {e_ctrls}")
 
-            try:
-                core_wv2 = find_core_webview2_native(self._window)
-                if not core_wv2:
-                    native_win = getattr(self._window, 'native', None)
-                    if native_win:
-                        core_wv2 = find_core_webview2_native(native_win)
-                
-                if core_wv2:
-                    core_wv2.OpenDevToolsWindow()
-                    print("[DESKTOP-API] Đã mở DevTools thành công qua quét cấu trúc Controls.")
+                # 3. Thử gọi phương thức chính thức của pywebview trực tiếp (đề phòng phiên bản hỗ trợ mặc định)
+                try:
+                    self._window.show_devtools()
+                    print("[DESKTOP-API] Đã mở DevTools thành công qua pywebview.show_devtools().")
                     return True
-            except Exception as e_scan:
-                print(f"[DESKTOP-API] Thử quét sâu và kích hoạt thông minh thất bại: {e_scan}")
+                except Exception as e_pv:
+                    print(f"[DESKTOP-API] Thử gọi pywebview.show_devtools() thất bại: {e_pv}")
+
+            except Exception as e_all:
+                print(f"[DESKTOP-API] Lỗi ngoài dự kiến trong open_action: {e_all}")
 
             return False
 
@@ -621,8 +600,8 @@ def main():
 
     win.events.closed += on_window_closed
 
-    # Chạy ứng dụng webview (Đặt debug=True để kích hoạt sẵn mọi phím tắt F12, Ctrl+Shift+I, chuột phải kiểm tra trực tiếp mà không tốn tài nguyên chạy ngầm COM-polling)
-    webview.start(debug=True, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
+    # Chạy ứng dụng webview (Đặt debug=False để ngăn tự động mở DevTools khi khởi động; phím tắt F12, Ctrl+Shift+I và nút Inspect vẫn hoạt động động thông qua xử lý nút bấm/phím bấm của chúng ta)
+    webview.start(debug=False, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
 
 if __name__ == "__main__":
     main()
