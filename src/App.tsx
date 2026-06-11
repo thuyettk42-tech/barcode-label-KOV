@@ -53,7 +53,8 @@ import {
   Minus,
   Square,
   Circle,
-  Shapes
+  Shapes,
+  Terminal
 } from "lucide-react";
 
 interface TomyTemplate {
@@ -453,26 +454,41 @@ export default function App() {
 
   // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
   useEffect(() => {
-    const reportLoaded = () => {
+    let attempts = 0;
+    const maxAttempts = 60; // 60 lần thử * 300ms = 18 giây dò tìm tối đa
+    const interval = setInterval(() => {
+      attempts++;
       const pw = (window as any).pywebview;
       if (pw && pw.api && typeof pw.api.mark_app_loaded === "function") {
         pw.api.mark_app_loaded()
-          .then((res: any) => console.log("[DESKTOP] Đã báo cáo tải ứng dụng React thành công.", res))
-          .catch((err: any) => console.error("[DESKTOP] Lỗi gọi API báo cáo tải:", err));
+          .then((res: any) => {
+            console.log("[DESKTOP] Đã báo cáo tải ứng dụng React thành công.", res);
+            clearInterval(interval);
+          })
+          .catch((err: any) => {
+            console.error("[DESKTOP] Lỗi gọi API báo cáo tải:", err);
+            clearInterval(interval);
+          });
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 300);
+
+    const reportReady = () => {
+      const pw = (window as any).pywebview;
+      if (pw && pw.api && typeof pw.api.mark_app_loaded === "function") {
+        pw.api.mark_app_loaded()
+          .then(() => clearInterval(interval))
+          .catch(() => {});
       }
     };
 
-    if ((window as any).pywebview) {
-      reportLoaded();
-    } else {
-      window.addEventListener("pywebviewready", reportLoaded);
-      // Backup kiểm tra thăm dò trễ phòng trường hợp pywebview nạp bất đồng bộ
-      const timer = setTimeout(reportLoaded, 1500);
-      return () => {
-        window.removeEventListener("pywebviewready", reportLoaded);
-        clearTimeout(timer);
-      };
-    }
+    window.addEventListener("pywebviewready", reportReady);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("pywebviewready", reportReady);
+    };
   }, []);
 
   // Temporary string states for numeric inputs to allow easy deletion/re-typing

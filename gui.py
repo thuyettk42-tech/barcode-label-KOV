@@ -119,6 +119,15 @@ class DesktopApi:
         """API được React gọi khi giao diện React đã render và khởi động thành công."""
         self._app_loaded = True
         print("[DESKTOP-API] Nhận dạng: Ứng dụng React đã tải thành công hoàn tất!")
+        # Tự động dọn dẹp tệp tin log.txt nếu tồn tại, giúp người dùng không bị báo cáo nhầm do nghẽn khởi động tạm thời
+        try:
+            exec_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+            log_file = os.path.join(exec_dir, "log.txt")
+            if os.path.exists(log_file):
+                os.remove(log_file)
+                print("[DESKTOP-API] Đã tự động dọn dẹp log.txt sau khi ứng dụng nạp thành công.")
+        except Exception as e_clean:
+            print(f"[DESKTOP-API] Không thể dọn dẹp log.txt: {e_clean}")
         return {"status": "success"}
 
     def save_file_native(self, filename, content_str):
@@ -345,42 +354,6 @@ def set_window_icon(window):
         # Bỏ qua nếu chạy trên macOS/Linux hoặc các thư viện chưa nạp xong
         print(f"[DESKTOP] Bỏ qua gán biểu tượng WinForms: {e}")
 
-def configure_devtools(window):
-    """
-    Tìm kiếm và bật tính năng DevTools (F12, chuột phải Inspect) của WebView2 một cách thông minh mà không tự động mở cửa sổ DevTools lúc bắt đầu.
-    """
-    def run_config():
-        import time
-        # Thử cấu hình tối đa 100 lần (khoảng 10 giây)
-        for _ in range(100):
-            try:
-                native_window = getattr(window, 'native', None)
-                if not native_window:
-                    time.sleep(0.1)
-                    continue
-                browser = getattr(native_window, 'browser', None)
-                if not browser:
-                    time.sleep(0.1)
-                    continue
-                web_view = getattr(browser, 'web_view', None)
-                if not web_view:
-                    time.sleep(0.1)
-                    continue
-                
-                # Khi WebView2 đã khởi tạo xong hoàn toàn
-                if hasattr(web_view, 'CoreWebView2') and web_view.CoreWebView2:
-                    settings = web_view.CoreWebView2.Settings
-                    settings.AreDevToolsEnabled = True
-                    settings.AreDefaultContextMenusEnabled = True
-                    print("[DESKTOP] Đã kích hoạt F12 và Chuột phải Inspect thành công!")
-                    break
-            except Exception as e:
-                print(f"[DESKTOP] Đang dò tìm WebView2: {e}")
-            time.sleep(0.1)
-
-    # Chạy ngầm trong Thread để không gây lag/đơ cửa sổ UI chính lúc mở
-    threading.Thread(target=run_config, daemon=True).start()
-
 def run_server(directory, port):
     """Khởi chạy nền máy chủ HTTP để tránh lỗi CORS cho ES Modules trong môi trường cục bộ"""
     class SafeHTTPRequestHandler(SimpleHTTPRequestHandler):
@@ -399,15 +372,15 @@ def run_server(directory, port):
 def start_app_load_watchdog(api):
     """
     Theo dõi chủ động thời gian tải của giao diện React. 
-    Nếu sau 15 giây kể từ lúc bắt đầu mà React chưa phản hồi lại qua API,
+    Nếu sau 20 giây kể từ lúc bắt đầu mà React chưa phản hồi lại qua API,
     hệ thống sẽ tự động xuất tệp tin log.txt báo cáo phân tích chi tiết lỗi.
     """
     def check():
         import time
-        # Chờ 15 giây để React tải các tài nguyên CSS, JS và dựng giao diện.
-        time.sleep(15.0)
+        # Chờ 20 giây để React tải các tài nguyên CSS, JS và dựng giao diện.
+        time.sleep(20.0)
         if not api._app_loaded:
-            print("[CRITICAL-WATCHDOG] CẢNH BÁO: Ứng dụng không phản hồi thành công sau 15 giây! Đang sinh file log.txt...")
+            print("[CRITICAL-WATCHDOG] CẢNH BÁO: Ứng dụng không phản hồi thành công sau 20 giây! Đang sinh file log.txt...")
             try:
                 # Tìm thư mục chạy phần mềm chính chủ
                 exec_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -434,7 +407,7 @@ def start_app_load_watchdog(api):
                     f.write(f"Thời gian phân tích: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
                     f.write(f"Hệ điều hành thích ứng: {sys.platform}\n")
                     f.write(f"Phiên bản Python: {sys.version}\n")
-                    f.write(f"Trạng thái nạp React: CHƯA PHẢN HỒI (Trong khoảng thời gian giới hạn 15 giây)\n")
+                    f.write(f"Trạng thái nạp React: CHƯA PHẢN HỒI (Trong khoảng thời gian giới hạn 20 giây)\n")
                     f.write("-"*80 + "\n")
                     f.write("THÔNG SỐ CHẨN ĐOÁN TÀI NGUYÊN:\n")
                     f.write(f"- Đường dẫn tài nguyên (get_resource_path): {dist_dir}\n")
@@ -453,12 +426,12 @@ def start_app_load_watchdog(api):
                     f.write("   - Để khắc phục: Sử dụng tính năng chuột phải chọn 'Inspect' (Kiểm tra) hoặc nhấn phím F12/Ctrl+Shift+I để mở DevTools, qua đó chọn tab 'Console' của trình giám sát để xem lỗi báo đỏ (JS Exception).\n")
                     f.write("\n")
                     f.write("3. THƯ VIỆN MICROSOFT EDGE WEBVIEW2 RUNTIME CHƯA ĐƯỢC CHUẨN BỊ (Windows Only):\n")
-                    f.write("   - Mô tả: WebView2 là nền tảng cốt lõi của Microsoft giúp dựng webview trên Windows 10/11. Nếu máy tính của bạn dùng hệ điều hành cũ (nhên Windows 7) hoặc WebView2 bị vô hiệu hóa/hỏng, giao diện sẽ không hiển thị.\n")
+                    f.write("   - Mô tả: WebView2 là nền tảng cốt lõi của Microsoft giúp dựng webview trên Windows 10/11. Nếu máy tính của bạn dùng hệ điều hành cũ (như Windows 7) hoặc WebView2 bị vô hiệu hóa/hỏng, giao diện sẽ không hiển thị.\n")
                     f.write("   - Để khắc phục: Tìm kiếm trên Google và cài đặt 'Edge WebView2 Runtime' mới nhất từ trang chủ Microsoft.\n")
                     f.write("\n")
                     f.write("4. QUÁ TẢI PHẦN CỨNG HOẶC TRỄ KHỞI ĐỘNG TRÊN MÁY PHÂN KHÚC THẤP (Performance limit):\n")
-                    f.write("   - Mô tả: Máy tính có CPU/RAM cũ cần nhiều hơn 15 giây để khởi động toàn bộ tiến trình nạp webview.\n")
-                    f.write("   - Lưu ý: Nếu sau thời gian này giao diện vẫn tự động tải xong, bạn có thể xóa tệp tin log.txt này đi và sử dụng bình thường.\n")
+                    f.write("   - Mô tả: Máy tính có CPU/RAM cũ cần nhiều hơn 20 giây để khởi động toàn bộ tiến trình nạp webview.\n")
+                    f.write("   - Lưu ý: Nếu sau thời gian này giao diện vẫn tự động tải xong, hệ thống sẽ tự dọn dẹp file log.txt khi liên kết React khởi chạy thành công.\n")
                     f.write("="*80 + "\n")
                 print(f"[CRITICAL-WATCHDOG] Đã xuất báo cáo lỗi khởi động chủ động thành công vào file: {log_file}")
             except Exception as e_write:
@@ -515,13 +488,12 @@ def main():
     # Gán tham chiếu window vào cho API để gọi cửa sổ dialog
     api._window = win
 
-    # Kích hoạt bộ kiểm soát nạp lỗi chủ động (15 giây watchdog)
+    # Kích hoạt bộ kiểm soát nạp lỗi chủ động (20 giây watchdog)
     start_app_load_watchdog(api)
 
-    # Đăng ký tự động cấu hình, bật DevTools và đổi icon khi cửa sổ xuất hiện
+    # Đăng ký cấu hình và đổi icon khi cửa sổ xuất hiện (Không cần running poll thread cho devtools vì debug=True đã xử lý hoàn toàn)
     def on_window_shown():
         set_window_icon(win)
-        configure_devtools(win)
         
     win.events.shown += on_window_shown
 
@@ -530,8 +502,8 @@ def main():
 
     win.events.closed += on_window_closed
 
-    # Chạy ứng dụng webview (Đặt debug=False nhưng được tối ưu hóa bật sẵn DevTools độc lập qua CoreWebView2 Settings ở trên để tránh trễ 4 giây do quét cổng mạng và proxy console)
-    webview.start(debug=False, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
+    # Chạy ứng dụng webview (Đặt debug=True để kích hoạt sẵn mọi phím tắt F12, Ctrl+Shift+I, chuột phải kiểm tra trực tiếp mà không tốn tài nguyên chạy ngầm COM-polling)
+    webview.start(debug=True, private_mode=False) # private_mode=False để giữ lại bộ nhớ localStorage/Cookie vĩnh viễn
 
 if __name__ == "__main__":
     main()
