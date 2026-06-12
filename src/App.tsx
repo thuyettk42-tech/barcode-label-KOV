@@ -139,13 +139,14 @@ export default function App() {
     {
       id: "init-text-1",
       type: "text",
-      x: -29.5,
-      y: -18.5,
+      x: 0,
+      y: -16.0,
       width: 59,
       height: 5,
       content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
       fontSize: 9,
       fontWeight: "bold",
+      textFlowOrigin: "center",
       textAlign: "center"
     },
     {
@@ -165,12 +166,13 @@ export default function App() {
     {
       id: "init-text-2",
       type: "text",
-      x: -29.5,
-      y: 11.5,
+      x: 0,
+      y: 14.0,
       width: 59,
       height: 5,
       content: "Hotline: 1900 1234 - Địa chỉ: Hà Nội",
       fontSize: 7.5,
+      textFlowOrigin: "center",
       textAlign: "center"
     },
     {
@@ -180,7 +182,8 @@ export default function App() {
       y: -11.5,
       width: 18,
       height: 18,
-      content: "https://create-barcode-label.vercel.app/"
+      content: "https://create-barcode-label.vercel.app/",
+      textFlowOrigin: "center"
     }
   ]);
 
@@ -1293,19 +1296,19 @@ export default function App() {
 
     // Centering positions calculated relative to the label's center (0, 0 position)
     // - For elements with center anchors (barcode, qrcode, image, shapes): x = 0, y = 0
-    // - For elements with top-left anchors (text by default): x = -w/2, y = -h/2
     if (type === "text") {
       newObject = {
         id: timestampId,
         type: "text",
-        x: Math.round(-(w / 2) * 10) / 10,
-        y: Math.round(-(h / 2) * 10) / 10,
+        x: 0,
+        y: 0,
         width: w,
         height: h,
         content: customContent || "NỘI DUNG VĂN BẢN MỚI",
         fontSize: 10, // Default font size is 10 pt
         fontWeight: "normal",
-        textAlign: "center"
+        textAlign: "center",
+        textFlowOrigin: "center"
       };
     } else if (type === "barcode") {
       newObject = {
@@ -1344,7 +1347,8 @@ export default function App() {
         height: h,
         content: customContent || `data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="%234f46e5" stroke-dasharray="3 3" stroke-width="1.5" xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`,
         imageFit: "contain",
-        imageOpacity: 1
+        imageOpacity: 1,
+        textFlowOrigin: "center"
       };
     } else {
       // type === "shape"
@@ -1375,7 +1379,8 @@ export default function App() {
         shapeStrokeColor: "#000000",
         shapeFillColor: "transparent",
         shapeCornerRadius: sType === "rect" ? 1.5 : 0,
-        shapeStrokeStyle: "solid"
+        shapeStrokeStyle: "solid",
+        textFlowOrigin: "center"
       };
     }
 
@@ -2247,16 +2252,24 @@ export default function App() {
 
   const migrateObjectsToCenterRelative = (objs: LabelObject[], labelW: number, labelH: number): LabelObject[] => {
     return objs.map(obj => {
-      if ((obj as any).isCenterRelative) {
-        return obj;
-      }
+      const alreadyCenterRelative = (obj as any).isCenterRelative;
       const centerX = labelW / 2;
       const centerY = labelH / 2;
+      
+      let updatedX = obj.x;
+      let updatedY = obj.y;
+      if (!alreadyCenterRelative) {
+        updatedX = Math.round((obj.x - centerX) * 10) / 10;
+        updatedY = Math.round((obj.y - centerY) * 10) / 10;
+      }
+      
       return {
         ...obj,
-        x: Math.round((obj.x - centerX) * 10) / 10,
-        y: Math.round((obj.y - centerY) * 10) / 10,
-        isCenterRelative: true
+        x: updatedX,
+        y: updatedY,
+        isCenterRelative: true,
+        textFlowOrigin: obj.textFlowOrigin || "center",
+        textAlign: obj.type === "text" ? (obj.textAlign || "center") : obj.textAlign
       };
     });
   };

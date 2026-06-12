@@ -280,13 +280,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
   };
 
   // Resolve alignment / flow origin classes
-  const origin =
-    obj.textFlowOrigin ||
-    (obj.textAlign === "center"
-      ? "center"
-      : obj.textAlign === "right"
-        ? "top-right"
-        : "top-left");
+  const origin = obj.textFlowOrigin || "center";
 
   let justifyClass = "justify-start";
   let alignClass = "items-start";
@@ -1762,7 +1756,7 @@ export function LabelCanvas({
                               (obj.height / labelConfig.height) * 100;
                             const trans =
                               obj.type === "text"
-                               ? getTextTransform(obj.textFlowOrigin)
+                               ? getTextTransform(obj.textFlowOrigin || "center")
                                 : "none";
                             const rotationStr = obj.angle
                               ? `rotate(${obj.angle}deg)`
@@ -2101,7 +2095,7 @@ export function LabelCanvas({
                           const hPct = (obj.height / labelConfig.height) * 100;
                           const trans =
                             obj.type === "text"
-                              ? getTextTransform(obj.textFlowOrigin)
+                              ? getTextTransform(obj.textFlowOrigin || "center")
                               : "none";
                           const rotationStr = obj.angle
                             ? `rotate(${obj.angle}deg)`
@@ -2493,7 +2487,7 @@ export function LabelCanvas({
             const rotationStr = activeAngle ? `rotate(${activeAngle}deg)` : "";
             const trans =
               obj.type === "text"
-                ? getTextTransform(obj.textFlowOrigin)
+                ? getTextTransform(obj.textFlowOrigin || "center")
                 : "none";
             const finalTransform =
               `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
@@ -2749,7 +2743,7 @@ export function LabelCanvas({
 
                     {/* Visual Anchor Indicator (Target Crosshair ⌖) */}
                     {(() => {
-                      const origin = obj.textFlowOrigin || (obj.type === "text" ? "top-left" : "center");
+                      const origin = obj.textFlowOrigin || "center";
                       let mLeft = "0%";
                       let mTop = "0%";
                       if (origin.includes("center") || origin === "center") mLeft = "50%";

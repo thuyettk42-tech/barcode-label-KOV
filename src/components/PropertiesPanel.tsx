@@ -137,7 +137,7 @@ export function PropertiesPanel({
   };
 
   // Alignment Helper Triggers (Center-relative coordinate origin 0,0 at center of label)
-  const origin = selectedObject.textFlowOrigin || (selectedObject.type === "text" ? "top-left" : "center");
+  const origin = selectedObject.textFlowOrigin || "center";
 
   const getAnchorOffset = (originStr: string, w: number, h: number) => {
     let dx = 0;
@@ -1344,7 +1344,7 @@ export function PropertiesPanel({
                 </label>
                 <div className="relative">
                   <select
-                    value={selectedObject.textFlowOrigin || "top-left"}
+                    value={selectedObject.textFlowOrigin || "center"}
                     onChange={(e) => {
                       const origin = e.target.value as any;
                       let align: "left" | "center" | "right" = "left";
@@ -1361,7 +1361,7 @@ export function PropertiesPanel({
                         return { mx, my };
                       };
 
-                      const currentOrigin = selectedObject.textFlowOrigin || "top-left";
+                      const currentOrigin = selectedObject.textFlowOrigin || "center";
                       const oldMultipliers = getAnchorMultipliers(currentOrigin);
                       const newMultipliers = getAnchorMultipliers(origin);
 
