@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState, memo } from "react";
 import JsBarcode from "jsbarcode";
+import { BASE_DPI_SCALE, PT_TO_MM_FACTOR } from "../utils";
 
 interface BarcodeRendererProps {
   content: string;
@@ -186,7 +187,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
       return;
     }
 
-    const baseScale = 3.7795; // Standard system factor of layout reference limits
+    const baseScale = BASE_DPI_SCALE; // Standard system factor of layout reference limits
     const actualHeight = Math.max(5, Math.round(barcodeHeight * baseScale));
 
     try {
@@ -233,7 +234,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     }
   }, [effectiveContent, format, barcodeWidth, barcodeHeight, color]);
 
-  const finalPixelScale = pixelScale ?? 3.7795;
+  const finalPixelScale = pixelScale ?? BASE_DPI_SCALE;
 
   // Font styling resolution
   let resolvedFontFamily = "var(--font-sans)";
@@ -282,7 +283,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     textalign = "right";
   }
 
-  const scaleMultiplier = finalPixelScale / 3.7795;
+  const scaleMultiplier = finalPixelScale / BASE_DPI_SCALE;
   const displayWidth = naturalDimensions
     ? naturalDimensions.width * scaleMultiplier
     : undefined;

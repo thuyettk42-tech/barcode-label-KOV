@@ -343,10 +343,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize:
-            pixelScale === BASE_DPI_SCALE
-              ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
-              : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -1792,7 +1789,7 @@ export function LabelCanvas({
                                   } as React.CSSProperties
                                 }
                               >
-                                <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                                <div className="w-full h-full p-0 select-none overflow-hidden relative">
                                   {obj.type === "text" &&
                                     renderTextElement(obj, previewScale)}
 
@@ -2131,7 +2128,7 @@ export function LabelCanvas({
                                 } as React.CSSProperties
                               }
                             >
-                              <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                              <div className="w-full h-full p-0 select-none overflow-hidden relative">
                                 {obj.type === "text" &&
                                   renderTextElement(obj, previewScale)}
 
@@ -2533,7 +2530,7 @@ export function LabelCanvas({
                 }
               >
                 {/* Dynamic Content Rendering */}
-                <div className="w-full h-full p-0.5 select-none overflow-hidden relative">
+                <div className="w-full h-full p-0 select-none overflow-hidden relative">
                   {obj.type === "text" &&
                     (editingTextId === obj.id ? (
                       <textarea

@@ -5,8 +5,10 @@
 
 // Sizing conversion helpers
 // 1 inch = 25.4 millimeters
-// 1 millimeter is approximately 3.7795 px at standard 96 DPI
-export const BASE_DPI_SCALE = 3.7795;
+// 1 px = 0.264583 mm => 1 mm = 1 / 0.264583 px = 3.779532169... px (3.779532 px)
+export const BASE_DPI_SCALE = 3.779532;
+export const PX_TO_MM_FACTOR = 0.264583;
+export const PT_TO_MM_FACTOR = 0.3528;
 
 /**
  * Convert millimeters to pixels with a adjustable zoom factor
@@ -16,10 +18,10 @@ export function mmToPx(mm: number, scale: number): number {
 }
 
 /**
- * Convert pixels to millimeters with adjustable scale, rounded to nearest 0.1mm
+ * Convert pixels to millimeters with adjustable scale, rounded to nearest 0.000001mm
  */
 export function pxToMm(px: number, scale: number): number {
-  return Math.round((px / scale) * 10) / 10;
+  return Math.round((px / scale) * 1000000) / 1000000;
 }
 
 /**
