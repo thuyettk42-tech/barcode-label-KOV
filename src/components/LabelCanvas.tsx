@@ -284,7 +284,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   let justifyClass = "justify-start";
   let alignClass = "items-start";
-  let textalign = "left";
+  let textalign = obj.textAlign || "left";
 
   if (origin.startsWith("top")) {
     justifyClass = "justify-start";
@@ -296,13 +296,10 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   if (origin.endsWith("left")) {
     alignClass = "items-start";
-    textalign = "left";
   } else if (origin === "center" || origin.endsWith("center")) {
     alignClass = "items-center";
-    textalign = "center";
   } else if (origin.endsWith("right")) {
     alignClass = "items-end";
-    textalign = "right";
   }
 
   const renderSegment = (
