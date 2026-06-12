@@ -510,8 +510,8 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
       {
         id: "shape-1781017506767",
         type: "shape",
-        x: 6,
-        y: 12.5,
+        x: -36.5,
+        y: -1.5,
         width: 28,
         height: 3,
         content: "Đường kẻ",
@@ -521,39 +521,45 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         shapeFillColor: "transparent",
         shapeCornerRadius: 0,
         shapeStrokeStyle: "solid",
-        angle: 90
+        angle: 90,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-1781017572623",
         type: "text",
-        x: -10,
-        y: 11.5,
+        x: -52,
+        y: -15,
         width: 26,
         height: 3,
         content: "Mắt kính KiotShop",
         fontSize: 8,
         fontWeight: "bold",
         textAlign: "center",
-        angle: 270
+        angle: 270,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781017927394-592-0",
         type: "text",
-        x: 22,
-        y: 12,
+        "x": -21,
+        "y": 14,
         width: 29,
         height: 3,
         content: "Mắt kính Rayban",
         fontSize: 8,
         fontWeight: "bold",
         textAlign: "center",
-        angle: 90
+        angle: 90,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "barcode-1781018912670",
         type: "barcode",
-        x: 0,
-        y: 9,
+        x: -42.5,
+        y: -5,
         width: 19,
         height: 9,
         content: "SP-2026-A1",
@@ -562,13 +568,14 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         barcodeWidth: 1.5,
         barcodeHeight: 15,
         textFlowOrigin: "center",
-        angle: 270
+        angle: 270,
+        isCenterRelative: true
       },
       {
         id: "text-pasted-1781018944642-160-0",
         type: "text",
-        x: 2,
-        y: 12,
+        x: -40,
+        y: -17,
         width: 29,
         height: 3,
         content: "1.500.000",
@@ -577,35 +584,41 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         textAlign: "center",
         angle: 270,
         prefixText: "Giá: ",
-        suffixText: " VNĐ"
+        suffixText: " VNĐ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781018949732-68-0",
         type: "text",
-        x: 18,
-        y: 11,
-        width: 25,
+        x: -26,
+        y: 12,
+        width: 27,
         height: 3,
         content: "Oval",
         fontSize: 8,
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "Kiểu: "
+        prefixText: "Kiểu: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781018959166-456-0",
         type: "text",
-        x: 10,
-        y: 12,
-        width: 29,
+        x: -31.5,
+        y: 12.5,
+        width: 28,
         height: 3,
         content: "48-17-130",
         fontSize: 8,
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "Size: "
+        prefixText: "Size: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       }
     ]
   },
@@ -642,8 +655,8 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
       {
         id: "shape-1781017506767",
         type: "shape",
-        x: 11,
-        y: 16,
+        x: -31.5,
+        y: -1.5,
         width: 28,
         height: 3,
         content: "Đường kẻ",
@@ -653,39 +666,45 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         shapeFillColor: "transparent",
         shapeCornerRadius: 0,
         shapeStrokeStyle: "solid",
-        angle: 90
+        angle: 90,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-1781017572623",
         type: "text",
-        x: -10,
-        y: 15,
+        x: -51,
+        y: -15,
         width: 26,
         height: 3,
         content: "Mắt kính KiotShop",
         fontSize: 8,
         fontWeight: "bold",
         textAlign: "center",
-        angle: 270
+        angle: 270,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781017927394-592-0",
         type: "text",
-        x: 33,
-        y: 15,
+        x: -10,
+        y: 12,
         width: 29,
         height: 3,
         content: "Mắt kính Rayban",
         fontSize: 8,
         fontWeight: "bold",
         textAlign: "center",
-        angle: 90
+        angle: 90,
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "barcode-1781018912670",
         type: "barcode",
-        x: 6,
-        y: 12,
+        x: -36.5,
+        y: -5.5,
         width: 19,
         height: 10,
         content: "SP-2026-A1",
@@ -694,13 +713,14 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         barcodeWidth: 1.5,
         barcodeHeight: 15,
         textFlowOrigin: "center",
-        angle: 270
+        angle: 270,
+        isCenterRelative: true
       },
       {
         id: "text-pasted-1781018944642-160-0",
         type: "text",
-        x: 9,
-        y: 15,
+        x: -32,
+        y: -15,
         width: 27,
         height: 3,
         content: "1.500.000",
@@ -709,13 +729,15 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         textAlign: "center",
         angle: 270,
         prefixText: "Giá: ",
-        suffixText: " VNĐ"
+        suffixText: " VNĐ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781018949732-68-0",
         type: "text",
-        x: 30,
-        y: 14,
+        x: -13,
+        y: 11,
         width: 25,
         height: 3,
         content: "Oval",
@@ -723,13 +745,15 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "Kiểu: "
+        prefixText: "Kiểu: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781018959166-456-0",
         type: "text",
-        x: 13,
-        y: 15,
+        x: -30,
+        y: 13,
         width: 29,
         height: 3,
         content: "48-17-130",
@@ -737,13 +761,15 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "Size: "
+        prefixText: "Size: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781020737440-726-0",
         type: "text",
-        x: -8,
-        y: 15,
+        x: -49,
+        y: -16,
         width: 29,
         height: 3,
         content: "1B Yết Kiêu P. Cửa Nam, HN",
@@ -752,13 +778,15 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         textAlign: "center",
         angle: 270,
         prefixText: "",
-        suffixText: ""
+        suffixText: "",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781020916342-770-0",
         type: "text",
-        x: 20,
-        y: 14,
+        x: -23,
+        y: 11,
         width: 25,
         height: 3,
         content: "Bạc",
@@ -766,13 +794,15 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "Màu: "
+        prefixText: "Màu: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781020957818-275-0",
         type: "text",
-        x: 25,
-        y: 14,
+        x: -18,
+        y: 11,
         width: 25,
         height: 3,
         content: "Nhựa",
@@ -780,7 +810,9 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         fontWeight: "normal",
         textAlign: "center",
         angle: 90,
-        prefixText: "CL: "
+        prefixText: "CL: ",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       }
     ]
   },
@@ -817,46 +849,54 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
       {
         id: "text-1781059440043",
         type: "text",
-        x: 2,
-        y: 0,
+        x: -30,
+        y: -2,
         width: 15,
         height: 4,
         content: "Tên hàng hóa",
-        fontSize: 6,
+        fontSize: 5,
         fontWeight: "normal",
-        textAlign: "center"
+        textAlign: "center",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "text-pasted-1781059492802-234-0",
         type: "text",
-        x: 2,
-        y: 5,
+        x: -36,
+        y: 0,
         width: 15,
         height: 4,
-        content: "Giá: ",
-        fontSize: 6,
+        content: "3.000.000",
+        fontSize: 5,
         fontWeight: "normal",
-        textAlign: "center"
+        textAlign: "left",
+        isCenterRelative: true,
+        textFlowOrigin: "top-left",
+        prefixText: "Giá: ",
+        suffixText: " VNĐ"
       },
       {
         id: "text-1781059523322",
         type: "text",
-        x: 19,
-        y: 0,
+        x: -7,
+        y: -3,
         width: 22,
-        height: 4,
+        height: 3,
         content: "Tên cửa hàng",
-        fontSize: 7,
-        fontWeight: "normal",
-        textAlign: "center"
+        fontSize: 5,
+        fontWeight: "bold",
+        textAlign: "center",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "barcode-17810595503398",
         type: "barcode",
-        x: 21,
-        y: 4,
+        x: -17,
+        y: -1,
         width: 19,
-        height: 6,
+        height: 5,
         content: "SP-2026-A1",
         barcodeFormat: "CODE128",
         displayValue: true,
@@ -864,7 +904,8 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
         barcodeHeight: 10,
         textFlowOrigin: "center",
         barcodeFontSize: 5,
-        barcodeTextMargin: 0
+        barcodeTextMargin: 0,
+        isCenterRelative: true
       }
     ]
   },
@@ -901,54 +942,77 @@ export const LABEL_TEMPLATES: LabelTemplate[] = [
       {
         id: "text-1781059440043",
         type: "text",
-        x: 4,
-        y: 1,
-        width: 19,
-        height: 4,
+        x: -40,
+        y: -4,
+        width: 15,
+        height: 3,
         content: "Tên hàng hóa",
-        fontSize: 8,
-        fontWeight: "normal",
-        textAlign: "center"
+        fontSize: 5,
+        fontWeight: "bold",
+        textAlign: "left",
+        isCenterRelative: true,
+        textFlowOrigin: "center-left"
       },
       {
         id: "text-pasted-1781059492802-234-0",
         type: "text",
-        x: 6,
-        y: 6,
+        x: -40,
+        y: 0,
         width: 15,
-        height: 4,
-        content: "Giá: ",
-        fontSize: 8,
+        height: 3,
+        content: "3.000.000",
+        fontSize: 5,
         fontWeight: "normal",
-        textAlign: "center"
+        textAlign: "left",
+        isCenterRelative: true,
+        textFlowOrigin: "center-left",
+        prefixText: "Giá: ",
+        suffixText: " VNĐ"
       },
       {
         id: "text-1781059523322",
         type: "text",
-        x: 26,
-        y: 0,
+        x: -5,
+        y: -4,
         width: 22,
-        height: 4,
+        height: 3,
         content: "Tên cửa hàng",
-        fontSize: 9,
-        fontWeight: "normal",
-        textAlign: "center"
+        fontSize: 5,
+        fontWeight: "bold",
+        textAlign: "center",
+        isCenterRelative: true,
+        textFlowOrigin: "center"
       },
       {
         id: "barcode-17810595503398",
         type: "barcode",
-        x: 28,
-        y: 5,
+        x: -14,
+        y: -1,
         width: 19,
-        height: 6,
+        height: 5,
         content: "SP-2026-A1",
         barcodeFormat: "CODE128",
         displayValue: true,
         barcodeWidth: 1.5,
-        barcodeHeight: 13,
+        barcodeHeight: 10,
         textFlowOrigin: "center",
         barcodeFontSize: 5,
-        barcodeTextMargin: 0
+        barcodeTextMargin: 0,
+        isCenterRelative: true
+      },
+      {
+        id: "text-pasted-1781233372864-886-0",
+        type: "text",
+        x: -40,
+        y: 3,
+        width: 15,
+        height: 4,
+        content: "TLV: ",
+        fontSize: 5,
+        fontWeight: "normal",
+        textAlign: "left",
+        isCenterRelative: true,
+        textFlowOrigin: "center-left"
       }
     ]
   }
