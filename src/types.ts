@@ -14,6 +14,7 @@ export interface LabelObject {
   height: number; // in mm
   content: string;
   angle?: number; // in degrees (0 - 360)
+  isCenterRelative?: boolean;
   
   // Text attributes
   fontSize?: number; // in pt
