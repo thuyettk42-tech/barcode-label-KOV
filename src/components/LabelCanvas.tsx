@@ -268,7 +268,7 @@ const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: numb
   );
 };
 
-const renderTextElement = (obj: LabelObject, pixelScale: number) => {
+const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolean = false) => {
   const displayContent = formatLabelText(obj);
 
   const resolveFontFamily = (family: string | undefined) => {
@@ -343,7 +343,9 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: isPrint
+            ? `${fontSizeVal || obj.fontSize || 10}pt`
+            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -364,7 +366,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
 
   return (
     <div
-      className={`w-full h-full select-none overflow-hidden flex flex-col ${justifyClass} ${alignClass}`}
+      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} ${isPrint ? "" : "overflow-hidden"}`}
       style={{
         textAlign: textalign as any,
         color: obj.color || "#000000",
@@ -372,15 +374,15 @@ const renderTextElement = (obj: LabelObject, pixelScale: number) => {
       }}
     >
       <div
-        className="max-w-full w-full overflow-hidden"
+        className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
         style={{
           textAlign: textalign as any,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
-          display: "-webkit-box",
-          WebkitLineClamp: maxLines,
-          WebkitBoxOrient: "vertical",
+          display: isPrint ? "block" : "-webkit-box",
+          WebkitLineClamp: isPrint ? undefined : maxLines,
+          WebkitBoxOrient: isPrint ? undefined : "vertical",
           maxHeight: "100%",
         }}
       >
@@ -1789,9 +1791,9 @@ export function LabelCanvas({
                                   } as React.CSSProperties
                                 }
                               >
-                                <div className="w-full h-full p-0 select-none overflow-hidden relative">
+                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
                                   {obj.type === "text" &&
-                                    renderTextElement(obj, previewScale)}
+                                    renderTextElement(obj, previewScale, isMobileOrPrint)}
 
                                   {obj.type === "barcode" && (
                                     <BarcodeRenderer
@@ -2128,9 +2130,9 @@ export function LabelCanvas({
                                 } as React.CSSProperties
                               }
                             >
-                              <div className="w-full h-full p-0 select-none overflow-hidden relative">
+                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
                                 {obj.type === "text" &&
-                                  renderTextElement(obj, previewScale)}
+                                  renderTextElement(obj, previewScale, isMobileOrPrint)}
 
                                 {obj.type === "barcode" && (
                                   <BarcodeRenderer
@@ -2530,7 +2532,7 @@ export function LabelCanvas({
                 }
               >
                 {/* Dynamic Content Rendering */}
-                <div className="w-full h-full p-0 select-none overflow-hidden relative">
+                <div className={`w-full h-full p-0 select-none relative ${(isPrinting || isSystemPrinting) ? "" : "overflow-hidden"}`}>
                   {obj.type === "text" &&
                     (editingTextId === obj.id ? (
                       <textarea
@@ -2573,7 +2575,7 @@ export function LabelCanvas({
                         }}
                       />
                     ) : (
-                      renderTextElement(obj, printScale)
+                      renderTextElement(obj, printScale, isPrinting || isSystemPrinting)
                     ))}
 
                   {obj.type === "barcode" && (
