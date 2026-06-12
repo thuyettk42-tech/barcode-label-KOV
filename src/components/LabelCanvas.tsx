@@ -490,6 +490,24 @@ export function LabelCanvas({
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
+  const workspaceRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper to dynamically read browser zoom on .app-scale-wrapper to fix marquee coordinate offsets
+  const getWorkspaceZoom = (): number => {
+    try {
+      const el = document.querySelector(".app-scale-wrapper");
+      if (el) {
+        const zoomStr = window.getComputedStyle(el).zoom;
+        if (zoomStr && zoomStr !== "normal") {
+          const val = parseFloat(zoomStr);
+          if (!isNaN(val) && val > 0) return val;
+        }
+      }
+    } catch (err) {
+      // safe fallback
+    }
+    return 1.0;
+  };
 
   // Dynamic values in pixels (defined at top to allow safe closure referencing in drag and marquee handlers)
   const pxWidth = mmToPx(labelConfig.width, pixelScale);
@@ -1013,11 +1031,13 @@ export function LabelCanvas({
     if (!marqueeState) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
+      const workspaceEl = workspaceRef.current || document.getElementById("label-editor-workspace");
+      if (!workspaceEl) return;
+      const rect = workspaceEl.getBoundingClientRect();
+      const zoom = getWorkspaceZoom();
       
-      const currentX = e.clientX - rect.left;
-      const currentY = e.clientY - rect.top;
+      const currentX = (e.clientX - rect.left) / zoom;
+      const currentY = (e.clientY - rect.top) / zoom;
 
       setMarqueeState((prev) => {
         if (!prev) return null;
@@ -1030,7 +1050,8 @@ export function LabelCanvas({
     };
 
     const handleMouseUp = () => {
-      if (!containerRef.current) {
+      const workspaceEl = workspaceRef.current || document.getElementById("label-editor-workspace");
+      if (!workspaceEl) {
         setMarqueeState(null);
         return;
       }
@@ -1045,13 +1066,14 @@ export function LabelCanvas({
       
       if (boxW > 3 || boxH > 3) {
         const newlySelectedIds: string[] = [];
-        const containerRect = containerRef.current.getBoundingClientRect();
+        const workspaceRect = workspaceEl.getBoundingClientRect();
+        const zoom = getWorkspaceZoom();
         
         // Compute selection bounds in viewport coordinate values for pixel-perfect intersection
-        const selLeft = containerRect.left + x1;
-        const selRight = containerRect.left + x2;
-        const selTop = containerRect.top + y1;
-        const selBottom = containerRect.top + y2;
+        const selLeft = workspaceRect.left + x1 * zoom;
+        const selRight = workspaceRect.left + x2 * zoom;
+        const selTop = workspaceRect.top + y1 * zoom;
+        const selBottom = workspaceRect.top + y2 * zoom;
         
         objects.forEach((obj) => {
           const el = document.getElementById(`object-${obj.id}`);
@@ -1102,10 +1124,12 @@ export function LabelCanvas({
     }
 
     onSelectObject(null);
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const startX = e.clientX - rect.left;
-      const startY = e.clientY - rect.top;
+    const workspaceEl = workspaceRef.current || document.getElementById("label-editor-workspace");
+    if (workspaceEl) {
+      const rect = workspaceEl.getBoundingClientRect();
+      const zoom = getWorkspaceZoom();
+      const startX = (e.clientX - rect.left) / zoom;
+      const startY = (e.clientY - rect.top) / zoom;
       setMarqueeState({
         startX,
         startY,
@@ -2275,6 +2299,7 @@ export function LabelCanvas({
 
   return (
     <div
+      ref={workspaceRef}
       id="label-editor-workspace"
       className="flex-1 relative flex flex-col overflow-hidden select-none bg-gray-150/50"
     >
@@ -2935,6 +2960,8 @@ export function LabelCanvas({
         </div>
       </div>
 
+      </div>
+
       {/* Marquee Selection Rectangle Overlay */}
       {marqueeState && (
         <div
@@ -2948,8 +2975,6 @@ export function LabelCanvas({
           }}
         />
       )}
-
-      </div>
 
       {/* Floating Quick Print Panel */}
       {renderFloatingQuickPrintPanel()}
