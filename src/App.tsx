@@ -2539,7 +2539,7 @@ export default function App() {
             <h1 className="text-[21px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
               <span className="text-kiot-cyan">LabelPro</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[11px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">V2.4</span>
+              <span className="text-[11px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">V2.5</span>
             </h1>
             <p className="text-[13px] text-zinc-500 font-bold mt-1">Hệ thống thiết kế & in tem nhãn liên kết dữ liệu hàng loạt chuyên nghiệp</p>
           </div>
