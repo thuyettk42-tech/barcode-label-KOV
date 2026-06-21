@@ -453,6 +453,7 @@ export default function App() {
   const [officePreviewMode, setOfficePreviewMode] = useState<'design' | 'sheet'>('design');
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
 
   // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
@@ -602,6 +603,7 @@ export default function App() {
     const handleRestore = () => {
       setTimeout(() => {
         setIsSystemPrinting(false);
+        setIsPreparingPrint(false);
         if (wasDesignModeForPrint) {
           setOfficePreviewMode('design');
           setWasDesignModeForPrint(false);
@@ -2455,6 +2457,9 @@ export default function App() {
 
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
+    if (isPreparingPrint) return;
+    setIsPreparingPrint(true);
+
     handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
     
@@ -2464,17 +2469,20 @@ export default function App() {
       setWasDesignModeForPrint(true);
     }
 
-    // Give browser/React robust time (350ms) to compile the full multi-page grid inside the DOM before layout rendering
-    setTimeout(() => {
-      // Check if running inside iframe
-      const isInIframe = window.self !== window.top;
-      if (isInIframe) {
-        setShowPrintModal(true);
-      } else {
-        window.focus();
-        window.print();
-      }
-    }, 350);
+    // Await Render: Ensure the DOM is updated and requestAnimationFrame + setTimeout gives the GPU thread ample time to fully draw all <svg> barcode elements
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Check if running inside iframe
+        const isInIframe = window.self !== window.top;
+        if (isInIframe) {
+          setShowPrintModal(true);
+          setIsPreparingPrint(false);
+        } else {
+          window.focus();
+          window.print();
+        }
+      }, 450); // 450ms is the ideal buffer ensuring zero async race condition while keeping print rapid
+    });
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -4610,12 +4618,19 @@ export default function App() {
                   </div>
 
                   <button
+                    disabled={isPreparingPrint}
                     onClick={handlePrintLabel}
-                    className="w-full py-3 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white rounded-xl flex items-center justify-center space-x-2 cursor-pointer transition-all duration-150 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] text-xs font-black border-b-[3px] border-sky-600"
-                    title="Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"
+                    className={`w-full py-3 text-white rounded-xl flex items-center justify-center space-x-2 transition-all duration-150 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] text-xs font-black border-b-[3px] ${
+                      isPreparingPrint
+                        ? "bg-slate-400 border-slate-400 cursor-not-allowed opacity-75"
+                        : "bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 border-sky-600 cursor-pointer"
+                    }`}
+                    title={isPreparingPrint ? "Đang chuẩn bị bản in..." : "Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"}
                   >
-                    <Printer className="w-4.5 h-4.5 stroke-[3]" />
-                    <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
+                    <Printer className={`w-4.5 h-4.5 stroke-[3] ${isPreparingPrint ? "animate-spin" : ""}`} />
+                    <span className="tracking-widest uppercase font-black font-sans">
+                      {isPreparingPrint ? "ĐANG CHUẨN BỊ... THỬ LẠI" : "IN NHÃN (CTRL + P)"}
+                    </span>
                   </button>
                 </div>
               )}
@@ -4953,6 +4968,7 @@ export default function App() {
             numericExcelColumns={numericExcelColumns}
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
+            isPreparingPrint={isPreparingPrint}
           />
 
         </main>

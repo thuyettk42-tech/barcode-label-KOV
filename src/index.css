@@ -13,6 +13,12 @@
   --color-kiot-border: #E2E8F0;
 }
 
+html, body, .object-print-class {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+  zoom: 1 !important;
+}
+
 /* Base Scrollbar custom styles */
 ::-webkit-scrollbar {
   width: 6px;

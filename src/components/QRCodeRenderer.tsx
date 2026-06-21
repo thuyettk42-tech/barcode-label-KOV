@@ -11,15 +11,13 @@ interface QRCodeRendererProps {
   size?: number; // in pt/px
   textFlowOrigin?: 'top-left' | 'top-center' | 'top-right' | 'center-left' | 'center' | 'center-right' | 'bottom-left' | 'bottom-center' | 'bottom-right';
   color?: string;
-  isPrint?: boolean;
 }
 
 export const QRCodeRenderer = memo(function QRCodeRenderer({ 
   content, 
   size = 120, 
   textFlowOrigin = "center", 
-  color,
-  isPrint = false,
+  color 
 }: QRCodeRendererProps) {
   const [error, setError] = useState<string | null>(null);
   const [qrSvgString, setQrSvgString] = useState<string>("");
@@ -103,10 +101,6 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
         style={{
           boxSizing: 'border-box',
           display: 'block',
-          ...(isPrint ? {
-            flexShrink: 0,
-            minHeight: "min-content"
-          } : {})
         }}
         dangerouslySetInnerHTML={{ __html: qrSvgString }}
       />

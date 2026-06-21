@@ -58,6 +58,7 @@ interface LabelCanvasProps {
   numericExcelColumns?: string[];
   onUpdatePrintCopies?: (copies: number) => void;
   onPrintLabel?: () => void;
+  isPreparingPrint?: boolean;
 }
 
 const getRotatedCursor = (
@@ -344,14 +345,6 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
             ? `${fontSizeVal || obj.fontSize || 10}pt`
             : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
-          ...(isPrint ? {
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            WebkitTextSizeAdjust: "none",
-            textSizeAdjust: "none",
-            lineHeight: "1",
-          } : {}),
         }}
       >
         {wrapped}
@@ -371,39 +364,29 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   return (
     <div
-      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} ${isPrint ? "" : "overflow-hidden"}`}
+      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} overflow-hidden`}
       style={{
         textAlign: textalign as any,
         color: obj.color || "#000000",
-        lineHeight: isPrint ? "1" : "1.25",
-        ...(isPrint ? {
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          WebkitTextSizeAdjust: "none",
-          textSizeAdjust: "none",
-        } : {}),
+        lineHeight: "1.25",
+        width: "100%",
+        height: "100%",
+        minWidth: "100%",
+        maxWidth: "100%",
+        minHeight: "100%",
+        maxHeight: "100%",
       }}
     >
       <div
-        className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
+        className="max-w-full w-full h-full overflow-hidden"
         style={{
           textAlign: textalign as any,
-          whiteSpace: isPrint ? "nowrap" : "pre-wrap",
-          wordBreak: isPrint ? undefined : "break-word",
-          overflowWrap: isPrint ? undefined : "anywhere",
-          display: isPrint ? "block" : "-webkit-box",
-          WebkitLineClamp: isPrint ? undefined : maxLines,
-          WebkitBoxOrient: isPrint ? undefined : "vertical",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          width: "100%",
+          height: "100%",
+          display: "block",
           maxHeight: "100%",
-          lineHeight: isPrint ? "1" : "1.25",
-          ...(isPrint ? {
-            whiteSpace: "nowrap",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            WebkitTextSizeAdjust: "none",
-            textSizeAdjust: "none",
-          } : {}),
         }}
       >
         {obj.prefixText &&
@@ -510,6 +493,7 @@ export function LabelCanvas({
   numericExcelColumns = [],
   onUpdatePrintCopies,
   onPrintLabel,
+  isPreparingPrint = false,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -739,15 +723,22 @@ export function LabelCanvas({
             {/* BIG ACTION BUTTON TO LAUNCH MAIN PRINT DIALOG */}
             <button
               type="button"
+              disabled={isPreparingPrint}
               onClick={(e) => {
                 e.stopPropagation();
                 onPrintLabel?.();
               }}
-              className="w-full py-3 border border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white flex items-center justify-center space-x-1.5 text-[13.2px] font-black tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px] rounded-xl shadow-md"
-              title="Truyền và gọi hộp thoại in tem nhãn"
+              className={`w-full py-3 border flex items-center justify-center space-x-1.5 text-[13.2px] font-black tracking-wide transition-all duration-150 rounded-xl shadow-md ${
+                isPreparingPrint 
+                  ? "bg-slate-400 border-slate-400 text-slate-200 cursor-not-allowed opacity-70"
+                  : "border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white cursor-pointer hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px]"
+              }`}
+              title={isPreparingPrint ? "Đang chuẩn bị bản in..." : "Truyền và gọi hộp thoại in tem nhãn"}
             >
-              <Printer className="w-4.5 h-4.5 stroke-[2.5]" />
-              <span className="uppercase tracking-widest font-black">IN TEM</span>
+              <Printer className={`w-4.5 h-4.5 stroke-[2.5] ${isPreparingPrint ? "animate-spin" : ""}`} />
+              <span className="uppercase tracking-widest font-black">
+                {isPreparingPrint ? "Đang chuẩn bị..." : "IN TEM"}
+              </span>
             </button>
           </div>
         )}
@@ -1848,7 +1839,6 @@ export function LabelCanvas({
                                       barcodeHeight={obj.barcodeHeight}
                                       fontSize={obj.barcodeFontSize || 6}
                                       pixelScale={previewScale}
-                                      isPrint={isMobileOrPrint}
                                       barcodeShowTextAbove={
                                         obj.barcodeShowTextAbove
                                       }
@@ -1872,7 +1862,6 @@ export function LabelCanvas({
                                       size={itemW * 0.9}
                                       textFlowOrigin={obj.textFlowOrigin}
                                       color={obj.color}
-                                      isPrint={isMobileOrPrint}
                                     />
                                   )}
 
@@ -2189,7 +2178,6 @@ export function LabelCanvas({
                                     barcodeHeight={obj.barcodeHeight}
                                     fontSize={obj.barcodeFontSize || 6}
                                     pixelScale={previewScale}
-                                    isPrint={isMobileOrPrint}
                                     barcodeShowTextAbove={
                                       obj.barcodeShowTextAbove
                                     }
@@ -2213,7 +2201,6 @@ export function LabelCanvas({
                                     size={itemW * 0.9}
                                     textFlowOrigin={obj.textFlowOrigin}
                                     color={obj.color}
-                                    isPrint={isMobileOrPrint}
                                   />
                                 )}
 
@@ -2636,7 +2623,6 @@ export function LabelCanvas({
                       barcodeHeight={obj.barcodeHeight}
                       fontSize={obj.barcodeFontSize || 6}
                       pixelScale={printScale}
-                      isPrint={isPrinting || isSystemPrinting}
                       barcodeShowTextAbove={obj.barcodeShowTextAbove}
                       barcodeShowTextBelow={obj.barcodeShowTextBelow}
                       barcodeFontFamily={obj.barcodeFontFamily}
@@ -2664,7 +2650,6 @@ export function LabelCanvas({
                       size={itemW * 0.9} // Take 90% space to fit beautifully
                       textFlowOrigin={obj.textFlowOrigin}
                       color={obj.color}
-                      isPrint={isPrinting || isSystemPrinting}
                     />
                   )}
 
