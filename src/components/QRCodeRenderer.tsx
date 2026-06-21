@@ -13,8 +13,6 @@ interface QRCodeRendererProps {
   color?: string;
 }
 
-const qrCache = new Map<string, string>();
-
 export const QRCodeRenderer = memo(function QRCodeRenderer({ 
   content, 
   size = 120, 
@@ -22,18 +20,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
   color 
 }: QRCodeRendererProps) {
   const [error, setError] = useState<string | null>(null);
-
-  // Synchronous prop-matching cache check is extremely powerful to bypass any React state update delays on selection/re-render
-  const cacheKey = `${content}_${size}_${color || ""}`;
-  const cachedVal = qrCache.get(cacheKey) || "";
-  
-  const [currentKey, setCurrentKey] = useState(cacheKey);
-  const [qrDataUrl, setQrDataUrl] = useState<string>(cachedVal);
-
-  if (currentKey !== cacheKey) {
-    setCurrentKey(cacheKey);
-    setQrDataUrl(cachedVal);
-  }
+  const [qrSvgString, setQrSvgString] = useState<string>("");
 
   useEffect(() => {
     const cleanContent = content.trim();
@@ -44,17 +31,8 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
 
     setError(null);
 
-    if (cachedVal) {
-      return;
-    }
-
-    // Make sure we have high definition rendering for print. High DPI printing requires a large source image
-    // to prevent pixelation, distortion, or blurred lines in the print output/PDF export.
-    // Any size from 600px to 1200px provides ultra-high resolution without slowing down the DOM.
-    const renderSize = Math.max(800, Math.min(1500, Math.round(size * 6)));
-
-    QRCode.toDataURL(cleanContent, {
-      width: renderSize,
+    QRCode.toString(cleanContent, {
+      type: 'svg',
       margin: 0,
       color: {
         dark: color || "#000000",
@@ -62,15 +40,23 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
       },
       errorCorrectionLevel: 'H'
     })
-    .then((url) => {
-      qrCache.set(cacheKey, url);
-      setQrDataUrl(url);
+    .then((svgStr) => {
+      let cleanSvg = svgStr;
+      const svgTagMatch = cleanSvg.match(/<svg[^>]*>/);
+      if (svgTagMatch) {
+        let svgTag = svgTagMatch[0];
+        svgTag = svgTag
+          .replace(/width="[^"]*"/, 'width="100%"')
+          .replace(/height="[^"]*"/, 'height="100%"');
+        cleanSvg = cleanSvg.replace(/<svg[^>]*>/, svgTag);
+      }
+      setQrSvgString(cleanSvg);
     })
     .catch((err) => {
       console.error("QR Code execution failed:", err);
       setError("Lỗi render QR Code");
     });
-  }, [content, size, color, cacheKey, cachedVal]);
+  }, [content, size, color]);
 
   if (error) {
     return (
@@ -80,7 +66,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
     );
   }
 
-  if (!qrDataUrl) {
+  if (!qrSvgString) {
     return (
       <div className="w-full h-full flex items-center justify-center p-0.5 bg-transparent overflow-hidden">
         <div className="w-4/5 h-4/5 bg-gray-100/50 border border-gray-200 animate-pulse rounded" />
@@ -110,17 +96,13 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
 
   return (
     <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-transparent overflow-hidden`}>
-      <img
-        src={qrDataUrl}
-        alt="QR Code"
-        className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+      <div
+        className="w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:block pointer-events-none select-none max-w-full max-h-full"
         style={{
           boxSizing: 'border-box',
-          objectFit: 'contain',
           display: 'block',
-          imageRendering: 'auto',
         }}
-        referrerPolicy="no-referrer"
+        dangerouslySetInnerHTML={{ __html: qrSvgString }}
       />
     </div>
   );

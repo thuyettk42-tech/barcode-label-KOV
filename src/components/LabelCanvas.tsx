@@ -340,7 +340,9 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: isPrint
+            ? `${fontSizeVal || obj.fontSize || 10}pt`
+            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -828,7 +830,7 @@ export function LabelCanvas({
     styleEl.innerHTML = `
       @media print {
         @page {
-          size: ${finalWStr} ${finalHStr} !important;
+          size: var(--print-width) var(--print-height) !important;
           margin: 0 !important;
         }
         body {
@@ -1599,7 +1601,7 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915;
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
@@ -1681,26 +1683,6 @@ export function LabelCanvas({
                 className="office-print-page bg-white relative shadow-lg border border-gray-300 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
-                    width: `${pxSheetW * zoomRatio}px`,
-                    height: `${pxSheetH * zoomRatio}px`,
-                    "--print-width": `${sW}mm`,
-                    "--print-height": `${sH}mm`,
-                    "--sheet-m-top": `${sheetConfig.marginTop}mm`,
-                    "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
-                    "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
-                    "--sheet-m-right": `${sheetConfig.marginRight}mm`,
-                    "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
-                    "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
-                    "--sheet-col-gap": `${sheetConfig.colGap}mm`,
-                    "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
-                  } as React.CSSProperties
-                }
-              >
-                {/* Scaled wrapper for print matching the high-fidelity layout */}
-                <div
-                  style={{
-                    transform: `scale(${zoomRatio})`,
-                    transformOrigin: "top left",
                     width: `${pxSheetW}px`,
                     height: `${pxSheetH}px`,
                     paddingTop: `${pxMT}px`,
@@ -1715,37 +1697,47 @@ export function LabelCanvas({
                     boxSizing: "border-box",
                     alignContent: "start",
                     justifyContent: "start",
-                  }}
-                  className="w-full h-full pointer-events-auto"
-                >
-                  {Array.from({ length: safeLength(cellsPerSheet) }).map(
-                    (_, cIdx) => {
-                      const globalIdx = sIdx * cellsPerSheet + cIdx;
-                      if (globalIdx < totalItems) {
-                        const resolvedObjs = resolveDynamicObjects
-                          ? resolveDynamicObjects(objects, globalIdx)
-                          : objects;
+                    "--print-width": `${sW}mm`,
+                    "--print-height": `${sH}mm`,
+                    "--sheet-m-top": `${sheetConfig.marginTop}mm`,
+                    "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
+                    "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
+                    "--sheet-m-right": `${sheetConfig.marginRight}mm`,
+                    "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
+                    "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
+                    "--sheet-col-gap": `${sheetConfig.colGap}mm`,
+                    "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
+                  } as React.CSSProperties
+                }
+              >
+                {Array.from({ length: safeLength(cellsPerSheet) }).map(
+                  (_, cIdx) => {
+                    const globalIdx = sIdx * cellsPerSheet + cIdx;
+                    if (globalIdx < totalItems) {
+                      const resolvedObjs = resolveDynamicObjects
+                        ? resolveDynamicObjects(objects, globalIdx)
+                        : objects;
 
-                        return (
-                          <div
-                            key={`cell-${sIdx}-${cIdx}`}
-                            className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
-                            style={
-                              {
-                                width: `${pxCellW}px`,
-                                height: `${pxCellH}px`,
-                                backgroundColor: labelConfig.bgColor || "#ffffff",
-                                border: sheetConfig.showBorder
-                                  ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
-                                  : "none",
-                                borderRadius: `${sheetConfig.borderRadius}mm`,
-                                boxSizing: "border-box",
-                                "--cell-w": `${labelConfig.width}mm`,
-                                "--cell-h": `${labelConfig.height}mm`,
-                                "--cell-radius": `${sheetConfig.borderRadius}mm`,
-                                "--cell-border": sheetConfig.showBorder
-                                  ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
-                                  : "none",
+                      return (
+                        <div
+                          key={`cell-${sIdx}-${cIdx}`}
+                          className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
+                          style={
+                            {
+                              width: `${pxCellW}px`,
+                              height: `${pxCellH}px`,
+                              backgroundColor: labelConfig.bgColor || "#ffffff",
+                              border: sheetConfig.showBorder
+                                ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
+                                : "none",
+                              borderRadius: `${sheetConfig.borderRadius}mm`,
+                              boxSizing: "border-box",
+                              "--cell-w": `${labelConfig.width}mm`,
+                              "--cell-h": `${labelConfig.height}mm`,
+                              "--cell-radius": `${sheetConfig.borderRadius}mm`,
+                              "--cell-border": sheetConfig.showBorder
+                                ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
+                                : "none",
                             } as React.CSSProperties
                           }
                         >
@@ -1909,7 +1901,6 @@ export function LabelCanvas({
                     }
                   },
                 )}
-                </div>
               </div>
             );
 
@@ -1976,7 +1967,7 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915;
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
@@ -2048,37 +2039,24 @@ export function LabelCanvas({
                 className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
                 style={
                   {
-                    width: `${pxBackingW * zoomRatio}px`,
-                    height: `${pxBackingH * zoomRatio}px`,
+                    width: `${pxBackingW}px`,
+                    height: `${pxBackingH}px`,
                     display: "flex",
                     flexDirection: "row",
+                    gap: `${pxColGap}px`,
                     boxSizing: "border-box",
                     "--print-width": `${backingWidth}mm`,
                     "--print-height": `${labelH}mm`,
                     "--print-col-gap": `${colGap}mm`,
                     "--print-padding-left": `${rollSideMargin}mm`,
                     "--print-padding-right": `${rollSideMargin}mm`,
+                    paddingLeft: `${pxSideMargin}px`,
+                    paddingRight: `${pxSideMargin}px`,
                   } as React.CSSProperties
                 }
               >
-                {/* Scaled wrapper for print matching the high-fidelity layout */}
-                <div
-                  style={{
-                    transform: `scale(${zoomRatio})`,
-                    transformOrigin: "top left",
-                    width: `${pxBackingW}px`,
-                    height: `${pxBackingH}px`,
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: `${pxColGap}px`,
-                    paddingLeft: `${pxSideMargin}px`,
-                    paddingRight: `${pxSideMargin}px`,
-                    boxSizing: "border-box",
-                  }}
-                  className="w-full h-full pointer-events-auto"
-                >
-                  {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
-                    const globalIdx = rIdx * cols + cIdx;
+                {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
+                  const globalIdx = rIdx * cols + cIdx;
                   if (globalIdx < totalItems) {
                     const resolvedObjs = resolveDynamicObjects
                       ? resolveDynamicObjects(objects, globalIdx)
@@ -2260,7 +2238,6 @@ export function LabelCanvas({
                     );
                   }
                 })}
-                </div>
               </div>
             );
 
