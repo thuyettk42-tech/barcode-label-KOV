@@ -226,6 +226,10 @@ html, body, .object-print-class {
     padding: 0 !important;
   }
 
+  .object-print-class, .object-print-class * {
+    overflow: visible !important;
+  }
+
   /* Dynamic page configuration */
   @page {
     size: var(--print-width, 100mm) var(--print-height, 75mm);

@@ -364,7 +364,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   return (
     <div
-      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} overflow-hidden`}
+      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} ${isPrint ? "" : "overflow-hidden"}`}
       style={{
         textAlign: textalign as any,
         color: obj.color || "#000000",
@@ -375,14 +375,15 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
         maxWidth: "100%",
         minHeight: "100%",
         maxHeight: "100%",
+        overflow: isPrint ? "visible" : "hidden",
       }}
     >
       <div
-        className="max-w-full w-full h-full overflow-hidden"
+        className={`max-w-full w-full h-full ${isPrint ? "" : "overflow-hidden"}`}
         style={{
           textAlign: textalign as any,
           whiteSpace: "nowrap",
-          overflow: "hidden",
+          overflow: isPrint ? "visible" : "hidden",
           width: "100%",
           height: "100%",
           display: "block",
