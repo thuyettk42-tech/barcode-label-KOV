@@ -340,9 +340,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${fontSizeVal || obj.fontSize || 10}pt`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -363,7 +361,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   return (
     <div
-      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} ${isPrint ? "" : "overflow-hidden"}`}
+      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} overflow-hidden`}
       style={{
         textAlign: textalign as any,
         color: obj.color || "#000000",
@@ -371,15 +369,15 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
       }}
     >
       <div
-        className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
+        className="max-w-full w-full overflow-hidden"
         style={{
           textAlign: textalign as any,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
-          display: isPrint ? "block" : "-webkit-box",
-          WebkitLineClamp: isPrint ? undefined : maxLines,
-          WebkitBoxOrient: isPrint ? undefined : "vertical",
+          display: "-webkit-box",
+          WebkitLineClamp: maxLines,
+          WebkitBoxOrient: "vertical",
           maxHeight: "100%",
         }}
       >
@@ -1601,8 +1599,8 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const previewScale = 8.4915; // ALWAYS render layout at stable high-resolution reference scale to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
     const pxSheetH = mmToPx(sH, previewScale);
@@ -1812,9 +1810,9 @@ export function LabelCanvas({
                                   } as React.CSSProperties
                                 }
                               >
-                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                                <div className="w-full h-full p-0 select-none relative overflow-hidden">
                                   {obj.type === "text" &&
-                                    renderTextElement(obj, previewScale, isMobileOrPrint)}
+                                    renderTextElement(obj, previewScale, false)}
 
                                   {obj.type === "barcode" && (
                                     <BarcodeRenderer
@@ -1904,27 +1902,23 @@ export function LabelCanvas({
               </div>
             );
 
-            if (isMobileOrPrint) {
-              return pageEl;
-            }
-
             return (
               <div
                 key={`sheet-page-${sIdx}`}
-                className="md:mb-8 shrink-0 print:m-0 print:p-0 print:w-auto print:h-auto"
-                style={isMobileOrPrint ? undefined : {
+                className="md:mb-8 shrink-0 print:m-0 print:p-0 flex flex-col items-start justify-start"
+                style={{
                   width: `${pxSheetW * zoomRatio}px`,
                   height: `${pxSheetH * zoomRatio}px`,
                 }}
               >
                 <div
-                  style={isMobileOrPrint ? undefined : {
+                  style={{
                     transform: `scale(${zoomRatio})`,
                     transformOrigin: "top left",
                     width: `${pxSheetW}px`,
                     height: `${pxSheetH}px`,
                   }}
-                  className="print:transform-none pointer-events-auto"
+                  className="pointer-events-auto"
                 >
                   {pageEl}
                 </div>
@@ -1967,8 +1961,8 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const previewScale = 8.4915; // ALWAYS render layout at stable high-resolution reference scale to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
@@ -2151,9 +2145,9 @@ export function LabelCanvas({
                                 } as React.CSSProperties
                               }
                             >
-                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                              <div className="w-full h-full p-0 select-none relative overflow-hidden">
                                 {obj.type === "text" &&
-                                  renderTextElement(obj, previewScale, isMobileOrPrint)}
+                                  renderTextElement(obj, previewScale, false)}
 
                                 {obj.type === "barcode" && (
                                   <BarcodeRenderer
@@ -2241,27 +2235,23 @@ export function LabelCanvas({
               </div>
             );
 
-            if (isMobileOrPrint) {
-              return rowEl;
-            }
-
             return (
               <div
                 key={`thermal-row-${rIdx}`}
-                className="shrink-0 print:m-0 print:p-0 print:w-auto print:h-auto"
-                style={isMobileOrPrint ? undefined : {
+                className="shrink-0 print:m-0 print:p-0 flex flex-col items-start justify-start"
+                style={{
                   width: `${pxBackingW * zoomRatio}px`,
                   height: `${(pxBackingH + pxRowGap) * zoomRatio}px`,
                 }}
               >
                 <div
-                  style={isMobileOrPrint ? undefined : {
+                  style={{
                     transform: `scale(${zoomRatio})`,
                     transformOrigin: "top left",
                     width: `${pxBackingW}px`,
                     height: `${pxBackingH}px`,
                   }}
-                  className="print:transform-none pointer-events-auto"
+                  className="pointer-events-auto"
                 >
                   {rowEl}
                 </div>
