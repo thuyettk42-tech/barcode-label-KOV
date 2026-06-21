@@ -20,7 +20,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
   color 
 }: QRCodeRendererProps) {
   const [error, setError] = useState<string | null>(null);
-  const [qrSvgString, setQrSvgString] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
   useEffect(() => {
     const cleanContent = content.trim();
@@ -31,8 +31,13 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
 
     setError(null);
 
-    QRCode.toString(cleanContent, {
-      type: 'svg',
+    // Make sure we have high definition rendering for print. High DPI printing requires a large source image
+    // to prevent pixelation, distortion, or blurred lines in the print output/PDF export.
+    // Any size from 600px to 1200px provides ultra-high resolution without slowing down the DOM.
+    const renderSize = Math.max(800, Math.min(1500, Math.round(size * 6)));
+
+    QRCode.toDataURL(cleanContent, {
+      width: renderSize,
       margin: 0,
       color: {
         dark: color || "#000000",
@@ -40,17 +45,8 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
       },
       errorCorrectionLevel: 'H'
     })
-    .then((svgStr) => {
-      let cleanSvg = svgStr;
-      const svgTagMatch = cleanSvg.match(/<svg[^>]*>/);
-      if (svgTagMatch) {
-        let svgTag = svgTagMatch[0];
-        svgTag = svgTag
-          .replace(/width="[^"]*"/, 'width="100%"')
-          .replace(/height="[^"]*"/, 'height="100%"');
-        cleanSvg = cleanSvg.replace(/<svg[^>]*>/, svgTag);
-      }
-      setQrSvgString(cleanSvg);
+    .then((url) => {
+      setQrDataUrl(url);
     })
     .catch((err) => {
       console.error("QR Code execution failed:", err);
@@ -66,7 +62,7 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
     );
   }
 
-  if (!qrSvgString) {
+  if (!qrDataUrl) {
     return (
       <div className="w-full h-full flex items-center justify-center p-0.5 bg-transparent overflow-hidden">
         <div className="w-4/5 h-4/5 bg-gray-100/50 border border-gray-200 animate-pulse rounded" />
@@ -96,13 +92,17 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
 
   return (
     <div className={`w-full h-full flex ${justifyClass === "justify-start" ? "items-start" : justifyClass === "justify-end" ? "items-end" : "items-center"} ${alignClass === "items-start" ? "justify-start" : alignClass === "items-end" ? "justify-end" : "justify-center"} p-0.5 bg-transparent overflow-hidden`}>
-      <div
-        className="w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:block pointer-events-none select-none max-w-full max-h-full"
+      <img
+        src={qrDataUrl}
+        alt="QR Code"
+        className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
         style={{
           boxSizing: 'border-box',
+          objectFit: 'contain',
           display: 'block',
+          imageRendering: 'auto',
         }}
-        dangerouslySetInnerHTML={{ __html: qrSvgString }}
+        referrerPolicy="no-referrer"
       />
     </div>
   );

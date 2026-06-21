@@ -13,12 +13,6 @@
   --color-kiot-border: #E2E8F0;
 }
 
-html, body, .object-print-class {
-  -webkit-text-size-adjust: 100% !important;
-  text-size-adjust: 100% !important;
-  zoom: 1 !important;
-}
-
 /* Base Scrollbar custom styles */
 ::-webkit-scrollbar {
   width: 6px;
@@ -144,14 +138,8 @@ html, body, .object-print-class {
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    min-width: var(--cell-w, 50mm) !important;
-    max-width: var(--cell-w, 50mm) !important;
-    min-height: var(--cell-h, 30mm) !important;
-    max-height: var(--cell-h, 30mm) !important;
     overflow: hidden !important;
     background: transparent !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   /* Support multi-label sheet grid prints */
@@ -192,17 +180,11 @@ html, body, .object-print-class {
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    min-width: var(--cell-w, 50mm) !important;
-    max-width: var(--cell-w, 50mm) !important;
-    min-height: var(--cell-h, 30mm) !important;
-    max-height: var(--cell-h, 30mm) !important;
     overflow: hidden !important;
     background: transparent !important;
     
     border: var(--cell-border, none) !important;
     border-radius: var(--cell-radius, 0mm) !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   /* Force thermal items to precise millimeter positions for printing machinery */
@@ -224,30 +206,6 @@ html, body, .object-print-class {
 
   .object-print-class > div {
     padding: 0 !important;
-  }
-
-  .print-native-text {
-    font-size: var(--fs-print) !important;
-    height: var(--th-print) !important;
-    line-height: var(--th-print) !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
-  }
-
-  .print-native-margin {
-    margin-top: var(--space-print) !important;
-    margin-bottom: var(--space-print) !important;
-  }
-
-  .print-native-margin-container {
-    top: var(--space-print) !important;
-    bottom: var(--space-bottom-print) !important;
-  }
-
-  .object-print-class, .object-print-class * {
-    overflow: visible !important;
-    -webkit-font-smoothing: antialiased !important;
-    text-rendering: geometricPrecision !important;
   }
 
   /* Dynamic page configuration */

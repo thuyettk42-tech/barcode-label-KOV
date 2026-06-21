@@ -58,7 +58,6 @@ interface LabelCanvasProps {
   numericExcelColumns?: string[];
   onUpdatePrintCopies?: (copies: number) => void;
   onPrintLabel?: () => void;
-  isPreparingPrint?: boolean;
 }
 
 const getRotatedCursor = (
@@ -336,16 +335,15 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
     return (
       <span
-        className="print-native-text"
         style={{
           fontFamily: resolveFontFamily(fontFamilyVal || obj.fontFamily),
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: "var(--fs-screen)",
+          fontSize: isPrint
+            ? `${fontSizeVal || obj.fontSize || 10}pt`
+            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
-          ["--fs-screen" as any]: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
-          ["--fs-print" as any]: `${fontSizeVal || obj.fontSize || 10}pt`,
         }}
       >
         {wrapped}
@@ -370,27 +368,19 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
         textAlign: textalign as any,
         color: obj.color || "#000000",
         lineHeight: "1.25",
-        width: "100%",
-        height: "100%",
-        minWidth: "100%",
-        maxWidth: "100%",
-        minHeight: "100%",
-        maxHeight: "100%",
-        overflow: isPrint ? "visible" : "hidden",
-        whiteSpace: "nowrap",
       }}
     >
       <div
-        className={`max-w-full w-full h-full ${isPrint ? "" : "overflow-hidden"}`}
+        className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
         style={{
           textAlign: textalign as any,
-          whiteSpace: "nowrap",
-          overflow: isPrint ? "visible" : "hidden",
-          width: "100%",
-          height: "100%",
-          display: "block",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+          overflowWrap: "anywhere",
+          display: isPrint ? "block" : "-webkit-box",
+          WebkitLineClamp: isPrint ? undefined : maxLines,
+          WebkitBoxOrient: isPrint ? undefined : "vertical",
           maxHeight: "100%",
-          lineHeight: "1.25",
         }}
       >
         {obj.prefixText &&
@@ -497,7 +487,6 @@ export function LabelCanvas({
   numericExcelColumns = [],
   onUpdatePrintCopies,
   onPrintLabel,
-  isPreparingPrint = false,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -727,22 +716,15 @@ export function LabelCanvas({
             {/* BIG ACTION BUTTON TO LAUNCH MAIN PRINT DIALOG */}
             <button
               type="button"
-              disabled={isPreparingPrint}
               onClick={(e) => {
                 e.stopPropagation();
                 onPrintLabel?.();
               }}
-              className={`w-full py-3 border flex items-center justify-center space-x-1.5 text-[13.2px] font-black tracking-wide transition-all duration-150 rounded-xl shadow-md ${
-                isPreparingPrint 
-                  ? "bg-slate-400 border-slate-400 text-slate-200 cursor-not-allowed opacity-70"
-                  : "border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white cursor-pointer hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px]"
-              }`}
-              title={isPreparingPrint ? "Đang chuẩn bị bản in..." : "Truyền và gọi hộp thoại in tem nhãn"}
+              className="w-full py-3 border border-sky-600 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white flex items-center justify-center space-x-1.5 text-[13.2px] font-black tracking-wide cursor-pointer transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-lg border-b-[3px] rounded-xl shadow-md"
+              title="Truyền và gọi hộp thoại in tem nhãn"
             >
-              <Printer className={`w-4.5 h-4.5 stroke-[2.5] ${isPreparingPrint ? "animate-spin" : ""}`} />
-              <span className="uppercase tracking-widest font-black">
-                {isPreparingPrint ? "Đang chuẩn bị..." : "IN TEM"}
-              </span>
+              <Printer className="w-4.5 h-4.5 stroke-[2.5]" />
+              <span className="uppercase tracking-widest font-black">IN TEM</span>
             </button>
           </div>
         )}
@@ -848,7 +830,7 @@ export function LabelCanvas({
     styleEl.innerHTML = `
       @media print {
         @page {
-          size: var(--print-width) var(--print-height) !important;
+          size: ${finalWStr} ${finalHStr} !important;
           margin: 0 !important;
         }
         body {
@@ -2561,8 +2543,8 @@ export function LabelCanvas({
                     transformOrigin: activeAngle ? "center center" : "top left",
                     "--o-transform-origin": activeAngle ? "center center" : "top left",
                     // Standard inline properties as custom CSS variables for our print-stylesheet engine:
-                    "--o-x": `${stdX}mm`,
-                    "--o-y": `${stdY}mm`,
+                    "--o-x": `${activeX}mm`,
+                    "--o-y": `${activeY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
                     "--o-print-height": `${activeH}mm`,

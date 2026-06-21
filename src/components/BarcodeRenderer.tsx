@@ -248,20 +248,16 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     resolvedFontFamily = "var(--font-mono)";
   }
 
-  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
-  const marginPx = marginMm * finalPixelScale;
-
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: "var(--fs-screen)",
+    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
-    ["--fs-screen" as any]: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
-    ["--fs-print" as any]: `${finalFontSizePt}pt`,
-    ["--space-screen" as any]: `${marginPx}px`,
-    ["--space-print" as any]: `${marginMm}mm`,
   };
+
+  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
+  const marginPx = marginMm * finalPixelScale;
 
   const origin = textFlowOrigin || "center";
 
@@ -295,26 +291,8 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     ? naturalDimensions.height * scaleMultiplier
     : undefined;
 
-  const textHeightPx = Math.ceil(finalFontSizePt * 0.3528 * finalPixelScale * 1.3);
-
-  const svgTop = showAbove ? textHeightPx + marginPx : 0;
-  const svgBottom = showBelow ? textHeightPx + marginPx : 0;
-
-  const absoluteTextStyle = {
-    ...textStyle,
-    position: "absolute" as const,
-    left: 0,
-    right: 0,
-    height: "var(--th-screen)",
-    lineHeight: "var(--th-screen)",
-    whiteSpace: "nowrap" as const,
-    textAlign: textalign as any,
-    ["--th-screen" as any]: `${textHeightPx}px`,
-    ["--th-print" as any]: `${finalFontSizePt * 0.3528 * 1.3}mm`,
-  };
-
   return (
-    <div className="relative w-full h-full select-none">
+    <div className="relative w-full h-full flex flex-col justify-between items-stretch overflow-hidden select-none">
       {/* Absolute overlay for error state so the actual <svg> tag is NEVER unmounted, preventing ref stuck behavior */}
       {effectiveError && !isEditing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded text-center select-none overflow-hidden z-10">
@@ -329,110 +307,102 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
       {/* Main Barcode Display (made invisible while preserving layout size and ref bindings when in error state) */}
       <div
-        className={`w-full h-full relative ${effectiveError && !isEditing ? "invisible" : ""}`}
+        className={`w-full h-full flex flex-col justify-center items-center overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}
       >
-        {/* Text Above */}
-        {showAbove && (
-          isEditing ? (
-            <input
-              type="text"
-              autoFocus
-              value={tempValue}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              onMouseDown={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
-              style={{
-                ...absoluteTextStyle,
-                top: 0,
-                zIndex: 50,
-              }}
-              className={`select-text outline-none px-1 bg-white text-slate-900 border ${
-                effectiveError
-                  ? "border-red-500 ring-2 ring-red-100"
-                  : "border-kiot-cyan ring-2 ring-cyan-100"
-              } rounded-sm shadow-sm`}
-            />
-          ) : (
-            <div
-              style={{
-                ...absoluteTextStyle,
-                top: 0,
-              }}
-              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150 print-native-text"
-              onDoubleClick={handleStartEdit}
-              title="Nhấp đúp để sửa nhãn"
-            >
-              {effectiveContent || content}
-            </div>
-          )
-        )}
-
-        {/* Barcode SVG Container */}
         <div
-          style={{
-            position: "absolute",
-            top: "var(--space-screen, 0px)",
-            bottom: "var(--space-bottom-screen, 0px)",
-            left: 0,
-            right: 0,
-            ["--space-screen" as any]: `${svgTop}px`,
-            ["--space-bottom-screen" as any]: `${svgBottom}px`,
-            ["--space-print" as any]: `${showAbove ? (finalFontSizePt * 0.3528 * 1.3) + marginMm : 0}mm`,
-            ["--space-bottom-print" as any]: `${showBelow ? (finalFontSizePt * 0.3528 * 1.3) + marginMm : 0}mm`,
-          }}
-          className="flex items-center justify-center overflow-hidden print-native-margin-container"
+          className={`flex flex-col ${alignClass} justify-between items-center w-full h-full py-[1.5px]`}
         >
-          <svg
-            ref={svgRef}
-            style={{
-              width: "100%",
-              height: "100%",
-              display: "block",
-            }}
-            preserveAspectRatio="none"
-            className="block w-full h-full"
-          />
-        </div>
-
-        {/* Text Below */}
-        {showBelow && (
-          isEditing ? (
-            <input
-              type="text"
-              autoFocus
-              value={tempValue}
-              onChange={handleChange}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              onMouseDown={(e) => e.stopPropagation()}
-              onDoubleClick={(e) => e.stopPropagation()}
+          {showAbove &&
+            (isEditing ? (
+              <input
+                type="text"
+                autoFocus
+                value={tempValue}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                style={{
+                  fontFamily: resolvedFontFamily,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+                  fontWeight: barcodeFontWeight,
+                  fontStyle: barcodeFontStyle,
+                  marginBottom: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                  effectiveError
+                    ? "border-red-500 ring-2 ring-red-100"
+                    : "border-kiot-cyan ring-2 ring-cyan-100"
+                } rounded-sm shadow-sm z-50`}
+              />
+            ) : (
+              <div
+                style={{
+                  ...textStyle,
+                  marginBottom: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                onDoubleClick={handleStartEdit}
+                title="Nhấp đúp để sửa nhãn"
+              >
+                {effectiveContent || content}
+              </div>
+            ))}
+          <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
+            <svg
+              ref={svgRef}
               style={{
-                ...absoluteTextStyle,
-                bottom: 0,
-                zIndex: 50,
+                width: "100%",
+                height: "100%",
+                display: "block",
               }}
-              className={`select-text outline-none px-1 bg-white text-slate-900 border ${
-                effectiveError
-                  ? "border-red-500 ring-2 ring-red-100"
-                  : "border-kiot-cyan ring-2 ring-cyan-100"
-              } rounded-sm shadow-sm`}
+              preserveAspectRatio="none"
+              className="block w-full h-full"
             />
-          ) : (
-            <div
-              style={{
-                ...absoluteTextStyle,
-                bottom: 0,
-              }}
-              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150 print-native-text"
-              onDoubleClick={handleStartEdit}
-              title="Nhấp đúp để sửa nhãn"
-            >
-              {effectiveContent || content}
-            </div>
-          )
-        )}
+          </div>
+          {showBelow &&
+            (isEditing ? (
+              <input
+                type="text"
+                autoFocus
+                value={tempValue}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                style={{
+                  fontFamily: resolvedFontFamily,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+                  fontWeight: barcodeFontWeight,
+                  fontStyle: barcodeFontStyle,
+                  marginTop: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                  effectiveError
+                    ? "border-red-500 ring-2 ring-red-100"
+                    : "border-kiot-cyan ring-2 ring-cyan-100"
+                } rounded-sm shadow-sm z-50`}
+              />
+            ) : (
+              <div
+                style={{
+                  ...textStyle,
+                  marginTop: `${marginPx}px`,
+                  textAlign: textalign as any,
+                }}
+                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                onDoubleClick={handleStartEdit}
+                title="Nhấp đúp để sửa nhãn"
+              >
+                {effectiveContent || content}
+              </div>
+            ))}
+        </div>
       </div>
     </div>
   );
