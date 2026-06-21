@@ -1825,6 +1825,7 @@ export function LabelCanvas({
                                       barcodeHeight={obj.barcodeHeight}
                                       fontSize={obj.barcodeFontSize || 6}
                                       pixelScale={previewScale}
+                                      isPrint={isMobileOrPrint}
                                       barcodeShowTextAbove={
                                         obj.barcodeShowTextAbove
                                       }
@@ -2164,6 +2165,7 @@ export function LabelCanvas({
                                     barcodeHeight={obj.barcodeHeight}
                                     fontSize={obj.barcodeFontSize || 6}
                                     pixelScale={previewScale}
+                                    isPrint={isMobileOrPrint}
                                     barcodeShowTextAbove={
                                       obj.barcodeShowTextAbove
                                     }
@@ -2609,6 +2611,7 @@ export function LabelCanvas({
                       barcodeHeight={obj.barcodeHeight}
                       fontSize={obj.barcodeFontSize || 6}
                       pixelScale={printScale}
+                      isPrint={isPrinting || isSystemPrinting}
                       barcodeShowTextAbove={obj.barcodeShowTextAbove}
                       barcodeShowTextBelow={obj.barcodeShowTextBelow}
                       barcodeFontFamily={obj.barcodeFontFamily}
