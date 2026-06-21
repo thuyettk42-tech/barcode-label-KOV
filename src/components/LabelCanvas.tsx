@@ -1681,8 +1681,8 @@ export function LabelCanvas({
                 className="office-print-page bg-white relative shadow-lg border border-gray-300 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
-                    width: `${pxSheetW * (isMobileOrPrint ? zoomRatio : 1)}px`,
-                    height: `${pxSheetH * (isMobileOrPrint ? zoomRatio : 1)}px`,
+                    width: `${pxSheetW * zoomRatio}px`,
+                    height: `${pxSheetH * zoomRatio}px`,
                     "--print-width": `${sW}mm`,
                     "--print-height": `${sH}mm`,
                     "--sheet-m-top": `${sheetConfig.marginTop}mm`,
@@ -1699,8 +1699,8 @@ export function LabelCanvas({
                 {/* Scaled wrapper for print matching the high-fidelity layout */}
                 <div
                   style={{
-                    transform: isMobileOrPrint ? `scale(${zoomRatio})` : undefined,
-                    transformOrigin: isMobileOrPrint ? "top left" : undefined,
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
                     width: `${pxSheetW}px`,
                     height: `${pxSheetH}px`,
                     paddingTop: `${pxMT}px`,
@@ -2048,8 +2048,8 @@ export function LabelCanvas({
                 className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
                 style={
                   {
-                    width: `${pxBackingW * (isMobileOrPrint ? zoomRatio : 1)}px`,
-                    height: `${pxBackingH * (isMobileOrPrint ? zoomRatio : 1)}px`,
+                    width: `${pxBackingW * zoomRatio}px`,
+                    height: `${pxBackingH * zoomRatio}px`,
                     display: "flex",
                     flexDirection: "row",
                     boxSizing: "border-box",
@@ -2064,8 +2064,8 @@ export function LabelCanvas({
                 {/* Scaled wrapper for print matching the high-fidelity layout */}
                 <div
                   style={{
-                    transform: isMobileOrPrint ? `scale(${zoomRatio})` : undefined,
-                    transformOrigin: isMobileOrPrint ? "top left" : undefined,
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
                     width: `${pxBackingW}px`,
                     height: `${pxBackingH}px`,
                     display: "flex",

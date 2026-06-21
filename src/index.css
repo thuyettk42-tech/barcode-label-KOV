@@ -190,7 +190,13 @@
   /* Force thermal items to precise millimeter positions for printing machinery */
   .object-print-class {
     position: absolute !important;
+    left: var(--o-x) !important;
+    top: var(--o-y) !important;
+    width: var(--o-w) !important;
+    height: var(--o-print-height, var(--o-h)) !important;
     min-height: var(--o-print-min-height, 0mm) !important;
+    transform: var(--o-transform, none) !important;
+    transform-origin: var(--o-transform-origin, top left) !important;
     box-shadow: none !important;
     border: none !important;
     background: none !important;
