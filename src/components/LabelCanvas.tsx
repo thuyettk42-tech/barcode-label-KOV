@@ -340,9 +340,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${fontSizeVal || obj.fontSize || 10}pt`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -374,9 +372,9 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
         className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
         style={{
           textAlign: textalign as any,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          overflowWrap: "anywhere",
+          whiteSpace: obj.content && obj.content.includes('\n') ? "pre-wrap" : "nowrap",
+          wordBreak: obj.content && obj.content.includes('\n') ? "break-word" : "normal",
+          overflowWrap: obj.content && obj.content.includes('\n') ? "anywhere" : "normal",
           display: isPrint ? "block" : "-webkit-box",
           WebkitLineClamp: isPrint ? undefined : maxLines,
           WebkitBoxOrient: isPrint ? undefined : "vertical",
@@ -755,10 +753,10 @@ export function LabelCanvas({
   const limitPreview =
     !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
 
-  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
-  // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
+  // The scale used for rendering elements during printing must always be high-resolution (8.4915)
+  // paired with a dynamic post-layout downscaling transform to avoid browser minimum font size constraints.
   const printScale =
-    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
+    isPrinting || isSystemPrinting ? 8.4915 : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -1601,8 +1599,8 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
     const pxSheetH = mmToPx(sH, previewScale);
@@ -1683,6 +1681,25 @@ export function LabelCanvas({
                 className="office-print-page bg-white relative shadow-lg border border-gray-300 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
+                    width: isMobileOrPrint ? undefined : `${pxSheetW * zoomRatio}px`,
+                    height: isMobileOrPrint ? undefined : `${pxSheetH * zoomRatio}px`,
+                    "--print-width": `${sW}mm`,
+                    "--print-height": `${sH}mm`,
+                    "--sheet-m-top": `${sheetConfig.marginTop}mm`,
+                    "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
+                    "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
+                    "--sheet-m-right": `${sheetConfig.marginRight}mm`,
+                    "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
+                    "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
+                    "--sheet-col-gap": `${sheetConfig.colGap}mm`,
+                    "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
+                  } as React.CSSProperties
+                }
+              >
+                <div
+                  style={{
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
                     width: `${pxSheetW}px`,
                     height: `${pxSheetH}px`,
                     paddingTop: `${pxMT}px`,
@@ -1697,20 +1714,10 @@ export function LabelCanvas({
                     boxSizing: "border-box",
                     alignContent: "start",
                     justifyContent: "start",
-                    "--print-width": `${sW}mm`,
-                    "--print-height": `${sH}mm`,
-                    "--sheet-m-top": `${sheetConfig.marginTop}mm`,
-                    "--sheet-m-bottom": `${sheetConfig.marginBottom}mm`,
-                    "--sheet-m-left": `${sheetConfig.marginLeft}mm`,
-                    "--sheet-m-right": `${sheetConfig.marginRight}mm`,
-                    "--sheet-grid-cols": `repeat(${sheetConfig.cols || 1}, ${labelConfig.width}mm)`,
-                    "--sheet-grid-rows": `repeat(${sheetConfig.rows || 1}, ${labelConfig.height}mm)`,
-                    "--sheet-col-gap": `${sheetConfig.colGap}mm`,
-                    "--sheet-row-gap": `${sheetConfig.rowGap}mm`,
-                  } as React.CSSProperties
-                }
-              >
-                {Array.from({ length: safeLength(cellsPerSheet) }).map(
+                  }}
+                  className="pointer-events-auto"
+                >
+                  {Array.from({ length: safeLength(cellsPerSheet) }).map(
                   (_, cIdx) => {
                     const globalIdx = sIdx * cellsPerSheet + cIdx;
                     if (globalIdx < totalItems) {
@@ -1902,12 +1909,9 @@ export function LabelCanvas({
                     }
                   },
                 )}
+                </div>
               </div>
             );
-
-            if (isMobileOrPrint) {
-              return pageEl;
-            }
 
             return (
               <div
@@ -1918,17 +1922,7 @@ export function LabelCanvas({
                   height: `${pxSheetH * zoomRatio}px`,
                 }}
               >
-                <div
-                  style={isMobileOrPrint ? undefined : {
-                    transform: `scale(${zoomRatio})`,
-                    transformOrigin: "top left",
-                    width: `${pxSheetW}px`,
-                    height: `${pxSheetH}px`,
-                  }}
-                  className="print:transform-none pointer-events-auto"
-                >
-                  {pageEl}
-                </div>
+                {pageEl}
               </div>
             );
           })}
@@ -1968,8 +1962,8 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
@@ -2040,23 +2034,32 @@ export function LabelCanvas({
                 className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
                 style={
                   {
-                    width: `${pxBackingW}px`,
-                    height: `${pxBackingH}px`,
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: `${pxColGap}px`,
-                    boxSizing: "border-box",
+                    width: isMobileOrPrint ? undefined : `${pxBackingW * zoomRatio}px`,
+                    height: isMobileOrPrint ? undefined : `${pxBackingH * zoomRatio}px`,
                     "--print-width": `${backingWidth}mm`,
                     "--print-height": `${labelH}mm`,
                     "--print-col-gap": `${colGap}mm`,
                     "--print-padding-left": `${rollSideMargin}mm`,
                     "--print-padding-right": `${rollSideMargin}mm`,
-                    paddingLeft: `${pxSideMargin}px`,
-                    paddingRight: `${pxSideMargin}px`,
                   } as React.CSSProperties
                 }
               >
-                {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
+                <div
+                  style={{
+                    transform: `scale(${zoomRatio})`,
+                    transformOrigin: "top left",
+                    width: `${pxBackingW}px`,
+                    height: `${pxBackingH}px`,
+                    display: "flex",
+                    flexDirection: "row",
+                    boxSizing: "border-box",
+                    paddingLeft: `${pxSideMargin}px`,
+                    paddingRight: `${pxSideMargin}px`,
+                    gap: `${pxColGap}px`,
+                  }}
+                  className="pointer-events-auto"
+                >
+                  {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
                   const globalIdx = rIdx * cols + cIdx;
                   if (globalIdx < totalItems) {
                     const resolvedObjs = resolveDynamicObjects
@@ -2240,12 +2243,9 @@ export function LabelCanvas({
                     );
                   }
                 })}
+                </div>
               </div>
             );
-
-            if (isMobileOrPrint) {
-              return rowEl;
-            }
 
             return (
               <div
@@ -2256,17 +2256,7 @@ export function LabelCanvas({
                   height: `${(pxBackingH + pxRowGap) * zoomRatio}px`,
                 }}
               >
-                <div
-                  style={isMobileOrPrint ? undefined : {
-                    transform: `scale(${zoomRatio})`,
-                    transformOrigin: "top left",
-                    width: `${pxBackingW}px`,
-                    height: `${pxBackingH}px`,
-                  }}
-                  className="print:transform-none pointer-events-auto"
-                >
-                  {rowEl}
-                </div>
+                {rowEl}
               </div>
             );
           })}
@@ -2447,8 +2437,27 @@ export function LabelCanvas({
           }}
           title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
         >
-          {/* Watermark/Background Image overlay */}
-          {labelConfig.bgImage && (
+          {/* Inner zoom container for print high-res rendering downscaled */}
+          <div
+            style={
+              (isPrinting || isSystemPrinting)
+                ? {
+                    transform: `scale(${BASE_DPI_SCALE / 8.4915})`,
+                    transformOrigin: "top left",
+                    width: `${mmToPx(labelConfig.width, 8.4915)}px`,
+                    height: `${mmToPx(labelConfig.height, 8.4915)}px`,
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                  }
+                : {
+                    width: "100%",
+                    height: "100%",
+                  }
+            }
+          >
+            {/* Watermark/Background Image overlay */}
+            {labelConfig.bgImage && (
             <div
               className="absolute inset-0 pointer-events-none select-none"
               style={{
@@ -2818,6 +2827,7 @@ export function LabelCanvas({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 

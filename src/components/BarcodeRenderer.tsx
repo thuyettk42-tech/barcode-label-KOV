@@ -252,7 +252,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: isPrint ? `${finalFontSizePt}pt` : `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
@@ -327,10 +327,10 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 onDoubleClick={(e) => e.stopPropagation()}
                 style={{
                   fontFamily: resolvedFontFamily,
-                  fontSize: isPrint ? `${finalFontSizePt}pt` : `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
                   fontWeight: barcodeFontWeight,
                   fontStyle: barcodeFontStyle,
-                  marginBottom: isPrint ? `${marginMm}mm` : `${marginPx}px`,
+                  marginBottom: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
@@ -343,7 +343,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
               <div
                 style={{
                   ...textStyle,
-                  marginBottom: isPrint ? `${marginMm}mm` : `${marginPx}px`,
+                  marginBottom: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150 flex-shrink-0"
@@ -378,10 +378,10 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 onDoubleClick={(e) => e.stopPropagation()}
                 style={{
                   fontFamily: resolvedFontFamily,
-                  fontSize: isPrint ? `${finalFontSizePt}pt` : `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
                   fontWeight: barcodeFontWeight,
                   fontStyle: barcodeFontStyle,
-                  marginTop: isPrint ? `${marginMm}mm` : `${marginPx}px`,
+                  marginTop: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
@@ -394,7 +394,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
               <div
                 style={{
                   ...textStyle,
-                  marginTop: isPrint ? `${marginMm}mm` : `${marginPx}px`,
+                  marginTop: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150 flex-shrink-0"
