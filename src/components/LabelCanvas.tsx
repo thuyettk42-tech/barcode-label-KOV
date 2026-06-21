@@ -4,7 +4,8 @@
  */
 
 import React, { useRef, useEffect, useState } from "react";
-import { flushSync } from "react-dom";
+import { flushSync, createPortal } from "react-dom";
+import html2canvas from "html2canvas";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
@@ -59,6 +60,7 @@ interface LabelCanvasProps {
   onUpdatePrintCopies?: (copies: number) => void;
   onPrintLabel?: () => void;
   isPreparingPrint?: boolean;
+  onShowPrintModal?: () => void;
 }
 
 const getRotatedCursor = (
@@ -495,10 +497,167 @@ export function LabelCanvas({
   onUpdatePrintCopies,
   onPrintLabel,
   isPreparingPrint = false,
+  onShowPrintModal,
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
+
+  const [printImages, setPrintImages] = useState<string[]>([]);
+  const [isRasterizing, setIsRasterizing] = useState<boolean>(false);
+
+  const isOfficeMode = sheetConfig && sheetConfig.mode === "office";
+  const getSheetDimensionsLocal = (config: any) => {
+    let baseWidth = 210; // A4
+    let baseHeight = 297;
+    if (config?.paperSize === "A5") {
+      baseWidth = 148;
+      baseHeight = 210;
+    } else if (config?.paperSize === "custom") {
+      baseWidth = config.customWidth || 210;
+      baseHeight = config.customHeight || 297;
+    }
+    if (config?.orientation === "landscape") {
+      return { width: baseHeight, height: baseWidth };
+    }
+    return { width: baseWidth, height: baseHeight };
+  };
+  const { width: sWLocal, height: sHLocal } = getSheetDimensionsLocal(sheetConfig);
+  const colsLocal = Math.max(1, sheetConfig?.cols || 1);
+  const colGapLocal = sheetConfig?.colGap || 0;
+  const rollSideMarginLocal = sheetConfig?.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+  const backingWidthLocal = colsLocal * labelConfig.width + (colsLocal - 1) * colGapLocal + rollSideMarginLocal * 2;
+
+  const printPageWidth = isOfficeMode ? `${sWLocal}mm` : `${backingWidthLocal}mm`;
+  const printPageHeight = isOfficeMode ? `${sHLocal}mm` : `${labelConfig.height}mm`;
+
+  useEffect(() => {
+    let active = true;
+
+    if (isPreparingPrint && isSystemPrinting) {
+      const runRasterization = async () => {
+        setIsRasterizing(true);
+        // Wait 400ms for browser layout to settle down and finish SVG barcode render fully
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        
+        if (!active) return;
+
+        const selector = isOfficeMode ? ".office-print-page" : ".batch-print-page";
+        let pages = Array.from(document.querySelectorAll(selector));
+        
+        if (pages.length === 0) {
+          const fallback = document.querySelector("#thermal-label-canvas") || document.querySelector(".batch-print-cell");
+          if (fallback) {
+            pages = [fallback];
+          }
+        }
+
+        const images: string[] = [];
+        for (const page of pages) {
+          try {
+            const canvas = await html2canvas(page as HTMLElement, {
+              scale: 4,
+              useCORS: true,
+              logging: false,
+              backgroundColor: "#ffffff",
+            });
+            images.push(canvas.toDataURL("image/png"));
+          } catch (err) {
+            console.error("Lỗi rasterization từng trang:", err);
+          }
+        }
+
+        if (!active) return;
+
+        if (images.length > 0) {
+          setPrintImages(images);
+          setIsRasterizing(false);
+
+          // Wait a brief tick (150ms) to let React mount the rasterized <img> elements onto the print overlay DOM
+          setTimeout(() => {
+            if (!active) return;
+            const isInIframe = window.self !== window.top;
+            if (isInIframe && onShowPrintModal) {
+              onShowPrintModal();
+            } else {
+              window.focus();
+              window.print();
+            }
+          }, 150);
+        } else {
+          setIsRasterizing(false);
+          const isInIframe = window.self !== window.top;
+          if (isInIframe && onShowPrintModal) {
+            onShowPrintModal();
+          } else {
+            window.focus();
+            window.print();
+          }
+        }
+      };
+
+      runRasterization();
+    } else {
+      setPrintImages([]);
+      setIsRasterizing(false);
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [isPreparingPrint, isSystemPrinting, isOfficeMode, sWLocal, sHLocal, backingWidthLocal, labelConfig.height]);
+
+  const renderPrintRasterOverlay = () => {
+    return (
+      <>
+        {isRasterizing && (
+          <div className="fixed inset-0 bg-slate-900/80 z-[999999] flex flex-col items-center justify-center space-y-4 text-white no-print">
+            <RefreshCw className="w-12 h-12 text-kiot-cyan animate-spin" />
+            <div className="text-center">
+              <h3 className="text-lg font-bold uppercase tracking-wide">ĐANG CHUẨN BỊ BẢN IN</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                Đang chụp ảnh vector độ nét cao (4X) để chống vỡ nét trên máy in nhiệt...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {printImages.length > 0 && createPortal(
+          <div 
+            className="print-images-overlay" 
+            style={{
+              position: "fixed",
+              inset: 0,
+              backgroundColor: "#ffffff",
+              zIndex: 99999,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            {printImages.map((src, index) => (
+              <img
+                key={index}
+                src={src}
+                alt={`Page ${index + 1}`}
+                className="print-page-image"
+                style={{
+                  width: printPageWidth,
+                  height: printPageHeight,
+                  "--print-width": printPageWidth,
+                  "--print-height": printPageHeight,
+                  display: "block",
+                  pageBreakInside: "avoid" as const,
+                  pageBreakAfter: index === printImages.length - 1 ? ("avoid" as const) : ("always" as const),
+                } as React.CSSProperties}
+              />
+            ))}
+          </div>,
+          document.body
+        )}
+      </>
+    );
+  };
 
   // Helper to dynamically read browser zoom on .app-scale-wrapper to fix marquee coordinate offsets
   const getWorkspaceZoom = (): number => {
@@ -1610,7 +1769,6 @@ export function LabelCanvas({
     return { width: baseWidth, height: baseHeight };
   };
 
-  const isOfficeMode = sheetConfig && sheetConfig.mode === "office";
   const showOfficeSheet = isOfficeMode && officePreviewMode === "sheet";
 
   // Office sheet grid printable view
@@ -1971,6 +2129,7 @@ export function LabelCanvas({
 
         {/* Floating Quick Print Panel */}
         {renderFloatingQuickPrintPanel()}
+        {renderPrintRasterOverlay()}
       </div>
     );
   }
@@ -2308,6 +2467,7 @@ export function LabelCanvas({
 
         {/* Floating Quick Print Panel */}
         {renderFloatingQuickPrintPanel()}
+        {renderPrintRasterOverlay()}
       </div>
     );
   }
@@ -2993,6 +3153,7 @@ export function LabelCanvas({
 
       {/* Floating Quick Print Panel */}
       {renderFloatingQuickPrintPanel()}
+      {renderPrintRasterOverlay()}
     </div>
   );
 }
