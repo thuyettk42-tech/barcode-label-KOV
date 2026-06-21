@@ -291,8 +291,24 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     ? naturalDimensions.height * scaleMultiplier
     : undefined;
 
+  const textHeightPx = Math.ceil(finalFontSizePt * 0.3528 * finalPixelScale * 1.3);
+
+  const svgTop = showAbove ? textHeightPx + marginPx : 0;
+  const svgBottom = showBelow ? textHeightPx + marginPx : 0;
+
+  const absoluteTextStyle = {
+    ...textStyle,
+    position: "absolute" as const,
+    left: 0,
+    right: 0,
+    height: `${textHeightPx}px`,
+    lineHeight: `${textHeightPx}px`,
+    whiteSpace: "nowrap" as const,
+    textAlign: textalign as any,
+  };
+
   return (
-    <div className="relative w-full h-full flex flex-col justify-between items-stretch overflow-hidden select-none">
+    <div className="relative w-full h-full select-none">
       {/* Absolute overlay for error state so the actual <svg> tag is NEVER unmounted, preventing ref stuck behavior */}
       {effectiveError && !isEditing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded text-center select-none overflow-hidden z-10">
@@ -307,102 +323,106 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
       {/* Main Barcode Display (made invisible while preserving layout size and ref bindings when in error state) */}
       <div
-        className={`w-full h-full flex flex-col justify-center items-center overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}
+        className={`w-full h-full relative ${effectiveError && !isEditing ? "invisible" : ""}`}
       >
-        <div
-          className={`flex flex-col ${alignClass} justify-between items-center w-full h-full py-[1.5px]`}
-        >
-          {showAbove &&
-            (isEditing ? (
-              <input
-                type="text"
-                autoFocus
-                value={tempValue}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onMouseDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-                style={{
-                  fontFamily: resolvedFontFamily,
-                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
-                  fontWeight: barcodeFontWeight,
-                  fontStyle: barcodeFontStyle,
-                  marginBottom: `${marginPx}px`,
-                  textAlign: textalign as any,
-                }}
-                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
-                  effectiveError
-                    ? "border-red-500 ring-2 ring-red-100"
-                    : "border-kiot-cyan ring-2 ring-cyan-100"
-                } rounded-sm shadow-sm z-50`}
-              />
-            ) : (
-              <div
-                style={{
-                  ...textStyle,
-                  marginBottom: `${marginPx}px`,
-                  textAlign: textalign as any,
-                }}
-                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
-                onDoubleClick={handleStartEdit}
-                title="Nhấp đúp để sửa nhãn"
-              >
-                {effectiveContent || content}
-              </div>
-            ))}
-          <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
-            <svg
-              ref={svgRef}
+        {/* Text Above */}
+        {showAbove && (
+          isEditing ? (
+            <input
+              type="text"
+              autoFocus
+              value={tempValue}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
               style={{
-                width: "100%",
-                height: "100%",
-                display: "block",
+                ...absoluteTextStyle,
+                top: 0,
+                zIndex: 50,
               }}
-              preserveAspectRatio="none"
-              className="block w-full h-full"
+              className={`select-text outline-none px-1 bg-white text-slate-900 border ${
+                effectiveError
+                  ? "border-red-500 ring-2 ring-red-100"
+                  : "border-kiot-cyan ring-2 ring-cyan-100"
+              } rounded-sm shadow-sm`}
             />
-          </div>
-          {showBelow &&
-            (isEditing ? (
-              <input
-                type="text"
-                autoFocus
-                value={tempValue}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                onKeyDown={handleKeyDown}
-                onMouseDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => e.stopPropagation()}
-                style={{
-                  fontFamily: resolvedFontFamily,
-                  fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
-                  fontWeight: barcodeFontWeight,
-                  fontStyle: barcodeFontStyle,
-                  marginTop: `${marginPx}px`,
-                  textAlign: textalign as any,
-                }}
-                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
-                  effectiveError
-                    ? "border-red-500 ring-2 ring-red-100"
-                    : "border-kiot-cyan ring-2 ring-cyan-100"
-                } rounded-sm shadow-sm z-50`}
-              />
-            ) : (
-              <div
-                style={{
-                  ...textStyle,
-                  marginTop: `${marginPx}px`,
-                  textAlign: textalign as any,
-                }}
-                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
-                onDoubleClick={handleStartEdit}
-                title="Nhấp đúp để sửa nhãn"
-              >
-                {effectiveContent || content}
-              </div>
-            ))}
+          ) : (
+            <div
+              style={{
+                ...absoluteTextStyle,
+                top: 0,
+              }}
+              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150"
+              onDoubleClick={handleStartEdit}
+              title="Nhấp đúp để sửa nhãn"
+            >
+              {effectiveContent || content}
+            </div>
+          )
+        )}
+
+        {/* Barcode SVG Container */}
+        <div
+          style={{
+            position: "absolute",
+            top: `${svgTop}px`,
+            bottom: `${svgBottom}px`,
+            left: 0,
+            right: 0,
+          }}
+          className="flex items-center justify-center overflow-hidden"
+        >
+          <svg
+            ref={svgRef}
+            style={{
+              width: "100%",
+              height: "100%",
+              display: "block",
+            }}
+            preserveAspectRatio="none"
+            className="block w-full h-full"
+          />
         </div>
+
+        {/* Text Below */}
+        {showBelow && (
+          isEditing ? (
+            <input
+              type="text"
+              autoFocus
+              value={tempValue}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              onMouseDown={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+              style={{
+                ...absoluteTextStyle,
+                bottom: 0,
+                zIndex: 50,
+              }}
+              className={`select-text outline-none px-1 bg-white text-slate-900 border ${
+                effectiveError
+                  ? "border-red-500 ring-2 ring-red-100"
+                  : "border-kiot-cyan ring-2 ring-cyan-100"
+              } rounded-sm shadow-sm`}
+            />
+          ) : (
+            <div
+              style={{
+                ...absoluteTextStyle,
+                bottom: 0,
+              }}
+              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150"
+              onDoubleClick={handleStartEdit}
+              title="Nhấp đúp để sửa nhãn"
+            >
+              {effectiveContent || content}
+            </div>
+          )
+        )}
       </div>
     </div>
   );
