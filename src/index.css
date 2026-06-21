@@ -226,12 +226,28 @@ html, body, .object-print-class {
     padding: 0 !important;
   }
 
+  .print-native-text {
+    font-size: var(--fs-print) !important;
+    height: var(--th-print) !important;
+    line-height: var(--th-print) !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+  }
+
+  .print-native-margin {
+    margin-top: var(--space-print) !important;
+    margin-bottom: var(--space-print) !important;
+  }
+
+  .print-native-margin-container {
+    top: var(--space-print) !important;
+    bottom: var(--space-bottom-print) !important;
+  }
+
   .object-print-class, .object-print-class * {
     overflow: visible !important;
-    -webkit-font-smoothing: none !important;
-    font-kerning: none !important;
+    -webkit-font-smoothing: antialiased !important;
     text-rendering: geometricPrecision !important;
-    letter-spacing: normal !important;
   }
 
   /* Dynamic page configuration */

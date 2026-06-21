@@ -248,16 +248,20 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     resolvedFontFamily = "var(--font-mono)";
   }
 
+  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
+  const marginPx = marginMm * finalPixelScale;
+
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+    fontSize: "var(--fs-screen)",
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
+    ["--fs-screen" as any]: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+    ["--fs-print" as any]: `${finalFontSizePt}pt`,
+    ["--space-screen" as any]: `${marginPx}px`,
+    ["--space-print" as any]: `${marginMm}mm`,
   };
-
-  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
-  const marginPx = marginMm * finalPixelScale;
 
   const origin = textFlowOrigin || "center";
 
@@ -301,10 +305,12 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     position: "absolute" as const,
     left: 0,
     right: 0,
-    height: `${textHeightPx}px`,
-    lineHeight: `${textHeightPx}px`,
+    height: "var(--th-screen)",
+    lineHeight: "var(--th-screen)",
     whiteSpace: "nowrap" as const,
     textAlign: textalign as any,
+    ["--th-screen" as any]: `${textHeightPx}px`,
+    ["--th-print" as any]: `${finalFontSizePt * 0.3528 * 1.3}mm`,
   };
 
   return (
@@ -354,7 +360,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 ...absoluteTextStyle,
                 top: 0,
               }}
-              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150"
+              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150 print-native-text"
               onDoubleClick={handleStartEdit}
               title="Nhấp đúp để sửa nhãn"
             >
@@ -367,12 +373,16 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
         <div
           style={{
             position: "absolute",
-            top: `${svgTop}px`,
-            bottom: `${svgBottom}px`,
+            top: "var(--space-screen, 0px)",
+            bottom: "var(--space-bottom-screen, 0px)",
             left: 0,
             right: 0,
+            ["--space-screen" as any]: `${svgTop}px`,
+            ["--space-bottom-screen" as any]: `${svgBottom}px`,
+            ["--space-print" as any]: `${showAbove ? (finalFontSizePt * 0.3528 * 1.3) + marginMm : 0}mm`,
+            ["--space-bottom-print" as any]: `${showBelow ? (finalFontSizePt * 0.3528 * 1.3) + marginMm : 0}mm`,
           }}
-          className="flex items-center justify-center overflow-hidden"
+          className="flex items-center justify-center overflow-hidden print-native-margin-container"
         >
           <svg
             ref={svgRef}
@@ -415,7 +425,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                 ...absoluteTextStyle,
                 bottom: 0,
               }}
-              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150"
+              className="select-none cursor-text hover:bg-black/5 rounded transition-colors duration-150 print-native-text"
               onDoubleClick={handleStartEdit}
               title="Nhấp đúp để sửa nhãn"
             >

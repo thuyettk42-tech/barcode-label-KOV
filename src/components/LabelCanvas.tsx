@@ -336,15 +336,16 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
     return (
       <span
+        className="print-native-text"
         style={{
           fontFamily: resolveFontFamily(fontFamilyVal || obj.fontFamily),
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: "var(--fs-screen)",
           color: colorVal || undefined,
+          ["--fs-screen" as any]: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          ["--fs-print" as any]: `${fontSizeVal || obj.fontSize || 10}pt`,
         }}
       >
         {wrapped}
