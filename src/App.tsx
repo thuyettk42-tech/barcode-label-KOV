@@ -453,6 +453,7 @@ export default function App() {
   const [officePreviewMode, setOfficePreviewMode] = useState<'design' | 'sheet'>('design');
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
 
   // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
@@ -602,6 +603,7 @@ export default function App() {
     const handleRestore = () => {
       setTimeout(() => {
         setIsSystemPrinting(false);
+        setIsPreparingPrint(false);
         if (wasDesignModeForPrint) {
           setOfficePreviewMode('design');
           setWasDesignModeForPrint(false);
@@ -2456,6 +2458,7 @@ export default function App() {
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
     handleSelectObject(null); // Deselect so focused outline does not print
+    setIsPreparingPrint(true); // Show brand overlay loader while compilation blocks
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
     
     const wasDesign = officePreviewMode === 'design';
@@ -2464,17 +2467,21 @@ export default function App() {
       setWasDesignModeForPrint(true);
     }
 
-    // Give browser/React robust time (350ms) to compile the full multi-page grid inside the DOM before layout rendering
+    // Give browser/React robust time (1400ms) to compile the full multi-page grid inside the DOM before layout rendering
     setTimeout(() => {
       // Check if running inside iframe
       const isInIframe = window.self !== window.top;
       if (isInIframe) {
+        setIsPreparingPrint(false); // Hide preparation spinner immediately for iframe modal
         setShowPrintModal(true);
       } else {
         window.focus();
         window.print();
+        setTimeout(() => {
+          setIsPreparingPrint(false);
+        }, 300);
       }
-    }, 350);
+    }, 1400);
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -2495,6 +2502,27 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden font-sans select-none bg-kiot-bg text-kiot-slate app-scale-wrapper">
       
+      {/* Dynamic high-DPI full screen loading backdrop during print rendering */}
+      {isPreparingPrint && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-[9999] flex flex-col items-center justify-center text-center select-none no-print">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-sm flex flex-col items-center border border-slate-100 animate-fadeIn">
+            {/* Elegant spinning circular loader */}
+            <div className="w-12 h-12 border-4 border-kiot-cyan/20 border-t-kiot-cyan rounded-full animate-spin"></div>
+            
+            <h3 className="text-kiot-navy font-black text-[15px] mt-4 uppercase tracking-wider">
+              Đang Chuẩn Bị Bản In
+            </h3>
+            
+            <p className="text-gray-500 text-[11px] font-medium leading-relaxed max-w-[260px] mt-2">
+              Hệ thống đang kết xuất bản in chất lượng cao và đồng bộ hóa mã vạch/QR... Vui lòng không đóng cửa sổ.
+            </p>
+            
+            <span className="text-[10px] bg-sky-50 text-kiot-cyan font-mono font-bold px-2.5 py-0.5 rounded-full mt-3.5 border border-sky-100">
+              Độ nét 300 DPI • Tối Ưu Nhiệt
+            </span>
+          </div>
+        </div>
+      )}
       {/* 1. TOP APPLICATION NAVIGATION BAR */}
       <header id="app-header" className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-40 no-print text-kiot-navy shadow-md">
         <div className="flex items-center space-x-4">
@@ -5017,10 +5045,14 @@ export default function App() {
                 type="button"
                 onClick={() => {
                   setShowPrintModal(false);
+                  setIsPreparingPrint(true);
                   setTimeout(() => {
                     window.focus();
                     window.print();
-                  }, 200);
+                    setTimeout(() => {
+                      setIsPreparingPrint(false);
+                    }, 300);
+                  }, 800);
                 }}
                 className="w-full py-2 border border-gray-300 rounded-lg hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer"
               >

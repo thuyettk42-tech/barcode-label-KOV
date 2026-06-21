@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, memo } from "react";
 import JsBarcode from "jsbarcode";
 import { BASE_DPI_SCALE, PT_TO_MM_FACTOR } from "../utils";
 
@@ -175,7 +175,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   const showBelow = barcodeShowTextBelow ?? displayValue;
   const finalFontSizePt = barcodeFontSize ?? fontSize;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     // Clear any previous error before starting
     setRenderError(null);
 

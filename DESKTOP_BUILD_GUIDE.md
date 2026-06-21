@@ -114,5 +114,93 @@ We sử dụng **Inno Setup** – Phần mềm tạo bộ cài Windows miễn ph
 
 ---
 
+## 🛡️ Bước 7: Khắc Phục Lỗi Báo Virus (False Positive) & Hướng Dẫn Ký Số Mã Nguồn (Code Signing)
+
+### 1. Tại sao file `.exe` đóng gói từ Python thường bị Google Drive và phần mềm diệt virus cảnh báo?
+
+Khi bạn chạy lệnh đóng gói `pyinstaller --onefile`, cơ chế hoạt động của PyInstaller là:
+* **Cơ chế nén tự giải (Heuristic Scan trigger):** Nó nén toàn bộ mã nguồn Python, thư viện DLL, và file web tĩnh `dist/` vào trong một tệp nhị phân duy nhất. Khi người dùng click chạy `.exe`, file này sẽ tự giải nén (extract) hàng tá thư mục ẩn vào thư mục tạm `C:\Users\username\AppData\Local\Temp\_MEIxxxxxx` của hệ thống rồi mới khởi chạy. Hành vi tự sinh file thực thi trong thư mục Temp này cực kỳ giống với hành vi của các phần mềm độc hại (Trojan/Virus).
+* **Mẫu Bootloader dùng chung (Blacklisted signature):** Hầu hết các virus viết bằng Python cũng được hacker đóng gói bằng PyInstaller bản cài sẵn từ `pip`. Vì thế các công cụ quét mã độc (Avast trên Google Drive, Windows Defender) lưu lại dấu vân tay (Signature) của tệp chạy mồi phục vụ PyInstaller và cảnh báo hàng loạt (được gọi là lỗi **False Positive - Cảnh báo nhầm**).
+* **Thiếu chứng thực ký số (Unsigned Binary):** Một file `.exe` lạ tải từ internet xuống không có gốc chứng thực kỹ thuật số thì mặc định Windows SmartScreen sẽ hiện màn hình bảo vệ màu xanh cảnh báo ngăn người dùng chạy.
+
+---
+
+### 2. Các giải pháp khắc phục MIỄN PHÍ & HIỆU QUẢ nhất (Bypass Google Drive và Windows Defender)
+
+#### ✅ Kế hoạch A: Nén thư mục ZIP bảo mật mật khẩu (Nhanh và tiện nhất cho Google Drive)
+Cách đơn giản nhất để vượt qua bộ lọc quét file tĩnh của Google Drive mà không cần mua chứng chỉ:
+1. Lúc đóng gói bằng PyInstaller, hãy chuyển sang cấu trúc thư mục chứa thay vì 1 file đơn lẻ bằng cách bỏ `--onefile` hoặc chạy: 
+   ```cmd
+   pyinstaller --noconsole --add-data "dist;dist" --add-data "logo.svg;." --icon="logo.ico" --name "KiotLabelDesigner" gui.py
+   ```
+2. Bạn sẽ nhận được thư mục `dist/KiotLabelDesigner` chứa file `.exe` và các thư viện nằm ngoài.
+3. Sử dụng công cụ **WinRAR** hoặc **7-Zip** trên máy tính của bạn, nhấp chuột phải vào thư mục đó chọn **Add to archive...**.
+4. Chọn định dạng `.zip` hoặc `.7z`, nhấp vào nút **Set password...** (Đặt mật khẩu) và nhập mật khẩu (Ví dụ: `123` hoặc `kiotlabel`).
+5. Upload file nén đã đặt mật khẩu này lên Google Drive để chia sẻ. Google Drive không thể quét lén giải nén tệp tin có đặt mật khẩu nên sẽ hoàn toàn không báo đỏ và cho phép tải xuống 100% không bị chặn. Cung cấp mật khẩu giải nén cho khách hàng khi họ tải về.
+
+#### ✅ Kế hoạch B: Sử dụng Nuitka Compiler thay thế PyInstaller (Khuyên dùng lâu dài)
+**Nuitka** là một trình biên dịch Python cực kỳ hiện đại. Thay vì chỉ đóng nén, Nuitka dịch toàn bộ mã Python của `gui.py` sang mã nguồn C/C++ rồi gọi trình biên dịch (như MSVC hoặc GCC) dịch ra mã máy gốc nhị phân thực thụ. File `.exe` tạo bởi Nuitka cực kỳ mượt mà, khởi động nhanh gấp 3 lần PyInstaller và **gần như không bao giờ bị báo virus nhầm**.
+
+*Hướng dẫn cài đặt và đóng gói bằng Nuitka:*
+1. Mở Command Prompt (CMD) và cài đặt Nuitka:
+   ```cmd
+   pip install nuitka
+   ```
+2. Cài trình biên dịch C++ tự động (Nuitka sẽ hỏi và tự tải GCC/MinGW về cấu hình nếu bạn đồng ý, bấm `Yes`).
+3. Chạy dòng lệnh biên dịch tối ưu sau:
+   ```cmd
+   nuitka --standalone --onefile --windows-disable-console --include-data-dir=dist=dist --include-data-files=logo.svg=logo.svg --windows-icon-from-ico=logo.ico --output-dir=nuitka_output gui.py
+   ```
+4. File `.exe` thu được trong thư mục `nuitka_output` an toàn tuyệt đối và có độ tin cậy cực cao đối với các công cụ quét bảo mật.
+
+#### ✅ Kế hoạch C: Tự xây dựng lại Bootloader của PyInstaller (Dành cho nhà phát triển sâu)
+Nếu vẫn muốn sử dụng PyInstaller và muốn file có danh tính riêng không bị trùng chữ ký mẫu mặc định:
+1. Tải dự án PyInstaller nguồn về máy chạy compile lại bootloader riêng của bạn.
+2. Việc biên dịch lại bootloader cục bộ trên máy tính của bạn sẽ thay đổi hoàn toàn mã hash băm SHA-256 của file mồi, xóa sạch dấu vân tay mẫu đen mà các phần mềm diệt virus đang lưu trữ.
+3. Chi tiết cách xây dựng lại bootloader được hướng dẫn tại trang chủ: [PyInstaller Bootloader Compilation Guide](https://pyinstaller.org/en/stable/bootloader-building.html).
+
+---
+
+### 3. Hướng dẫn Ký số mã nguồn (Code Signing Certificate)
+
+Ký chữ ký số là phương pháp chính thống nhất nhằm định danh doanh nghiệp phát hành và đăng ký với hệ điều hành Windows rằng: *"Tôi là phần mềm sạch của một pháp nhân đã được xác minh danh tính"*. Khi đã được ký số, Windows Defender và Google Drive sẽ không bao giờ chặn phần mềm của bạn.
+
+#### 🏢 Cách 1: Sử dụng Chứng chỉ ký số CA Chính thống (Hợp chuẩn Thương mại)
+Để có chữ ký số được Windows và thế giới tin cậy hoàn toàn, bạn cần mua chứng chỉ **Code Signing Certificate (chữ ký số cho tệp tin thực thi)** từ các Tổ chức chứng thực được Microsoft tin cậy (như **Sectigo**, **DigiCert**, **SSL.com**, **GlobalSign**).
+
+1. **Mua Chứng chỉ**:
+   - Bạn có thể mua trực tiếp hoặc mua qua đại lý tiết kiệm (gợi ý: **K Software** - `ksoftware.net`, là đại lý cấp 1 giá rẻ nhất của Sectigo cho nhà phát triển cá nhân/doanh nghiệp nhỏ chỉ khoảng $150–$250/năm).
+   - Chọn loại chứng chỉ ký số: **OV (Organization Validated - Xác minh tổ chức)** dành cho doanh nghiệp hoặc **EV (Extended Validation - Xác minh mở rộng)** (đắt hơn nhưng giúp vượt qua cảnh báo Windows SmartScreen ngay lập tức từ lần chạy đầu tiên).
+2. **Ký file `.exe` bằng công cụ `signtool.exe` của Microsoft (Windows SDK)**:
+   - Cài đặt Windows SDK để lấy tệp tin công cụ ký số.
+   - Khi có file chứng chỉ (ở định dạng khóa `.pfx` hoặc thông qua USB Token bảo mật cứng), mở PowerShell dưới quyền Administrator và thực hiện lệnh:
+     ```powershell
+     signtool sign /f "C:\DuongDan\ChungChiCuaBan.pfx" /p "MatKhauChungChi" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "C:\Path\To\KiotLabelDesigner.exe"
+     ```
+     *Lưu ý: `/tr` và `/td` dùng để đóng dấu thời gian (Timestamping), đảm bảo ứng dụng của bạn vẫn có hiệu lực chữ ký số vĩnh viễn ngay cả khi chứng chỉ gốc hết hạn sử dụng sau 1 năm*.
+
+#### 🧪 Cách 2: Tạo Chứng chỉ Tự Ký (Self-Signed Certificate) để thử nghiệm / Phát hành nội bộ
+Nếu bạn chỉ phát hành phần mềm trong mạng lưới nhân viên nội bộ của công ty, hoặc kiểm thử và không có ngân sách mua chứng chỉ thương mại, bạn có thể tự đóng vai trò là nhà phát hành chứng chỉ:
+
+1. **Khởi tạo chứng chỉ số tự ký trên Windows (qua PowerShell - Admin)**:
+   ```powershell
+   $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=KiotLabel Designer Local Developer" -FriendlyName "KiotLabel Temporary Cert" -CertStoreLocation "Cert:\CurrentUser\My"
+   ```
+2. **Xuất chứng chỉ ra tệp `.pfx` có mật khẩu để lưu giữ**:
+   ```powershell
+   $certPassword = ConvertTo-SecureString "MậtKhauXacThuc123" -AsPlainText -Force
+   Export-PfxCertificate -Cert $cert -FilePath "$env:USERPROFILE\Desktop\KiotLabelTestingCert.pfx" -Password $certPassword
+   ```
+3. **Ký số tệp `.exe` của bạn**:
+   Sử dụng công cụ `signtool.exe` để ký với file `.pfx` vừa xuất:
+   ```cmd
+   signtool sign /f "%USERPROFILE%\Desktop\KiotLabelTestingCert.pfx" /p "MậtKhauXacThuc123" /tr http://timestamp.digicert.com /td sha256 /fd sha256 "C:\Path\To\KiotLabelDesigner.exe"
+   ```
+4. **Để máy tính khách hàng tin tưởng chứng chỉ tự ký này:**
+   - Khi người dùng tải về, chứng chỉ tự ký mặc định vẫn sẽ báo đỏ vì Microsoft chưa lưu pháp nhân của bạn trong danh mục tin cậy mặc định toàn cầu.
+   - Để kích hoạt độ tin cậy tuyệt đối: Hướng dẫn khách hàng cài đặt tệp chứng chỉ `.pfx` (hoặc `.cer` xuất từ file) vào mục **"Trusted Root Certification Authorities" (Cơ quan chứng thực gốc đáng tin cậy)** trên máy tính của họ. Sau khi cài, ứng dụng chạy sẽ mượt mà, xanh mướt và không còn bất kỳ thông báo lỗi SmartScreen hay phòng chống virus nào xuất hiện nữa.
+
+---
+
 💡 **Chúc bạn thực hiện thành công giải pháp đóng gói chuyên nghiệp này!**
 

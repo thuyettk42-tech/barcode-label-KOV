@@ -13,6 +13,8 @@ interface QRCodeRendererProps {
   color?: string;
 }
 
+const qrCache = new Map<string, string>();
+
 export const QRCodeRenderer = memo(function QRCodeRenderer({ 
   content, 
   size = 120, 
@@ -20,7 +22,18 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
   color 
 }: QRCodeRendererProps) {
   const [error, setError] = useState<string | null>(null);
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  // Synchronous prop-matching cache check is extremely powerful to bypass any React state update delays on selection/re-render
+  const cacheKey = `${content}_${size}_${color || ""}`;
+  const cachedVal = qrCache.get(cacheKey) || "";
+  
+  const [currentKey, setCurrentKey] = useState(cacheKey);
+  const [qrDataUrl, setQrDataUrl] = useState<string>(cachedVal);
+
+  if (currentKey !== cacheKey) {
+    setCurrentKey(cacheKey);
+    setQrDataUrl(cachedVal);
+  }
 
   useEffect(() => {
     const cleanContent = content.trim();
@@ -30,6 +43,10 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
     }
 
     setError(null);
+
+    if (cachedVal) {
+      return;
+    }
 
     // Make sure we have high definition rendering for print. High DPI printing requires a large source image
     // to prevent pixelation, distortion, or blurred lines in the print output/PDF export.
@@ -46,13 +63,14 @@ export const QRCodeRenderer = memo(function QRCodeRenderer({
       errorCorrectionLevel: 'H'
     })
     .then((url) => {
+      qrCache.set(cacheKey, url);
       setQrDataUrl(url);
     })
     .catch((err) => {
       console.error("QR Code execution failed:", err);
       setError("Lỗi render QR Code");
     });
-  }, [content, size, color]);
+  }, [content, size, color, cacheKey, cachedVal]);
 
   if (error) {
     return (
