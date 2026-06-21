@@ -60,7 +60,7 @@ html, body, .object-print-class {
     print-color-adjust: exact !important;
   }
 
-  /* Hide entire UI layout chrome & real DOM templates during printing to avoid double render */
+  /* Hide entire UI layout chrome */
   header,
   aside,
   #sidebar-ui,
@@ -68,10 +68,6 @@ html, body, .object-print-class {
   #template-selector,
   [id*="tick"],
   [class*="Ruler"],
-  #label-editor-workspace,
-  .batch-print-page,
-  .office-print-page,
-  #thermal-label-canvas,
   .no-print {
     display: none !important;
     visibility: hidden !important;
@@ -80,35 +76,6 @@ html, body, .object-print-class {
     height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
-  }
-
-  /* Make sure our custom print overlay is displayed correctly during printing */
-  .print-images-overlay {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    height: auto !important;
-    position: static !important;
-    background: #ffffff !important;
-    box-shadow: none !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .print-page-image {
-    display: block !important;
-    width: var(--print-width, 100mm) !important;
-    height: var(--print-height, 75mm) !important;
-    page-break-inside: avoid !important;
-    page-break-after: always !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-  }
-
-  .print-page-image:last-child {
-    page-break-after: avoid !important;
   }
 
   /* Keep ONLY the main editor container with print constraints */
@@ -261,6 +228,10 @@ html, body, .object-print-class {
 
   .object-print-class, .object-print-class * {
     overflow: visible !important;
+    -webkit-font-smoothing: none !important;
+    font-kerning: none !important;
+    text-rendering: geometricPrecision !important;
+    letter-spacing: normal !important;
   }
 
   /* Dynamic page configuration */
@@ -306,12 +277,6 @@ html, body, .object-print-class {
   .no-print input,
   .no-print button {
     line-height: inherit !important;
-  }
-}
-
-@media screen {
-  .print-images-overlay {
-    display: none !important;
   }
 }
 

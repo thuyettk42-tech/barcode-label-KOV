@@ -2468,6 +2468,21 @@ export default function App() {
       setOfficePreviewMode('sheet');
       setWasDesignModeForPrint(true);
     }
+
+    // Await Render: Ensure the DOM is updated and requestAnimationFrame + setTimeout gives the GPU thread ample time to fully draw all <svg> barcode elements
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        // Check if running inside iframe
+        const isInIframe = window.self !== window.top;
+        if (isInIframe) {
+          setShowPrintModal(true);
+          setIsPreparingPrint(false);
+        } else {
+          window.focus();
+          window.print();
+        }
+      }, 450); // 450ms is the ideal buffer ensuring zero async race condition while keeping print rapid
+    });
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -4954,7 +4969,6 @@ export default function App() {
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
             isPreparingPrint={isPreparingPrint}
-            onShowPrintModal={() => setShowPrintModal(true)}
           />
 
         </main>
