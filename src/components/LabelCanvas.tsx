@@ -1599,8 +1599,8 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and prevent browser minimum font clamping.
-    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915;
+    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
     const pxSheetH = mmToPx(sH, previewScale);
@@ -1976,8 +1976,8 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and prevent browser minimum font clamping.
-    const zoomRatio = isMobileOrPrint ? (BASE_DPI_SCALE / 8.4915) : (pixelScale / 8.4915);
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915;
+    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)

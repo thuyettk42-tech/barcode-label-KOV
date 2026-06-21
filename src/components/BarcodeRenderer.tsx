@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState, memo } from "react";
+import React, { useEffect, useRef, useState, memo, useMemo } from "react";
 import JsBarcode from "jsbarcode";
-import { BASE_DPI_SCALE, PT_TO_MM_FACTOR } from "../utils";
+import { BASE_DPI_SCALE } from "../utils";
 
 interface BarcodeRendererProps {
   content: string;
@@ -120,13 +120,6 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   color,
   barcodeTextColor,
 }: BarcodeRendererProps) {
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
-  const [naturalDimensions, setNaturalDimensions] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(content);
   const contentBeforeEdit = useRef(content);
@@ -168,71 +161,54 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
   // Process input dynamically during the render cycle
   const validation = processBarcodeContent(content, format);
-  const effectiveError = validation.error || renderError;
   const effectiveContent = validation.valid ? validation.encodedContent : "";
+
+  // Purely synchronous SVG rendering to prevent blank printing components
+  const { svgHtml, viewBox, isBarcodeValid } = useMemo(() => {
+    let outHtml = "";
+    let outViewBox = "0 0 100 100";
+    let isValid = true;
+
+    if (validation.valid && effectiveContent && typeof document !== "undefined") {
+      try {
+        const baseScale = BASE_DPI_SCALE;
+        const actualHeight = Math.max(5, Math.round(barcodeHeight * baseScale));
+        const svgContainer = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+
+        JsBarcode(svgContainer, effectiveContent, {
+          format: format,
+          width: barcodeWidth,
+          height: actualHeight,
+          displayValue: false, // Custom structured text elements are outputted below for high-precision formatting
+          margin: 0,
+          background: "transparent",
+          lineColor: color || "#000000",
+          valid: (validStatus: boolean) => {
+            isValid = validStatus;
+          },
+        });
+
+        if (isValid) {
+          const rawWidth = svgContainer.getAttribute("width");
+          const rawHeight = svgContainer.getAttribute("height");
+          if (rawWidth && rawHeight) {
+            outViewBox = `0 0 ${rawWidth} ${rawHeight}`;
+          }
+          outHtml = svgContainer.innerHTML;
+        }
+      } catch (err) {
+        console.error("Barcode generation failed in render phase:", err);
+        isValid = false;
+      }
+    }
+    return { svgHtml: outHtml, viewBox: outViewBox, isBarcodeValid: isValid };
+  }, [effectiveContent, format, barcodeWidth, barcodeHeight, color]);
+
+  const effectiveError = validation.error || (!isBarcodeValid ? "Không thể mã hóa giá trị này theo chuẩn " + format : null);
 
   const showAbove = barcodeShowTextAbove;
   const showBelow = barcodeShowTextBelow ?? displayValue;
   const finalFontSizePt = barcodeFontSize ?? fontSize;
-
-  useLayoutEffect(() => {
-    // Clear any previous error before starting
-    setRenderError(null);
-
-    if (!svgRef.current) return;
-    if (!validation.valid || !effectiveContent) return;
-
-    if (!JsBarcode) {
-      setRenderError("Thư viện JsBarcode chưa được tải.");
-      return;
-    }
-
-    const baseScale = BASE_DPI_SCALE; // Standard system factor of layout reference limits
-    const actualHeight = Math.max(5, Math.round(barcodeHeight * baseScale));
-
-    try {
-      JsBarcode(svgRef.current, effectiveContent, {
-        format: format,
-        width: barcodeWidth,
-        height: actualHeight,
-        displayValue: false, // We render custom SVGs/text elements manually for layout precision
-        margin: 0,
-        background: "transparent",
-        lineColor: color || "#000000",
-        valid: (valid: boolean) => {
-          if (!valid) {
-            setRenderError("Không thể mã hóa giá trị này theo chuẩn " + format);
-          }
-        },
-      });
-
-      // Transform the SVG to be scale-invariant and responsive with viewBox
-      if (svgRef.current) {
-        const rawWidth = svgRef.current.getAttribute("width");
-        const rawHeight = svgRef.current.getAttribute("height");
-
-        if (rawWidth && rawHeight) {
-          const numWidth = parseFloat(rawWidth);
-          const numHeight = parseFloat(rawHeight);
-
-          if (!isNaN(numWidth) && !isNaN(numHeight)) {
-            setNaturalDimensions({ width: numWidth, height: numHeight });
-            svgRef.current.setAttribute(
-              "viewBox",
-              `0 0 ${numWidth} ${numHeight}`,
-            );
-            svgRef.current.removeAttribute("width");
-            svgRef.current.removeAttribute("height");
-            svgRef.current.style.width = "";
-            svgRef.current.style.height = "";
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Barcode execution fail:", err);
-      setRenderError("Lỗi hiển thị mã vạch");
-    }
-  }, [effectiveContent, format, barcodeWidth, barcodeHeight, color]);
 
   const finalPixelScale = pixelScale ?? BASE_DPI_SCALE;
 
@@ -261,15 +237,6 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
 
   const origin = textFlowOrigin || "center";
 
-  let justifyClass = "justify-start";
-  if (origin.startsWith("top")) {
-    justifyClass = "justify-start";
-  } else if (origin.startsWith("center") || origin === "center") {
-    justifyClass = "justify-center";
-  } else if (origin.startsWith("bottom")) {
-    justifyClass = "justify-end";
-  }
-
   let alignClass = "items-start";
   let textalign = "left";
   if (origin.endsWith("left")) {
@@ -283,17 +250,9 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     textalign = "right";
   }
 
-  const scaleMultiplier = finalPixelScale / BASE_DPI_SCALE;
-  const displayWidth = naturalDimensions
-    ? naturalDimensions.width * scaleMultiplier
-    : undefined;
-  const displayHeight = naturalDimensions
-    ? naturalDimensions.height * scaleMultiplier
-    : undefined;
-
   return (
     <div className="relative w-full h-full flex flex-col justify-between items-stretch overflow-hidden select-none">
-      {/* Absolute overlay for error state so the actual <svg> tag is NEVER unmounted, preventing ref stuck behavior */}
+      {/* Absolute overlay for error state */}
       {effectiveError && !isEditing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded text-center select-none overflow-hidden z-10">
           <span className="font-bold text-[10px] leading-tight select-none">
@@ -305,7 +264,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
         </div>
       )}
 
-      {/* Main Barcode Display (made invisible while preserving layout size and ref bindings when in error state) */}
+      {/* Main Barcode Display */}
       <div
         className={`w-full h-full flex flex-col justify-center items-center overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}
       >
@@ -353,14 +312,15 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
             ))}
           <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
             <svg
-              ref={svgRef}
               style={{
                 width: "100%",
                 height: "100%",
                 display: "block",
               }}
+              viewBox={viewBox}
               preserveAspectRatio="none"
               className="block w-full h-full"
+              dangerouslySetInnerHTML={{ __html: svgHtml }}
             />
           </div>
           {showBelow &&
