@@ -3,15 +3,21 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeTheme } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
 const { exec } = require("child_process");
 
+// Sửa lỗi 1: Ép sRGB color profile từ dòng lệnh để giữ màu sắc chuẩn xác giống trình duyệt
+app.commandLine.appendSwitch("force-color-profile", "srgb");
+
 let mainWindow = null;
 
 function createWindow() {
+  // Sửa lỗi 1: Ép themeSource thành 'light' để tránh chế độ tối hệ thống làm biến đổi hoặc xỉn màu giao diện
+  nativeTheme.themeSource = "light";
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 850,
@@ -21,9 +27,10 @@ function createWindow() {
       ? path.join(__dirname, "logo.ico")
       : undefined,
     webPreferences: {
+      // Sửa lỗi 3: Cấu hình chuẩn để hỗ trợ tuyệt đối các sự kiện tương tác chuột (pointer events), kéo thả (drag & drop)
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false, // Disable web security for local app asset loading and offline CORS-free operations
+      webSecurity: false, // Cho phép tải tệp cục bộ và tránh lỗi CORS ngoại tuyến
       preload: path.join(__dirname, "preload.cjs")
     }
   });
@@ -31,13 +38,13 @@ function createWindow() {
   // Load local build in production or dev server in development
   const isDev = process.env.NODE_ENV === "development" || !app.isPackaged;
   if (isDev) {
-    // If running in development, load the local dev port
     mainWindow.loadURL("http://localhost:3000");
-    mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built static file from dist/
     mainWindow.loadFile(path.join(__dirname, "dist", "index.html"));
   }
+
+  // Sửa lỗi 2: Luôn kích hoạt DevTools để dễ dàng tìm lỗi và debug ngoại tuyến
+  mainWindow.webContents.openDevTools();
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -46,6 +53,9 @@ function createWindow() {
 
 // 1. Electron lifecycle events
 app.whenReady().then(() => {
+  // Sửa lỗi 3: Vô hiệu hóa Menu top-bar mặc định để trả lại trọn vẹn phím tắt Multi-select (Ctrl / Shift) cho React app
+  Menu.setApplicationMenu(null);
+  
   createWindow();
 
   app.on("activate", () => {
@@ -62,7 +72,7 @@ app.on("window-all-closed", () => {
 // 2. IPC handlers for Office & Thermal offline printing
 
 /**
- * Handle listing all printers connected to this computer (both local and network)
+ * Handle listing all printers connected to this computer
  */
 ipcMain.handle("get-printers", async (event) => {
   if (!mainWindow) return [];
@@ -75,7 +85,24 @@ ipcMain.handle("get-printers", async (event) => {
 });
 
 /**
- * Handle Silent Office Printing using standard Chromium webContents.print
+ * Sửa lỗi 4: Lắng nghe sự kiện in từ trình duyệt để kích hoạt hộp thoại in hệ thống (Hỗ trợ máy in thường và Save as PDF)
+ */
+ipcMain.on("window-print", (event) => {
+  const webContents = event.sender;
+  if (webContents) {
+    webContents.print({
+      silent: false,          // BẮT BUỘC: Hiển thị hộp thoại chọn máy in
+      printBackground: true,  // BẮT BUỘC: Giữ màu nền/ảnh nền khi in
+    }, (success, errorType) => {
+      if (!success) {
+        console.warn("Người dùng đã hủy in hoặc có lỗi xảy ra:", errorType);
+      }
+    });
+  }
+});
+
+/**
+ * Handle Standard Office Printing with Dialog using webContents.print
  */
 ipcMain.handle("print-office", async (event, options = {}) => {
   if (!mainWindow) {
@@ -83,10 +110,8 @@ ipcMain.handle("print-office", async (event, options = {}) => {
   }
 
   return new Promise((resolve) => {
-    // Electron print options
     const printOptions = {
-      silent: true,
-      deviceName: options.deviceName || "", // Empty means operating system default printer
+      silent: false, // Bắt buộc mở hội thoại chọn máy in hoặc Lưu dưới dạng PDF
       color: options.color !== false,
       copies: options.copies || 1,
       margins: options.margins || { marginType: "default" },
@@ -98,7 +123,7 @@ ipcMain.handle("print-office", async (event, options = {}) => {
       if (success) {
         resolve({ success: true });
       } else {
-        console.error("Silent print failed:", errorType);
+        console.error("Print with dialog failed or cancelled:", errorType);
         resolve({ success: false, error: errorType });
       }
     });
@@ -110,40 +135,24 @@ ipcMain.handle("print-office", async (event, options = {}) => {
  */
 ipcMain.handle("print-thermal-raw", async (event, { rawData, port }) => {
   try {
-    // Create temporary directory path
     const tempDir = os.tmpdir();
-    // Unique temp text file name for the transaction print payload
     const tempFilePath = path.join(tempDir, `zpl_raw_print_${Date.now()}.txt`);
-
-    // Write raw ZPL payload to the file. We use UTF-8 representation (or raw bytes)
     fs.writeFileSync(tempFilePath, rawData, "utf8");
 
-    // Port to print. Defaults to LPT1 if missing.
-    // Can be a local parallel port (LPT1), USB virtual share (e.g. USB001), 
-    // or a network shared path (e.g., \\\\127.0.0.1\\Xprinter-350B, \\\\localhost\\Zebra)
     const targetPort = port || "LPT1";
-
-    // Setup command sequence based on the target OS (We prioritize Windows offline commands)
     let cmd = "";
     if (process.platform === "win32") {
-      // Windows command lines for direct raw socket or shared stream writing
       if (targetPort.startsWith("\\\\")) {
-        // Shared Windows printer path: must wrap in double quotes to handle empty space characters
         cmd = `copy /b "${tempFilePath}" "${targetPort}"`;
       } else {
-        // Direct local physical Port (LPT1, COM1, PRN) or named alias
         cmd = `copy /b "${tempFilePath}" ${targetPort}`;
       }
     } else {
-      // Unix/macOS fallback: pipe raw code to the standard cups offline backend command
-      // Cups option -oraw sends unprocessed plain text payload directly to the printer controller
       cmd = `lp -d "${targetPort}" -o raw "${tempFilePath}"`;
     }
 
-    // Execute the command in child_process
     return new Promise((resolve) => {
       exec(cmd, (error, stdout, stderr) => {
-        // Always clean up and delete the temporary file after spooling is complete
         try {
           if (fs.existsSync(tempFilePath)) {
             fs.unlinkSync(tempFilePath);

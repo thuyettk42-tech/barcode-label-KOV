@@ -2481,101 +2481,11 @@ export default function App() {
     clipboard
   ]);
 
-  // Print execution call triggers standard printer dialog or Electron direct API spooling
+  // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
     if (isPreparingPrint) return; // Chống spam click (double-click/flood prevention)
 
-    const api = (window as any).electronAPI;
-    if (api && useElectronDirectPrint) {
-      if (sheetConfig.mode === 'thermal') {
-        // --- DIRECT THERMAL PRINTING PATH (ZPL RAW SPOOLING) ---
-        let zplPayload = "";
-        
-        if (excelData.length > 0 && printQuantityMode === "excel_column" && printQuantityColumn) {
-          // Dynamic Excel database multi-row compile
-          const uniqueIndices = Array.from(new Set(printManifest));
-          uniqueIndices.forEach(idx => {
-            const occurrences = printManifest.filter(mIdx => mIdx === idx).length;
-            if (occurrences > 0) {
-              const rowObjects = resolveDynamicObjects ? resolveDynamicObjects(objects, idx) : objects;
-              zplPayload += convertToZPL(labelConfig, rowObjects, occurrences) + "\n";
-            }
-          });
-        } else if (excelData.length > 0) {
-          // standard single repetition per row or custom quantity
-          excelData.forEach((_, idx) => {
-            const rowObjects = resolveDynamicObjects ? resolveDynamicObjects(objects, idx) : objects;
-            zplPayload += convertToZPL(labelConfig, rowObjects, 1) + "\n";
-          });
-        } else {
-          // single static sticker with PQ multiplier
-          zplPayload = convertToZPL(labelConfig, objects, printCopies);
-        }
-
-        setIsPreparingPrint(true);
-        api.printThermalRaw(zplPayload, thermalPort)
-          .then((res: any) => {
-            setIsPreparingPrint(false);
-            if (res.success) {
-              alert(`[Electron OS] Đã biên dịch ZPL và gửi trực tiếp thành công tới cổng ${thermalPort}!`);
-            } else {
-              alert(`[Electron Error] Không thể gửi tới cổng ${thermalPort}: ${res.error || "Lỗi thiết bị"}`);
-            }
-          })
-          .catch((err: any) => {
-            setIsPreparingPrint(false);
-            alert(`[System Connection Fault] Lỗi kết nối luồng in: ${err.message || err}`);
-          });
-
-      } else {
-        // --- SECURE SILENT OFFICE PRINTING (A4/A5 grid sheets) ---
-        setIsPreparingPrint(true);
-        handleSelectObject(null); // deselect focused outline
-        setIsSystemPrinting(true); // make sure full layout is painted
-
-        const wasDesign = officePreviewMode === 'design';
-        if (wasDesign) {
-          setOfficePreviewMode('sheet');
-          setWasDesignModeForPrint(true);
-        }
-
-        // Wait for double frame validation (perfect for browser paint loops)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setTimeout(() => {
-              api.printOffice({
-                deviceName: selectedElectronPrinter,
-                copies: 1, // Let grid layout calculate item coordinates
-                landscape: sheetConfig.orientation === 'landscape',
-                pageSize: sheetConfig.paperSize,
-                color: true
-              }).then((res: any) => {
-                setIsPreparingPrint(false);
-                setIsSystemPrinting(false);
-                if (wasDesign) {
-                  setOfficePreviewMode('design');
-                }
-                if (res.success) {
-                  alert(`[Electron OS] In nhãn văn phòng thành công tới máy in: ${selectedElectronPrinter || "Mặc định hệ thống"}!`);
-                } else {
-                  alert(`[Electron Error] Lỗi in ấn: ${res.error || "Không hỗ trợ khổ in"}`);
-                }
-              }).catch((err: any) => {
-                setIsPreparingPrint(false);
-                setIsSystemPrinting(false);
-                if (wasDesign) {
-                  setOfficePreviewMode('design');
-                }
-                alert(`[System Exception] Lỗi gọi in: ${err.message}`);
-              });
-            }, 800);
-          });
-        });
-      }
-      return;
-    }
-
-    // --- STANDARD CHROMIUM POPUP DIALOG FALLBACK ---
+    // --- STANDARD CHROMIUM POPUP DIALOG FLOW ---
     setIsPreparingPrint(true);
     handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
@@ -2598,7 +2508,7 @@ export default function App() {
           } else {
             window.focus();
             window.print();
-            // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
+            // Đóng hộp thoại in xong hoàn tất chuẩn bị
             setTimeout(() => {
               setIsPreparingPrint(false);
             }, 800);
