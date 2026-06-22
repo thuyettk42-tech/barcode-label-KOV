@@ -341,9 +341,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -771,10 +769,10 @@ export function LabelCanvas({
   const limitPreview =
     !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
 
-  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
-  // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
+  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795) scaled 4x
+  // to avoid zoom level (pixelScale) affecting layout dimensions on paper and prevent browser minimum font limitations.
   const printScale =
-    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
+    isPrinting || isSystemPrinting ? BASE_DPI_SCALE * 4 : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -1617,7 +1615,7 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE * 4 : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and offset browser minimum font size limitations during print
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
@@ -1757,6 +1755,33 @@ export function LabelCanvas({
                             } as React.CSSProperties
                           }
                         >
+                          <div
+                            className="print-scale-container"
+                            style={
+                              isMobileOrPrint
+                                ? {
+                                    width: "400%",
+                                    height: "400%",
+                                    transform: "scale(0.25)",
+                                    transformOrigin: "top left",
+                                    position: "absolute",
+                                    left: 0,
+                                    top: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    boxSizing: "border-box",
+                                  }
+                                : {
+                                    width: "100%",
+                                    height: "100%",
+                                    position: "absolute",
+                                    left: 0,
+                                    top: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                  }
+                            }
+                          >
                           {/* Watermark/Background Image overlay */}
                           {labelConfig.bgImage && (
                             <div
@@ -1822,9 +1847,12 @@ export function LabelCanvas({
                                     "--o-y": `${stdY}mm`,
                                     "--o-w": `${obj.width}mm`,
                                     "--o-h": `${obj.height}mm`,
-                                    "--o-print-height": `${obj.height}mm`,
                                     "--o-print-min-height": "0mm",
                                     "--o-transform": finalTransform,
+                                    "--o-print-left": isMobileOrPrint ? `${itemX}px` : undefined,
+                                    "--o-print-top": isMobileOrPrint ? `${itemY}px` : undefined,
+                                    "--o-print-width": isMobileOrPrint ? `${itemW}px` : undefined,
+                                    "--o-print-height": isMobileOrPrint ? `${itemH}px` : undefined,
                                   } as React.CSSProperties
                                 }
                               >
@@ -1891,6 +1919,7 @@ export function LabelCanvas({
                               </div>
                             );
                           })}
+                          </div>
                         </div>
                       );
                     } else {
@@ -1983,7 +2012,7 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE * 4 : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and offset browser minimum font size limitations during print
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
@@ -2097,6 +2126,33 @@ export function LabelCanvas({
                           } as React.CSSProperties
                         }
                       >
+                        <div
+                          className="print-scale-container"
+                          style={
+                            isMobileOrPrint
+                              ? {
+                                  width: "400%",
+                                  height: "400%",
+                                  transform: "scale(0.25)",
+                                  transformOrigin: "top left",
+                                  position: "absolute",
+                                  left: 0,
+                                  top: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                  boxSizing: "border-box",
+                                }
+                              : {
+                                  width: "100%",
+                                  height: "100%",
+                                  position: "absolute",
+                                  left: 0,
+                                  top: 0,
+                                  right: 0,
+                                  bottom: 0,
+                                }
+                          }
+                        >
                         {/* Watermark/Background Image overlay */}
                         {labelConfig.bgImage && (
                           <div
@@ -2161,9 +2217,12 @@ export function LabelCanvas({
                                   "--o-y": `${stdY}mm`,
                                   "--o-w": `${obj.width}mm`,
                                   "--o-h": `${obj.height}mm`,
-                                  "--o-print-height": `${obj.height}mm`,
                                   "--o-print-min-height": "0mm",
                                   "--o-transform": finalTransform,
+                                  "--o-print-left": isMobileOrPrint ? `${itemX}px` : undefined,
+                                  "--o-print-top": isMobileOrPrint ? `${itemY}px` : undefined,
+                                  "--o-print-width": isMobileOrPrint ? `${itemW}px` : undefined,
+                                  "--o-print-height": isMobileOrPrint ? `${itemH}px` : undefined,
                                 } as React.CSSProperties
                               }
                             >
@@ -2230,6 +2289,7 @@ export function LabelCanvas({
                             </div>
                           );
                         })}
+                        </div>
                       </div>
                     );
                   } else {
@@ -2461,6 +2521,33 @@ export function LabelCanvas({
           }}
           title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
         >
+          <div
+            className="print-scale-container"
+            style={
+              isPrinting || isSystemPrinting
+                ? {
+                    width: "400%",
+                    height: "400%",
+                    transform: "scale(0.25)",
+                    transformOrigin: "top left",
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                    boxSizing: "border-box",
+                  }
+                : {
+                    width: "100%",
+                    height: "100%",
+                    position: "absolute",
+                    left: 0,
+                    top: 0,
+                    right: 0,
+                    bottom: 0,
+                  }
+            }
+          >
           {/* Watermark/Background Image overlay */}
           {labelConfig.bgImage && (
             <div
@@ -2563,9 +2650,12 @@ export function LabelCanvas({
                     "--o-y": `${stdY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
-                    "--o-print-height": `${activeH}mm`,
                     "--o-print-min-height": "0mm",
                     "--o-transform": finalTransform,
+                    "--o-print-left": (isPrinting || isSystemPrinting) ? `${itemX}px` : undefined,
+                    "--o-print-top": (isPrinting || isSystemPrinting) ? `${itemY}px` : undefined,
+                    "--o-print-width": (isPrinting || isSystemPrinting) ? `${itemW}px` : undefined,
+                    "--o-print-height": (isPrinting || isSystemPrinting) ? `${itemH}px` : undefined,
                   } as React.CSSProperties
                 }
               >
@@ -2831,6 +2921,7 @@ export function LabelCanvas({
               </div>
             );
           })}
+          </div>
         </div>
       </div>
 

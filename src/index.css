@@ -187,12 +187,12 @@
     border-radius: var(--cell-radius, 0mm) !important;
   }
 
-  /* Force thermal items to precise millimeter positions for printing machinery */
+  /* Force thermal items to precise millimeter positions or layout scale positions under high DPI scaling */
   .object-print-class {
     position: absolute !important;
-    left: var(--o-x) !important;
-    top: var(--o-y) !important;
-    width: var(--o-w) !important;
+    left: var(--o-print-left, var(--o-x)) !important;
+    top: var(--o-print-top, var(--o-y)) !important;
+    width: var(--o-print-width, var(--o-w)) !important;
     height: var(--o-print-height, var(--o-h)) !important;
     min-height: var(--o-print-min-height, 0mm) !important;
     transform: var(--o-transform, none) !important;
