@@ -133,6 +133,7 @@ export default function App() {
 
   // State to manage showing the quick instructions pop up
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
+  const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>([
@@ -2455,6 +2456,9 @@ export default function App() {
 
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
+    if (isPreparingPrint) return; // Chống spam click (double-click/flood prevention)
+    setIsPreparingPrint(true);
+    
     handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
     
@@ -2464,17 +2468,26 @@ export default function App() {
       setWasDesignModeForPrint(true);
     }
 
-    // Give browser/React robust time (350ms) to compile the full multi-page grid inside the DOM before layout rendering
-    setTimeout(() => {
-      // Check if running inside iframe
-      const isInIframe = window.self !== window.top;
-      if (isInIframe) {
-        setShowPrintModal(true);
-      } else {
-        window.focus();
-        window.print();
-      }
-    }, 350);
+    // Cơ chế "Await Render": Sắp xếp luồng vẽ thẻ <svg> của GPU & React render xong bằng requestAnimationFrame kép và microtasks
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Check if running inside iframe
+          const isInIframe = window.self !== window.top;
+          if (isInIframe) {
+            setShowPrintModal(true);
+            setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+          } else {
+            window.focus();
+            window.print();
+            // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
+            setTimeout(() => {
+              setIsPreparingPrint(false);
+            }, 800);
+          }
+        }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
+      });
+    });
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -4611,11 +4624,25 @@ export default function App() {
 
                   <button
                     onClick={handlePrintLabel}
-                    className="w-full py-3 bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white rounded-xl flex items-center justify-center space-x-2 cursor-pointer transition-all duration-150 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] text-xs font-black border-b-[3px] border-sky-600"
-                    title="Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"
+                    disabled={isPreparingPrint}
+                    className={`w-full py-3 rounded-xl flex items-center justify-center space-x-2 transition-all duration-150 text-xs font-black border-b-[3px] ${
+                      isPreparingPrint
+                        ? "bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed opacity-75 shadow-none scale-100"
+                        : "bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] border-sky-600"
+                    }`}
+                    title={isPreparingPrint ? "Đang chuẩn bị vẽ nhãn & mã vạch..." : "Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"}
                   >
-                    <Printer className="w-4.5 h-4.5 stroke-[3]" />
-                    <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
+                    {isPreparingPrint ? (
+                      <>
+                        <RefreshCw className="w-4.5 h-4.5 stroke-[3] animate-spin" />
+                        <span className="tracking-widest uppercase font-black font-sans">ĐANG CHUẨN BỊ IN...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer className="w-4.5 h-4.5 stroke-[3]" />
+                        <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
+                      </>
+                    )}
                   </button>
                 </div>
               )}
@@ -4953,6 +4980,7 @@ export default function App() {
             numericExcelColumns={numericExcelColumns}
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
+            isPreparingPrint={isPreparingPrint}
           />
 
         </main>
@@ -5015,16 +5043,36 @@ export default function App() {
               {/* Best effort try now */}
               <button
                 type="button"
+                disabled={isPreparingPrint}
                 onClick={() => {
                   setShowPrintModal(false);
-                  setTimeout(() => {
-                    window.focus();
-                    window.print();
-                  }, 200);
+                  setIsPreparingPrint(true);
+                  requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                      setTimeout(() => {
+                        window.focus();
+                        window.print();
+                        setTimeout(() => {
+                          setIsPreparingPrint(false);
+                        }, 800);
+                      }, 500);
+                    });
+                  });
                 }}
-                className="w-full py-2 border border-gray-300 rounded-lg hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center justify-center space-x-1.5 transition cursor-pointer"
+                className={`w-full py-2 border rounded-lg text-xs font-semibold flex items-center justify-center space-x-1.5 transition ${
+                  isPreparingPrint
+                    ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                    : "border-gray-300 hover:bg-slate-50 text-slate-700 cursor-pointer"
+                }`}
               >
-                <span>Xem trước & In trực tiếp tại đây</span>
+                {isPreparingPrint ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang chuẩn bị vẽ nhãn...</span>
+                  </>
+                ) : (
+                  <span>Xem trước & In trực tiếp tại đây</span>
+                )}
               </button>
 
               <div className="flex justify-end pt-1">
