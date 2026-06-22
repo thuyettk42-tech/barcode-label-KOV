@@ -5,6 +5,7 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
+import html2canvas from "html2canvas";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
@@ -44,6 +45,7 @@ interface LabelCanvasProps {
   printCopies?: number;
   printManifestLength?: number;
   isSystemPrinting?: boolean;
+  onTriggerActualPrint?: () => void;
   onAddImageObject?: (content: string) => void;
   onUpdateObject?: (updated: LabelObject) => void;
   currentFilePath?: string | null;
@@ -843,6 +845,7 @@ export function LabelCanvas({
   printCopies,
   printManifestLength,
   isSystemPrinting = false,
+  onTriggerActualPrint,
   onAddImageObject,
   onUpdateObject,
   currentFilePath,
@@ -886,11 +889,106 @@ export function LabelCanvas({
   const pxWidth = mmToPx(labelConfig.width, pixelScale);
   const pxHeight = mmToPx(labelConfig.height, pixelScale);
 
+  // HTML2Canvas capturing states for printable high-quality rasterization
+  const [capturedImages, setCapturedImages] = useState<{ [key: string]: string }>({});
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureProgress, setCaptureProgress] = useState(0);
+  const [totalToCapture, setTotalToCapture] = useState(0);
+
   const [showAllPagesOnScreen, setShowAllPagesOnScreen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [showLogsPopupBottom, setShowLogsPopupBottom] = useState(false);
   const [isFloatingPrintOpen, setIsFloatingPrintOpen] = useState(true);
+
+  // Trigger html2canvas rasterization process when system print context initialized
+  useEffect(() => {
+    let active = true;
+    if (isSystemPrinting) {
+      setIsCapturing(true);
+      setCaptureProgress(0);
+      setTotalToCapture(0);
+      setCapturedImages({});
+
+      // Đợi DOM render mượt mà các mã vạch (JsBarcode) và QR code
+      const timer = setTimeout(async () => {
+        try {
+          const els = document.querySelectorAll(".capture-label-to-img");
+          if (!active) return;
+          
+          if (els.length === 0) {
+            setIsCapturing(false);
+            if (onTriggerActualPrint) {
+              onTriggerActualPrint();
+            } else {
+              window.focus();
+              window.print();
+            }
+            return;
+          }
+
+          setTotalToCapture(els.length);
+          const imagesMap: { [key: string]: string } = {};
+
+          for (let i = 0; i < els.length; i++) {
+            if (!active) return;
+            const el = els[i] as HTMLElement;
+            const idxStr = el.getAttribute("data-label-idx") || String(i);
+
+            // Chụp với html2canvas chất lượng cao
+            const canvas = await html2canvas(el, {
+              scale: 3, // gấp 3 lần độ phân giải màn hình cho bản in siêu chi tiết 300+ DPI
+              useCORS: true,
+              logging: false,
+              backgroundColor: labelConfig.bgColor || "#ffffff",
+              windowWidth: el.scrollWidth,
+              windowHeight: el.scrollHeight,
+            });
+
+            if (!active) return;
+            imagesMap[idxStr] = canvas.toDataURL("image/png");
+            setCaptureProgress(i + 1);
+          }
+
+          if (!active) return;
+          setCapturedImages(imagesMap);
+          setIsCapturing(false);
+
+          // Chờ ảnh render vào DOM cập nhật tầm 150ms để hộp thoại in bắt được ảnh chất lượng cao
+          setTimeout(() => {
+            if (!active) return;
+            if (onTriggerActualPrint) {
+              onTriggerActualPrint();
+            } else {
+              window.focus();
+              window.print();
+            }
+          }, 150);
+
+        } catch (err) {
+          console.error("Lỗi chụp tem nhãn chất lượng cao:", err);
+          if (active) {
+            setIsCapturing(false);
+            if (onTriggerActualPrint) {
+              onTriggerActualPrint();
+            } else {
+              window.focus();
+              window.print();
+            }
+          }
+        }
+      }, 600); // 600ms an toàn tuyệt đối để tất cả SVG/JsBarcode/QRCode render hoàn thành
+
+      return () => {
+        active = false;
+        clearTimeout(timer);
+      };
+    } else {
+      setCapturedImages({});
+      setIsCapturing(false);
+      setCaptureProgress(0);
+    }
+  }, [isSystemPrinting]);
 
   const renderFloatingQuickPrintPanel = () => {
     return (
@@ -2027,6 +2125,24 @@ export function LabelCanvas({
         id="label-editor-workspace"
         className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
+        {isCapturing && (
+          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white space-y-4 no-print animate-fade-in pointer-events-auto">
+            <div className="relative flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-kiot-cyan border-t-transparent rounded-full animate-spin" />
+              <Printer className="absolute w-6 h-6 text-kiot-cyan animate-pulse" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-bold tracking-wider text-kiot-cyan">ĐANG KHỞI TẠO BẢN IN SẮC NÉT</h3>
+              <p className="text-xs text-gray-300 max-w-xs leading-normal">
+                Hệ thống đang chụp ảnh véc-tơ chất lượng cao và tối ưu độ phân giải cho máy in (203/300 DPI). 
+                Vui lòng không đóng trang.
+              </p>
+              <div className="mt-3 bg-slate-800 border border-slate-750 rounded-full px-4 py-1.5 inline-block text-[11px] font-mono font-bold text-gray-300">
+                Tiến trình: <span className="text-kiot-cyan">{captureProgress}</span> / <span className="text-gray-400">{totalToCapture}</span> nhãn
+              </div>
+            </div>
+          </div>
+        )}
         <div
           ref={containerRef}
           className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
@@ -2125,16 +2241,21 @@ export function LabelCanvas({
                             } as React.CSSProperties
                           }
                         >
-                          {isMobileOrPrint ? (
-                            <PrintCanvasCell
-                              objects={resolvedObjs}
-                              labelConfig={labelConfig}
-                              width={labelConfig.width}
-                              height={labelConfig.height}
+                          {capturedImages[globalIdx] ? (
+                            <img
+                              src={capturedImages[globalIdx]}
+                              alt="Captured Label"
+                              className="w-full h-full block pointer-events-none select-none"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "contain",
+                              }}
                             />
                           ) : (
                             <div
-                              className="print-scale-container"
+                              className="capture-label-to-img print-scale-container"
+                              data-label-idx={globalIdx}
                               style={{
                                 width: "100%",
                                 height: "100%",
@@ -2187,7 +2308,7 @@ export function LabelCanvas({
                                 const finalTransform =
                                   `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
                                   "none";
-
+ 
                                 return (
                                   <div
                                     key={obj.id}
@@ -2215,7 +2336,7 @@ export function LabelCanvas({
                                     <div className="w-full h-full p-0 select-none relative overflow-hidden">
                                       {obj.type === "text" &&
                                         renderTextElement(obj, previewScale, false)}
-
+ 
                                       {obj.type === "barcode" && (
                                         <BarcodeRenderer
                                           content={obj.content}
@@ -2241,7 +2362,7 @@ export function LabelCanvas({
                                           barcodeTextColor={obj.barcodeTextColor}
                                         />
                                       )}
-
+ 
                                       {obj.type === "qrcode" && (
                                         <QRCodeRenderer
                                           content={obj.content}
@@ -2250,7 +2371,7 @@ export function LabelCanvas({
                                           color={obj.color}
                                         />
                                       )}
-
+ 
                                       {obj.type === "image" && (
                                         <img
                                           src={obj.content}
@@ -2267,7 +2388,7 @@ export function LabelCanvas({
                                           referrerPolicy="no-referrer"
                                         />
                                       )}
-
+ 
                                       {obj.type === "shape" && (
                                         <ShapeRenderer obj={obj} pixelScale={previewScale} />
                                       )}
@@ -2406,6 +2527,24 @@ export function LabelCanvas({
         id="label-editor-workspace"
         className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
+        {isCapturing && (
+          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white space-y-4 no-print animate-fade-in pointer-events-auto">
+            <div className="relative flex items-center justify-center">
+              <div className="w-16 h-16 border-4 border-kiot-cyan border-t-transparent rounded-full animate-spin" />
+              <Printer className="absolute w-6 h-6 text-kiot-cyan animate-pulse" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-bold tracking-wider text-kiot-cyan">ĐANG KHỞI TẠO BẢN IN SẮC NÉT</h3>
+              <p className="text-xs text-gray-300 max-w-xs leading-normal">
+                Hệ thống đang chụp ảnh véc-tơ chất lượng cao và tối ưu độ phân giải cho máy in (203/300 DPI). 
+                Vui lòng không đóng trang.
+              </p>
+              <div className="mt-3 bg-slate-800 border border-slate-750 rounded-full px-4 py-1.5 inline-block text-[11px] font-mono font-bold text-gray-300">
+                Tiến trình: <span className="text-kiot-cyan">{captureProgress}</span> / <span className="text-gray-400">{totalToCapture}</span> nhãn
+              </div>
+            </div>
+          </div>
+        )}
         <div
           ref={containerRef}
           className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
@@ -2483,16 +2622,21 @@ export function LabelCanvas({
                           } as React.CSSProperties
                         }
                       >
-                        {isMobileOrPrint ? (
-                          <PrintCanvasCell
-                            objects={resolvedObjs}
-                            labelConfig={labelConfig}
-                            width={labelConfig.width}
-                            height={labelConfig.height}
+                        {capturedImages[globalIdx] ? (
+                          <img
+                            src={capturedImages[globalIdx]}
+                            alt="Captured Label"
+                            className="w-full h-full block pointer-events-none select-none"
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "contain",
+                            }}
                           />
                         ) : (
                           <div
-                            className="print-scale-container"
+                            className="capture-label-to-img print-scale-container"
+                            data-label-idx={globalIdx}
                             style={{
                               width: "100%",
                               height: "100%",
@@ -2540,8 +2684,8 @@ export function LabelCanvas({
                                   ? getTextTransform(obj.textFlowOrigin || "center")
                                   : "none";
                               const rotationStr = obj.angle
-                                ? `rotate(${obj.angle}deg)`
-                                : "";
+                                  ? `rotate(${obj.angle}deg)`
+                                  : "";
                               const finalTransform =
                                 `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
                                 "none";

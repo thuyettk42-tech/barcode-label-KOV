@@ -2467,27 +2467,22 @@ export default function App() {
       setOfficePreviewMode('sheet');
       setWasDesignModeForPrint(true);
     }
+  };
 
-    // Cơ chế "Await Render": Sắp xếp luồng vẽ thẻ <svg> của GPU & React render xong bằng requestAnimationFrame kép và microtasks
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Check if running inside iframe
-          const isInIframe = window.self !== window.top;
-          if (isInIframe) {
-            setShowPrintModal(true);
-            setIsPreparingPrint(false); // Reset nhanh để tương tác modal
-          } else {
-            window.focus();
-            window.print();
-            // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
-            setTimeout(() => {
-              setIsPreparingPrint(false);
-            }, 800);
-          }
-        }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
-      });
-    });
+  const handleTriggerActualPrint = () => {
+    // Check if running inside iframe
+    const isInIframe = window.self !== window.top;
+    if (isInIframe) {
+      setShowPrintModal(true);
+      setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+    } else {
+      window.focus();
+      window.print();
+      // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
+      setTimeout(() => {
+        setIsPreparingPrint(false);
+      }, 800);
+    }
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -4981,6 +4976,7 @@ export default function App() {
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
             isPreparingPrint={isPreparingPrint}
+            onTriggerActualPrint={handleTriggerActualPrint}
           />
 
         </main>
