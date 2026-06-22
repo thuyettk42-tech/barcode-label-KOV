@@ -5,12 +5,9 @@
 
 import React, { useRef, useEffect, useState } from "react";
 import { flushSync } from "react-dom";
-import html2canvas from "html2canvas";
 import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
-import JsBarcode from "jsbarcode";
-import QRCode from "qrcode";
 import { mmToPx, pxToMm, BASE_DPI_SCALE } from "../utils";
 import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal } from "lucide-react";
 
@@ -45,7 +42,6 @@ interface LabelCanvasProps {
   printCopies?: number;
   printManifestLength?: number;
   isSystemPrinting?: boolean;
-  onTriggerActualPrint?: () => void;
   onAddImageObject?: (content: string) => void;
   onUpdateObject?: (updated: LabelObject) => void;
   currentFilePath?: string | null;
@@ -232,437 +228,6 @@ export const formatLabelText = (obj: LabelObject): string => {
   return rawValue;
 };
 
-// EAN-13 checksum calculation for high-dpi printer canvas
-function calculateEAN13ChecksumInCanvas(first12Digits: string): number {
-  let sum = 0;
-  for (let i = 0; i < 12; i++) {
-    const digit = parseInt(first12Digits[i] || "0", 10);
-    sum += i % 2 === 0 ? digit : digit * 3;
-  }
-  return (10 - (sum % 10)) % 10;
-}
-
-function processBarcodeContentInCanvas(
-  content: string,
-  format: string,
-): { valid: boolean; encodedContent: string } {
-  const raw = content.trim();
-  if (!raw) {
-    return { valid: false, encodedContent: "" };
-  }
-
-  if (format === "EAN13") {
-    const digitsOnly = raw.replace(/\D/g, "");
-    if (digitsOnly.length < 12) {
-      return { valid: false, encodedContent: "" };
-    }
-    const first12 = digitsOnly.substring(0, 12);
-    const checksum = calculateEAN13ChecksumInCanvas(first12);
-    const corrected = first12 + checksum;
-    return { valid: true, encodedContent: corrected };
-  }
-
-  if (format === "CODE39") {
-    const upper = raw.toUpperCase();
-    if (!/^[A-Z0-9\s\-\.\$\/\+\%]+$/.test(upper)) {
-      return { valid: false, encodedContent: "" };
-    }
-    return { valid: true, encodedContent: upper };
-  }
-
-  return { valid: true, encodedContent: raw };
-}
-
-// Singleton measuring context for high-performance instant string width measurement
-let measurementCanvas: HTMLCanvasElement | null = null;
-let measurementCtx: CanvasRenderingContext2D | null = null;
-
-function getMeasurementContext(): CanvasRenderingContext2D | null {
-  if (typeof window === "undefined") return null;
-  if (!measurementCanvas) {
-    measurementCanvas = document.createElement("canvas");
-    measurementCtx = measurementCanvas.getContext("2d");
-  }
-  return measurementCtx;
-}
-
-function wrapTextSvg(
-  content: string,
-  widthMm: number,
-  fontSizePt: number,
-  fontFamily: string,
-  fontWeight: string,
-  fontStyle: string
-): string[] {
-  const ctx = getMeasurementContext();
-  if (!ctx) return [content];
-
-  const fontName = fontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
-                 : fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
-                 : fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
-                 : fontFamily === "monospace" ? "'JetBrains Mono', monospace"
-                 : "'Inter', sans-serif";
-
-  // Use 1mm = 10px scale in memory for stable width conversions
-  const scale = 10;
-  const pixelW = widthMm * scale;
-  const canvasFontSize = fontSizePt * 0.3528 * scale;
-  ctx.font = `${fontStyle} ${fontWeight} ${canvasFontSize}px ${fontName}`;
-
-  const words = content.split(" ");
-  const lines: string[] = [];
-  let currentLine = "";
-
-  for (let i = 0; i < words.length; i++) {
-    const testLine = currentLine + (currentLine ? " " : "") + words[i];
-    const metrics = ctx.measureText(testLine);
-    if (metrics.width > pixelW && i > 0) {
-      lines.push(currentLine);
-      currentLine = words[i];
-    } else {
-      currentLine = testLine;
-    }
-  }
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  return lines;
-}
-
-// High DPI SVG-based vector print cell renderer component
-const PrintCanvasCell: React.FC<{
-  objects: LabelObject[];
-  labelConfig: LabelConfig;
-  width: number;
-  height: number;
-}> = ({ objects, labelConfig, width, height }) => {
-  const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    let active = true;
-    const loadAssets = async () => {
-      const urls: Record<string, string> = {};
-      for (const obj of objects) {
-        if (obj.type === "barcode") {
-          const validation = processBarcodeContentInCanvas(obj.content, obj.barcodeFormat || "CODE128");
-          const barcodeContentToDraw = validation.valid ? validation.encodedContent : "";
-          if (barcodeContentToDraw) {
-            try {
-              const tempCanvas = document.createElement("canvas");
-              const tempScale = 8;
-              const hPx = Math.max(50, Math.round((obj.barcodeHeight || 15) * tempScale));
-              
-              JsBarcode(tempCanvas, barcodeContentToDraw, {
-                format: obj.barcodeFormat || "CODE128",
-                width: obj.barcodeWidth || 2,
-                height: hPx,
-                displayValue: false,
-                margin: 0,
-                background: "transparent",
-                lineColor: obj.color || "#000000",
-              });
-              urls[obj.id] = tempCanvas.toDataURL("image/png");
-            } catch (e) {
-              console.error("Barcode generation failed in vector:", e);
-            }
-          }
-        } else if (obj.type === "qrcode") {
-          const cleanContent = obj.content.trim();
-          if (cleanContent) {
-            try {
-              const url = await QRCode.toDataURL(cleanContent, {
-                width: 400,
-                margin: 0,
-                color: {
-                  dark: obj.color || "#000000",
-                  light: "#ffffff",
-                },
-                errorCorrectionLevel: "H",
-              });
-              urls[obj.id] = url;
-            } catch (e) {
-              console.error("QRCode generation failed in vector:", e);
-            }
-          }
-        }
-      }
-      if (active) {
-        setAssetUrls(urls);
-      }
-    };
-    loadAssets();
-    return () => {
-      active = false;
-    };
-  }, [objects]);
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      width="100%"
-      height="100%"
-      xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 block w-full h-full"
-      style={{
-        boxSizing: "border-box",
-        backgroundColor: labelConfig.bgColor || "#ffffff",
-      }}
-    >
-      {/* Background Image */}
-      {labelConfig.bgImage && (
-        <image
-          href={labelConfig.bgImage}
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          opacity={labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3}
-          preserveAspectRatio={labelConfig.bgImageSize === "repeat" ? undefined : "none"}
-        />
-      )}
-
-      {/* Label Elements */}
-      {objects.map((obj) => {
-        const stdX = (width / 2) + obj.x;
-        const stdY = (height / 2) + obj.y;
-
-        const left = stdX;
-        const top = stdY;
-        const w = obj.width;
-        const h = obj.height;
-
-        const rotationStr = obj.angle ? `rotate(${obj.angle}, ${left + w / 2}, ${top + h / 2})` : "";
-
-        if (obj.type === "text") {
-          const resolvedText = formatLabelText(obj);
-          const fullText = `${obj.prefixText || ""}${resolvedText}${obj.suffixText || ""}`;
-          
-          const fontSizePt = obj.fontSize || 10;
-          const fontStyle = obj.fontStyle || "normal";
-          const fontWeight = obj.fontWeight || "normal";
-          const fontFamily = obj.fontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
-                           : obj.fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
-                           : obj.fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
-                           : obj.fontFamily === "monospace" ? "'JetBrains Mono', monospace"
-                           : "'Inter', sans-serif";
-
-          const lines = wrapTextSvg(fullText, w, fontSizePt, obj.fontFamily || "Inter", fontWeight, fontStyle);
-          
-          const fontSizeMm = fontSizePt * 0.3528;
-          const lineH_mm = fontSizeMm * 1.25;
-          const totalTextHeight = lines.length * lineH_mm;
-
-          const origin = obj.textFlowOrigin || "center";
-          let startY = top;
-          if (origin.startsWith("center") || origin === "center") {
-            startY = top + (h - totalTextHeight) / 2;
-          } else if (origin.startsWith("bottom")) {
-            startY = top + h - totalTextHeight;
-          }
-
-          const textAlign = obj.textAlign || "left";
-          let textX = left;
-          let textAnchor: "start" | "middle" | "end" = "start";
-          if (textAlign === "center") {
-            textX = left + w / 2;
-            textAnchor = "middle";
-          } else if (textAlign === "right") {
-            textX = left + w;
-            textAnchor = "end";
-          }
-
-          return (
-            <g key={obj.id} transform={rotationStr || undefined}>
-              {lines.map((lineText, idx) => {
-                const lineY = startY + (idx * lineH_mm);
-                return (
-                  <text
-                    key={idx}
-                    x={textX}
-                    y={lineY}
-                    fontSize={fontSizeMm}
-                    fontFamily={fontFamily}
-                    fontWeight={fontWeight}
-                    fontStyle={fontStyle}
-                    fill={obj.color || "#000000"}
-                    textAnchor={textAnchor}
-                    dominantBaseline="hanging"
-                    style={{
-                      textDecoration: obj.textDecorationUnderline ? "underline" : obj.textDecorationLineThrough ? "line-through" : "none",
-                      whiteSpace: "pre",
-                    }}
-                  >
-                    {lineText}
-                  </text>
-                );
-              })}
-            </g>
-          );
-        }
-
-        if (obj.type === "barcode") {
-          const barcodeUrl = assetUrls[obj.id];
-          const showBelow = obj.barcodeShowTextBelow ?? obj.displayValue;
-          const showAbove = obj.barcodeShowTextAbove ?? false;
-          const textHeight = (obj.barcodeFontSize || obj.fontSize || 6) * 0.3528;
-          const textMargin = (obj.barcodeTextMargin !== undefined ? obj.barcodeTextMargin : 0.5);
-
-          let barcodeHeightMm = h;
-          let socksY = top;
-          let textY = top + h;
-
-          if (showBelow) {
-            barcodeHeightMm = h - textHeight - textMargin;
-            textY = top + barcodeHeightMm + textMargin;
-          } else if (showAbove) {
-            barcodeHeightMm = h - textHeight - textMargin;
-            socksY = top + textHeight + textMargin;
-            textY = top;
-          }
-          if (barcodeHeightMm < 1) barcodeHeightMm = 1;
-
-          return (
-            <g key={obj.id} transform={rotationStr || undefined}>
-              {barcodeUrl ? (
-                <image
-                  href={barcodeUrl}
-                  x={left}
-                  y={socksY}
-                  width={w}
-                  height={barcodeHeightMm}
-                  preserveAspectRatio="none"
-                />
-              ) : (
-                <rect
-                  x={left}
-                  y={socksY}
-                  width={w}
-                  height={barcodeHeightMm}
-                  fill="#eeeeee"
-                />
-              )}
-              {(showBelow || showAbove) && (
-                <text
-                  x={left + w / 2}
-                  y={textY}
-                  fontSize={textHeight}
-                  fontFamily={obj.barcodeFontFamily === "monospace" ? "JetBrains Mono, monospace" : "Inter, sans-serif"}
-                  fontWeight={obj.barcodeFontWeight || "normal"}
-                  fontStyle={obj.barcodeFontStyle || "normal"}
-                  fill={obj.barcodeTextColor || obj.color || "#000000"}
-                  textAnchor="middle"
-                  dominantBaseline="hanging"
-                >
-                  {obj.content}
-                </text>
-              )}
-            </g>
-          );
-        }
-
-        if (obj.type === "qrcode") {
-          const qrUrl = assetUrls[obj.id];
-          return (
-            <g key={obj.id} transform={rotationStr || undefined}>
-              {qrUrl ? (
-                <image
-                  href={qrUrl}
-                  x={left}
-                  y={top}
-                  width={w}
-                  height={h}
-                  preserveAspectRatio="none"
-                />
-              ) : (
-                <rect
-                  x={left}
-                  y={top}
-                  width={w}
-                  height={h}
-                  fill="#eeeeee"
-                />
-              )}
-            </g>
-          );
-        }
-
-        if (obj.type === "image" && obj.content) {
-          return (
-            <g key={obj.id} transform={rotationStr || undefined}>
-              <image
-                href={obj.content}
-                x={left}
-                y={top}
-                width={w}
-                height={h}
-                preserveAspectRatio="none"
-              />
-            </g>
-          );
-        }
-
-        if (obj.type === "shape" && obj.shapeType) {
-          const strokeWidth = (obj.shapeStrokeWidth !== undefined ? obj.shapeStrokeWidth : 1) * 0.3528;
-          const strokeColor = obj.shapeStrokeColor || obj.color || "#000000";
-          const fillColor = obj.shapeFillColor || "transparent";
-
-          if (obj.shapeType === "rect") {
-            const rx = (obj.shapeCornerRadius || 0) * 0.3528;
-            return (
-              <rect
-                key={obj.id}
-                x={left}
-                y={top}
-                width={w}
-                height={h}
-                rx={rx}
-                ry={rx}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                fill={fillColor}
-                transform={rotationStr || undefined}
-              />
-            );
-          }
-
-          if (obj.shapeType === "circle" || obj.shapeType === "oval") {
-            return (
-              <ellipse
-                key={obj.id}
-                cx={left + w / 2}
-                cy={top + h / 2}
-                rx={w / 2}
-                ry={h / 2}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                fill={fillColor}
-                transform={rotationStr || undefined}
-              />
-            );
-          }
-
-          if (obj.shapeType === "line") {
-            return (
-              <line
-                key={obj.id}
-                x1={left}
-                y1={top + h / 2}
-                x2={left + w}
-                y2={top + h / 2}
-                stroke={strokeColor}
-                strokeWidth={strokeWidth}
-                transform={rotationStr || undefined}
-              />
-            );
-          }
-        }
-
-        return null;
-      })}
-    </svg>
-  );
-};
-
 const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: number }) => {
   const shapeType = obj.shapeType || "rect";
   const strokeColor = obj.shapeStrokeColor || "#000000";
@@ -776,7 +341,9 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: isPrint
+            ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
+            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -905,7 +472,6 @@ export function LabelCanvas({
   printCopies,
   printManifestLength,
   isSystemPrinting = false,
-  onTriggerActualPrint,
   onAddImageObject,
   onUpdateObject,
   currentFilePath,
@@ -949,106 +515,11 @@ export function LabelCanvas({
   const pxWidth = mmToPx(labelConfig.width, pixelScale);
   const pxHeight = mmToPx(labelConfig.height, pixelScale);
 
-  // HTML2Canvas capturing states for printable high-quality rasterization
-  const [capturedImages, setCapturedImages] = useState<{ [key: string]: string }>({});
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captureProgress, setCaptureProgress] = useState(0);
-  const [totalToCapture, setTotalToCapture] = useState(0);
-
   const [showAllPagesOnScreen, setShowAllPagesOnScreen] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [showLogsPopupBottom, setShowLogsPopupBottom] = useState(false);
   const [isFloatingPrintOpen, setIsFloatingPrintOpen] = useState(true);
-
-  // Trigger html2canvas rasterization process when system print context initialized
-  useEffect(() => {
-    let active = true;
-    if (isSystemPrinting) {
-      setIsCapturing(true);
-      setCaptureProgress(0);
-      setTotalToCapture(0);
-      setCapturedImages({});
-
-      // Đợi DOM render mượt mà các mã vạch (JsBarcode) và QR code
-      const timer = setTimeout(async () => {
-        try {
-          const els = document.querySelectorAll(".capture-label-to-img");
-          if (!active) return;
-          
-          if (els.length === 0) {
-            setIsCapturing(false);
-            if (onTriggerActualPrint) {
-              onTriggerActualPrint();
-            } else {
-              window.focus();
-              window.print();
-            }
-            return;
-          }
-
-          setTotalToCapture(els.length);
-          const imagesMap: { [key: string]: string } = {};
-
-          for (let i = 0; i < els.length; i++) {
-            if (!active) return;
-            const el = els[i] as HTMLElement;
-            const idxStr = el.getAttribute("data-label-idx") || String(i);
-
-            // Chụp với html2canvas chất lượng cao
-            const canvas = await html2canvas(el, {
-              scale: 3, // gấp 3 lần độ phân giải màn hình cho bản in siêu chi tiết 300+ DPI
-              useCORS: true,
-              logging: false,
-              backgroundColor: labelConfig.bgColor || "#ffffff",
-              windowWidth: el.scrollWidth,
-              windowHeight: el.scrollHeight,
-            });
-
-            if (!active) return;
-            imagesMap[idxStr] = canvas.toDataURL("image/png");
-            setCaptureProgress(i + 1);
-          }
-
-          if (!active) return;
-          setCapturedImages(imagesMap);
-          setIsCapturing(false);
-
-          // Chờ ảnh render vào DOM cập nhật tầm 150ms để hộp thoại in bắt được ảnh chất lượng cao
-          setTimeout(() => {
-            if (!active) return;
-            if (onTriggerActualPrint) {
-              onTriggerActualPrint();
-            } else {
-              window.focus();
-              window.print();
-            }
-          }, 150);
-
-        } catch (err) {
-          console.error("Lỗi chụp tem nhãn chất lượng cao:", err);
-          if (active) {
-            setIsCapturing(false);
-            if (onTriggerActualPrint) {
-              onTriggerActualPrint();
-            } else {
-              window.focus();
-              window.print();
-            }
-          }
-        }
-      }, 600); // 600ms an toàn tuyệt đối để tất cả SVG/JsBarcode/QRCode render hoàn thành
-
-      return () => {
-        active = false;
-        clearTimeout(timer);
-      };
-    } else {
-      setCapturedImages({});
-      setIsCapturing(false);
-      setCaptureProgress(0);
-    }
-  }, [isSystemPrinting]);
 
   const renderFloatingQuickPrintPanel = () => {
     return (
@@ -1300,10 +771,10 @@ export function LabelCanvas({
   const limitPreview =
     !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
 
-  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795) scaled 4x
-  // to avoid zoom level (pixelScale) affecting layout dimensions on paper and prevent browser minimum font limitations.
+  // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
+  // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
   const printScale =
-    isPrinting || isSystemPrinting ? BASE_DPI_SCALE * 4 : pixelScale;
+    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -2146,7 +1617,7 @@ export function LabelCanvas({
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE * 4 : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and offset browser minimum font size limitations during print
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
@@ -2185,24 +1656,6 @@ export function LabelCanvas({
         id="label-editor-workspace"
         className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
-        {isCapturing && (
-          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white space-y-4 no-print animate-fade-in pointer-events-auto">
-            <div className="relative flex items-center justify-center">
-              <div className="w-16 h-16 border-4 border-kiot-cyan border-t-transparent rounded-full animate-spin" />
-              <Printer className="absolute w-6 h-6 text-kiot-cyan animate-pulse" />
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold tracking-wider text-kiot-cyan">ĐANG KHỞI TẠO BẢN IN SẮC NÉT</h3>
-              <p className="text-xs text-gray-300 max-w-xs leading-normal">
-                Hệ thống đang chụp ảnh véc-tơ chất lượng cao và tối ưu độ phân giải cho máy in (203/300 DPI). 
-                Vui lòng không đóng trang.
-              </p>
-              <div className="mt-3 bg-slate-800 border border-slate-750 rounded-full px-4 py-1.5 inline-block text-[11px] font-mono font-bold text-gray-300">
-                Tiến trình: <span className="text-kiot-cyan">{captureProgress}</span> / <span className="text-gray-400">{totalToCapture}</span> nhãn
-              </div>
-            </div>
-          </div>
-        )}
         <div
           ref={containerRef}
           className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
@@ -2298,166 +1751,146 @@ export function LabelCanvas({
                               "--cell-w": `${labelConfig.width}mm`,
                               "--cell-h": `${labelConfig.height}mm`,
                               "--cell-radius": `${sheetConfig.borderRadius}mm`,
+                              "--cell-border": sheetConfig.showBorder
+                                ? `${sheetConfig.borderWidth}px solid ${sheetConfig.borderColor || '#9ca3af'}`
+                                : "none",
                             } as React.CSSProperties
                           }
                         >
-                          {capturedImages[globalIdx] ? (
-                            <img
-                              src={capturedImages[globalIdx]}
-                              alt="Captured Label"
-                              className="w-full h-full block pointer-events-none select-none"
+                          {/* Watermark/Background Image overlay */}
+                          {labelConfig.bgImage && (
+                            <div
+                              className="absolute inset-0 pointer-events-none select-none"
                               style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "contain",
+                                backgroundImage: `url(${labelConfig.bgImage})`,
+                                backgroundSize:
+                                  labelConfig.bgImageSize || "contain",
+                                backgroundPosition: "center",
+                                backgroundRepeat:
+                                  labelConfig.bgImageSize === "repeat"
+                                    ? "repeat"
+                                    : "no-repeat",
+                                opacity:
+                                  labelConfig.bgImageOpacity !== undefined
+                                    ? labelConfig.bgImageOpacity
+                                    : 0.3,
+                                zIndex: 0,
                               }}
                             />
-                          ) : (
-                            <div
-                              className="capture-label-to-img print-scale-container"
-                              data-label-idx={globalIdx}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                position: "absolute",
-                                left: 0,
-                                top: 0,
-                                right: 0,
-                                bottom: 0,
-                              }}
-                            >
-                              {/* Watermark/Background Image overlay */}
-                              {labelConfig.bgImage && (
-                                <div
-                                  className="absolute inset-0 pointer-events-none select-none"
-                                  style={{
-                                    backgroundImage: `url(${labelConfig.bgImage})`,
-                                    backgroundSize:
-                                      labelConfig.bgImageSize || "contain",
-                                    backgroundPosition: "center",
-                                    backgroundRepeat:
-                                      labelConfig.bgImageSize === "repeat"
-                                        ? "repeat"
-                                        : "no-repeat",
-                                    opacity:
-                                      labelConfig.bgImageOpacity !== undefined
-                                        ? labelConfig.bgImageOpacity
-                                        : 0.3,
-                                    zIndex: 0,
-                                  }}
-                                />
-                              )}
-                              {resolvedObjs.map((obj) => {
-                                const stdX = (labelConfig.width / 2) + obj.x;
-                                const stdY = (labelConfig.height / 2) + obj.y;
-                                const itemX = mmToPx(stdX, previewScale);
-                                const itemY = mmToPx(stdY, previewScale);
-                                const itemW = mmToPx(obj.width, previewScale);
-                                const itemH = mmToPx(obj.height, previewScale);
-                                const xPct = (stdX / labelConfig.width) * 100;
-                                const yPct = (stdY / labelConfig.height) * 100;
-                                const wPct = (obj.width / labelConfig.width) * 100;
-                                const hPct = (obj.height / labelConfig.height) * 100;
-                                const trans =
-                                  obj.type === "text"
-                                    ? getTextTransform(obj.textFlowOrigin || "center")
-                                    : "none";
-                                const rotationStr = obj.angle
-                                  ? `rotate(${obj.angle}deg)`
-                                  : "";
-                                const finalTransform =
-                                  `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
-                                  "none";
- 
-                                return (
-                                  <div
-                                    key={obj.id}
-                                    className="object-print-class absolute flex flex-col items-stretch"
-                                    style={{
-                                      left: `${xPct}%`,
-                                      top: `${yPct}%`,
-                                      width: `${wPct}%`,
-                                      height: `${hPct}%`,
-                                      transform: finalTransform,
-                                      transformOrigin: obj.angle
-                                        ? "center center"
-                                        : "top left",
-                                      "--o-transform-origin": obj.angle
-                                        ? "center center"
-                                        : "top left",
-                                      "--o-x": `${stdX}mm`,
-                                      "--o-y": `${stdY}mm`,
-                                      "--o-w": `${obj.width}mm`,
-                                      "--o-h": `${obj.height}mm`,
-                                      "--o-print-min-height": "0mm",
-                                      "--o-transform": finalTransform,
-                                    } as React.CSSProperties}
-                                  >
-                                    <div className="w-full h-full p-0 select-none relative overflow-hidden">
-                                      {obj.type === "text" &&
-                                        renderTextElement(obj, previewScale, false)}
- 
-                                      {obj.type === "barcode" && (
-                                        <BarcodeRenderer
-                                          content={obj.content}
-                                          format={obj.barcodeFormat}
-                                          displayValue={obj.displayValue}
-                                          barcodeWidth={obj.barcodeWidth}
-                                          barcodeHeight={obj.barcodeHeight}
-                                          fontSize={obj.barcodeFontSize || 6}
-                                          pixelScale={previewScale}
-                                          barcodeShowTextAbove={
-                                            obj.barcodeShowTextAbove
-                                          }
-                                          barcodeShowTextBelow={
-                                            obj.barcodeShowTextBelow
-                                          }
-                                          barcodeFontFamily={obj.barcodeFontFamily}
-                                          barcodeFontSize={obj.barcodeFontSize}
-                                          barcodeFontWeight={obj.barcodeFontWeight}
-                                          barcodeFontStyle={obj.barcodeFontStyle}
-                                          barcodeTextMargin={obj.barcodeTextMargin}
-                                          textFlowOrigin={obj.textFlowOrigin}
-                                          color={obj.color}
-                                          barcodeTextColor={obj.barcodeTextColor}
-                                        />
-                                      )}
- 
-                                      {obj.type === "qrcode" && (
-                                        <QRCodeRenderer
-                                          content={obj.content}
-                                          size={itemW * 0.9}
-                                          textFlowOrigin={obj.textFlowOrigin}
-                                          color={obj.color}
-                                        />
-                                      )}
- 
-                                      {obj.type === "image" && (
-                                        <img
-                                          src={obj.content}
-                                          alt="Label Element"
-                                          className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
-                                          style={{
-                                            objectFit: obj.imageFit || "contain",
-                                            opacity:
-                                              obj.imageOpacity !== undefined
-                                                ? obj.imageOpacity
-                                                : 1,
-                                            display: "block",
-                                          }}
-                                          referrerPolicy="no-referrer"
-                                        />
-                                      )}
- 
-                                      {obj.type === "shape" && (
-                                        <ShapeRenderer obj={obj} pixelScale={previewScale} />
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
                           )}
+                          {resolvedObjs.map((obj) => {
+                            const stdX = (labelConfig.width / 2) + obj.x;
+                            const stdY = (labelConfig.height / 2) + obj.y;
+                            const itemX = mmToPx(stdX, previewScale);
+                            const itemY = mmToPx(stdY, previewScale);
+                            const itemW = mmToPx(obj.width, previewScale);
+                            const itemH = mmToPx(obj.height, previewScale);
+                            const xPct = (stdX / labelConfig.width) * 100;
+                            const yPct = (stdY / labelConfig.height) * 100;
+                            const wPct = (obj.width / labelConfig.width) * 100;
+                            const hPct =
+                              (obj.height / labelConfig.height) * 100;
+                            const trans =
+                              obj.type === "text"
+                               ? getTextTransform(obj.textFlowOrigin || "center")
+                                : "none";
+                            const rotationStr = obj.angle
+                              ? `rotate(${obj.angle}deg)`
+                              : "";
+                            const finalTransform =
+                              `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
+                              "none";
+
+                            return (
+                              <div
+                                key={obj.id}
+                                className="object-print-class absolute flex flex-col items-stretch"
+                                style={
+                                  {
+                                    left: `${xPct}%`,
+                                    top: `${yPct}%`,
+                                    width: `${wPct}%`,
+                                    height: `${hPct}%`,
+                                    transform: finalTransform,
+                                    transformOrigin: obj.angle
+                                      ? "center center"
+                                      : "top left",
+                                    "--o-transform-origin": obj.angle
+                                      ? "center center"
+                                      : "top left",
+                                    "--o-x": `${stdX}mm`,
+                                    "--o-y": `${stdY}mm`,
+                                    "--o-w": `${obj.width}mm`,
+                                    "--o-h": `${obj.height}mm`,
+                                    "--o-print-height": `${obj.height}mm`,
+                                    "--o-print-min-height": "0mm",
+                                    "--o-transform": finalTransform,
+                                  } as React.CSSProperties
+                                }
+                              >
+                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                                  {obj.type === "text" &&
+                                    renderTextElement(obj, previewScale, isMobileOrPrint)}
+
+                                  {obj.type === "barcode" && (
+                                    <BarcodeRenderer
+                                      content={obj.content}
+                                      format={obj.barcodeFormat}
+                                      displayValue={obj.displayValue}
+                                      barcodeWidth={obj.barcodeWidth}
+                                      barcodeHeight={obj.barcodeHeight}
+                                      fontSize={obj.barcodeFontSize || 6}
+                                      pixelScale={previewScale}
+                                      barcodeShowTextAbove={
+                                        obj.barcodeShowTextAbove
+                                      }
+                                      barcodeShowTextBelow={
+                                        obj.barcodeShowTextBelow
+                                      }
+                                      barcodeFontFamily={obj.barcodeFontFamily}
+                                      barcodeFontSize={obj.barcodeFontSize}
+                                      barcodeFontWeight={obj.barcodeFontWeight}
+                                      barcodeFontStyle={obj.barcodeFontStyle}
+                                      barcodeTextMargin={obj.barcodeTextMargin}
+                                      textFlowOrigin={obj.textFlowOrigin}
+                                      color={obj.color}
+                                      barcodeTextColor={obj.barcodeTextColor}
+                                    />
+                                  )}
+
+                                  {obj.type === "qrcode" && (
+                                    <QRCodeRenderer
+                                      content={obj.content}
+                                      size={itemW * 0.9}
+                                      textFlowOrigin={obj.textFlowOrigin}
+                                      color={obj.color}
+                                    />
+                                  )}
+
+                                  {obj.type === "image" && (
+                                    <img
+                                      src={obj.content}
+                                      alt="Label Element"
+                                      className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+                                      style={{
+                                        objectFit: obj.imageFit || "contain",
+                                        opacity:
+                                          obj.imageOpacity !== undefined
+                                            ? obj.imageOpacity
+                                            : 1,
+                                        display: "block",
+                                      }}
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  )}
+
+                                  {obj.type === "shape" && (
+                                    <ShapeRenderer obj={obj} pixelScale={previewScale} />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       );
                     } else {
@@ -2550,7 +1983,7 @@ export function LabelCanvas({
 
   if (showThermalSheetGrid && sheetConfig) {
     const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE * 4 : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics and offset browser minimum font size limitations during print
+    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
     const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
@@ -2587,24 +2020,6 @@ export function LabelCanvas({
         id="label-editor-workspace"
         className="flex-1 relative flex flex-col overflow-hidden select-none bg-slate-200/60"
       >
-        {isCapturing && (
-          <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white space-y-4 no-print animate-fade-in pointer-events-auto">
-            <div className="relative flex items-center justify-center">
-              <div className="w-16 h-16 border-4 border-kiot-cyan border-t-transparent rounded-full animate-spin" />
-              <Printer className="absolute w-6 h-6 text-kiot-cyan animate-pulse" />
-            </div>
-            <div className="text-center space-y-2">
-              <h3 className="text-lg font-bold tracking-wider text-kiot-cyan">ĐANG KHỞI TẠO BẢN IN SẮC NÉT</h3>
-              <p className="text-xs text-gray-300 max-w-xs leading-normal">
-                Hệ thống đang chụp ảnh véc-tơ chất lượng cao và tối ưu độ phân giải cho máy in (203/300 DPI). 
-                Vui lòng không đóng trang.
-              </p>
-              <div className="mt-3 bg-slate-800 border border-slate-750 rounded-full px-4 py-1.5 inline-block text-[11px] font-mono font-bold text-gray-300">
-                Tiến trình: <span className="text-kiot-cyan">{captureProgress}</span> / <span className="text-gray-400">{totalToCapture}</span> nhãn
-              </div>
-            </div>
-          </div>
-        )}
         <div
           ref={containerRef}
           className="flex-1 flex flex-col items-center overflow-auto p-2.5 print:p-0 print:m-0 print:bg-white pb-32 w-full select-none"
@@ -2682,163 +2097,139 @@ export function LabelCanvas({
                           } as React.CSSProperties
                         }
                       >
-                        {capturedImages[globalIdx] ? (
-                          <img
-                            src={capturedImages[globalIdx]}
-                            alt="Captured Label"
-                            className="w-full h-full block pointer-events-none select-none"
+                        {/* Watermark/Background Image overlay */}
+                        {labelConfig.bgImage && (
+                          <div
+                            className="absolute inset-0 pointer-events-none select-none"
                             style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "contain",
+                              backgroundImage: `url(${labelConfig.bgImage})`,
+                              backgroundSize:
+                                labelConfig.bgImageSize || "contain",
+                              backgroundPosition: "center",
+                              backgroundRepeat:
+                                labelConfig.bgImageSize === "repeat"
+                                  ? "repeat"
+                                  : "no-repeat",
+                              opacity:
+                                labelConfig.bgImageOpacity !== undefined
+                                  ? labelConfig.bgImageOpacity
+                                  : 0.3,
+                              zIndex: 0,
                             }}
                           />
-                        ) : (
-                          <div
-                            className="capture-label-to-img print-scale-container"
-                            data-label-idx={globalIdx}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              position: "absolute",
-                              left: 0,
-                              top: 0,
-                              right: 0,
-                              bottom: 0,
-                            }}
-                          >
-                            {/* Watermark/Background Image overlay */}
-                            {labelConfig.bgImage && (
-                              <div
-                                className="absolute inset-0 pointer-events-none select-none"
-                                style={{
-                                  backgroundImage: `url(${labelConfig.bgImage})`,
-                                  backgroundSize:
-                                    labelConfig.bgImageSize || "contain",
-                                  backgroundPosition: "center",
-                                  backgroundRepeat:
-                                    labelConfig.bgImageSize === "repeat"
-                                      ? "repeat"
-                                      : "no-repeat",
-                                  opacity:
-                                    labelConfig.bgImageOpacity !== undefined
-                                      ? labelConfig.bgImageOpacity
-                                      : 0.3,
-                                  zIndex: 0,
-                                }}
-                              />
-                            )}
-                            {resolvedObjs.map((obj) => {
-                              const stdX = (labelConfig.width / 2) + obj.x;
-                              const stdY = (labelConfig.height / 2) + obj.y;
-                              const itemX = mmToPx(stdX, previewScale);
-                              const itemY = mmToPx(stdY, previewScale);
-                              const itemW = mmToPx(obj.width, previewScale);
-                              const itemH = mmToPx(obj.height, previewScale);
-                              const xPct = (stdX / labelConfig.width) * 100;
-                              const yPct = (stdY / labelConfig.height) * 100;
-                              const wPct = (obj.width / labelConfig.width) * 100;
-                              const hPct = (obj.height / labelConfig.height) * 100;
-                              const trans =
-                                obj.type === "text"
-                                  ? getTextTransform(obj.textFlowOrigin || "center")
-                                  : "none";
-                              const rotationStr = obj.angle
-                                  ? `rotate(${obj.angle}deg)`
-                                  : "";
-                              const finalTransform =
-                                `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
-                                "none";
-
-                              return (
-                                <div
-                                  key={obj.id}
-                                  className="object-print-class absolute flex flex-col items-stretch"
-                                  style={{
-                                    left: `${xPct}%`,
-                                    top: `${yPct}%`,
-                                    width: `${wPct}%`,
-                                    height: `${hPct}%`,
-                                    transform: finalTransform,
-                                    transformOrigin: obj.angle
-                                      ? "center center"
-                                      : "top left",
-                                    "--o-transform-origin": obj.angle
-                                      ? "center center"
-                                      : "top left",
-                                    "--o-x": `${stdX}mm`,
-                                    "--o-y": `${stdY}mm`,
-                                    "--o-w": `${obj.width}mm`,
-                                    "--o-h": `${obj.height}mm`,
-                                    "--o-print-min-height": "0mm",
-                                    "--o-transform": finalTransform,
-                                  } as React.CSSProperties}
-                                >
-                                  <div className="w-full h-full p-0 select-none relative overflow-hidden">
-                                    {obj.type === "text" &&
-                                      renderTextElement(obj, previewScale, false)}
-
-                                    {obj.type === "barcode" && (
-                                      <BarcodeRenderer
-                                        content={obj.content}
-                                        format={obj.barcodeFormat}
-                                        displayValue={obj.displayValue}
-                                        barcodeWidth={obj.barcodeWidth}
-                                        barcodeHeight={obj.barcodeHeight}
-                                        fontSize={obj.barcodeFontSize || 6}
-                                        pixelScale={previewScale}
-                                        barcodeShowTextAbove={
-                                          obj.barcodeShowTextAbove
-                                        }
-                                        barcodeShowTextBelow={
-                                          obj.barcodeShowTextBelow
-                                        }
-                                        barcodeFontFamily={obj.barcodeFontFamily}
-                                        barcodeFontSize={obj.barcodeFontSize}
-                                        barcodeFontWeight={obj.barcodeFontWeight}
-                                        barcodeFontStyle={obj.barcodeFontStyle}
-                                        barcodeTextMargin={obj.barcodeTextMargin}
-                                        textFlowOrigin={obj.textFlowOrigin}
-                                        color={obj.color}
-                                        barcodeTextColor={obj.barcodeTextColor}
-                                      />
-                                    )}
-
-                                    {obj.type === "qrcode" && (
-                                      <QRCodeRenderer
-                                        content={obj.content}
-                                        size={itemW * 0.9}
-                                        textFlowOrigin={obj.textFlowOrigin}
-                                        color={obj.color}
-                                      />
-                                    )}
-
-                                    {obj.type === "image" && (
-                                      <img
-                                        src={obj.content}
-                                        alt="Label Element"
-                                        className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
-                                        style={{
-                                          objectFit: obj.imageFit || "contain",
-                                          opacity:
-                                            obj.imageOpacity !== undefined
-                                              ? obj.imageOpacity
-                                              : 1,
-                                          display: "block",
-                                        }}
-                                        referrerPolicy="no-referrer"
-                                      />
-                                    )}
-
-                                    {obj.type === "shape" && (
-                                      <ShapeRenderer obj={obj} pixelScale={previewScale} />
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
                         )}
+                        {resolvedObjs.map((obj) => {
+                          const stdX = (labelConfig.width / 2) + obj.x;
+                          const stdY = (labelConfig.height / 2) + obj.y;
+                          const itemX = mmToPx(stdX, previewScale);
+                          const itemY = mmToPx(stdY, previewScale);
+                          const itemW = mmToPx(obj.width, previewScale);
+                          const itemH = mmToPx(obj.height, previewScale);
+                          const xPct = (stdX / labelConfig.width) * 100;
+                          const yPct = (stdY / labelConfig.height) * 100;
+                          const wPct = (obj.width / labelConfig.width) * 100;
+                          const hPct = (obj.height / labelConfig.height) * 100;
+                          const trans =
+                            obj.type === "text"
+                              ? getTextTransform(obj.textFlowOrigin || "center")
+                              : "none";
+                          const rotationStr = obj.angle
+                            ? `rotate(${obj.angle}deg)`
+                            : "";
+                          const finalTransform =
+                            `${rotationStr} ${trans !== "none" ? trans : ""}`.trim() ||
+                            "none";
+
+                          return (
+                            <div
+                              key={obj.id}
+                              className="object-print-class absolute flex flex-col items-stretch"
+                              style={
+                                {
+                                  left: `${xPct}%`,
+                                  top: `${yPct}%`,
+                                  width: `${wPct}%`,
+                                  height: `${hPct}%`,
+                                  transform: finalTransform,
+                                  transformOrigin: obj.angle
+                                    ? "center center"
+                                    : "top left",
+                                  "--o-transform-origin": obj.angle
+                                    ? "center center"
+                                    : "top left",
+                                  "--o-x": `${stdX}mm`,
+                                  "--o-y": `${stdY}mm`,
+                                  "--o-w": `${obj.width}mm`,
+                                  "--o-h": `${obj.height}mm`,
+                                  "--o-print-height": `${obj.height}mm`,
+                                  "--o-print-min-height": "0mm",
+                                  "--o-transform": finalTransform,
+                                } as React.CSSProperties
+                              }
+                            >
+                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                                {obj.type === "text" &&
+                                  renderTextElement(obj, previewScale, isMobileOrPrint)}
+
+                                {obj.type === "barcode" && (
+                                  <BarcodeRenderer
+                                    content={obj.content}
+                                    format={obj.barcodeFormat}
+                                    displayValue={obj.displayValue}
+                                    barcodeWidth={obj.barcodeWidth}
+                                    barcodeHeight={obj.barcodeHeight}
+                                    fontSize={obj.barcodeFontSize || 6}
+                                    pixelScale={previewScale}
+                                    barcodeShowTextAbove={
+                                      obj.barcodeShowTextAbove
+                                    }
+                                    barcodeShowTextBelow={
+                                      obj.barcodeShowTextBelow
+                                    }
+                                    barcodeFontFamily={obj.barcodeFontFamily}
+                                    barcodeFontSize={obj.barcodeFontSize}
+                                    barcodeFontWeight={obj.barcodeFontWeight}
+                                    barcodeFontStyle={obj.barcodeFontStyle}
+                                    barcodeTextMargin={obj.barcodeTextMargin}
+                                    textFlowOrigin={obj.textFlowOrigin}
+                                    color={obj.color}
+                                    barcodeTextColor={obj.barcodeTextColor}
+                                  />
+                                )}
+
+                                {obj.type === "qrcode" && (
+                                  <QRCodeRenderer
+                                    content={obj.content}
+                                    size={itemW * 0.9}
+                                    textFlowOrigin={obj.textFlowOrigin}
+                                    color={obj.color}
+                                  />
+                                )}
+
+                                {obj.type === "image" && (
+                                  <img
+                                    src={obj.content}
+                                    alt="Label Element"
+                                    className="w-full h-full pointer-events-none select-none max-w-full max-h-full"
+                                    style={{
+                                      objectFit: obj.imageFit || "contain",
+                                      opacity:
+                                        obj.imageOpacity !== undefined
+                                          ? obj.imageOpacity
+                                          : 1,
+                                      display: "block",
+                                    }}
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )}
+
+                                {obj.type === "shape" && (
+                                  <ShapeRenderer obj={obj} pixelScale={previewScale} />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   } else {
@@ -3070,33 +2461,6 @@ export function LabelCanvas({
           }}
           title="Làm việc kéo thả bên trong phạm vi phôi nhãn trắng"
         >
-          <div
-            className="print-scale-container"
-            style={
-              isPrinting || isSystemPrinting
-                ? {
-                    width: "400%",
-                    height: "400%",
-                    transform: "scale(0.25)",
-                    transformOrigin: "top left",
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                    boxSizing: "border-box",
-                  }
-                : {
-                    width: "100%",
-                    height: "100%",
-                    position: "absolute",
-                    left: 0,
-                    top: 0,
-                    right: 0,
-                    bottom: 0,
-                  }
-            }
-          >
           {/* Watermark/Background Image overlay */}
           {labelConfig.bgImage && (
             <div
@@ -3199,12 +2563,9 @@ export function LabelCanvas({
                     "--o-y": `${stdY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
+                    "--o-print-height": `${activeH}mm`,
                     "--o-print-min-height": "0mm",
                     "--o-transform": finalTransform,
-                    "--o-print-left": (isPrinting || isSystemPrinting) ? `${itemX}px` : undefined,
-                    "--o-print-top": (isPrinting || isSystemPrinting) ? `${itemY}px` : undefined,
-                    "--o-print-width": (isPrinting || isSystemPrinting) ? `${itemW}px` : undefined,
-                    "--o-print-height": (isPrinting || isSystemPrinting) ? `${itemH}px` : undefined,
                   } as React.CSSProperties
                 }
               >
@@ -3470,7 +2831,6 @@ export function LabelCanvas({
               </div>
             );
           })}
-          </div>
         </div>
       </div>
 

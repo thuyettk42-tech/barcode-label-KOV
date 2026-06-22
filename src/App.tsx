@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { LabelConfig, LabelObject, ObjectType, SheetLayoutConfig } from "./types";
+import { convertToZPL } from "./zplConverter";
 import { LabelCanvas } from "./components/LabelCanvas";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
@@ -134,6 +135,32 @@ export default function App() {
   // State to manage showing the quick instructions pop up
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
+
+  // Electron API State integration
+  const [electronPrinters, setElectronPrinters] = useState<any[]>([]);
+  const [selectedElectronPrinter, setSelectedElectronPrinter] = useState<string>("");
+  const [thermalPort, setThermalPort] = useState<string>("USB001");
+  const [useElectronDirectPrint, setUseElectronDirectPrint] = useState<boolean>(true);
+
+  // Fetch registered printers from OS in desktop offline mode
+  useEffect(() => {
+    const api = (window as any).electronAPI;
+    if (api && api.getPrinters) {
+      api.getPrinters()
+        .then((printersList: any[]) => {
+          setElectronPrinters(printersList || []);
+          const defaultP = printersList?.find((p: any) => p.isDefault);
+          if (defaultP) {
+            setSelectedElectronPrinter(defaultP.name);
+          } else if (printersList && printersList.length > 0) {
+            setSelectedElectronPrinter(printersList[0].name);
+          }
+        })
+        .catch((err: any) => {
+          console.error("Lỗi đồng bộ danh sách máy in từ Electron:", err);
+        });
+    }
+  }, []);
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>([
@@ -2454,11 +2481,102 @@ export default function App() {
     clipboard
   ]);
 
-  // Print execution call triggers standard printer dialog
+  // Print execution call triggers standard printer dialog or Electron direct API spooling
   const handlePrintLabel = () => {
     if (isPreparingPrint) return; // Chống spam click (double-click/flood prevention)
+
+    const api = (window as any).electronAPI;
+    if (api && useElectronDirectPrint) {
+      if (sheetConfig.mode === 'thermal') {
+        // --- DIRECT THERMAL PRINTING PATH (ZPL RAW SPOOLING) ---
+        let zplPayload = "";
+        
+        if (excelData.length > 0 && printQuantityMode === "excel_column" && printQuantityColumn) {
+          // Dynamic Excel database multi-row compile
+          const uniqueIndices = Array.from(new Set(printManifest));
+          uniqueIndices.forEach(idx => {
+            const occurrences = printManifest.filter(mIdx => mIdx === idx).length;
+            if (occurrences > 0) {
+              const rowObjects = resolveDynamicObjects ? resolveDynamicObjects(objects, idx) : objects;
+              zplPayload += convertToZPL(labelConfig, rowObjects, occurrences) + "\n";
+            }
+          });
+        } else if (excelData.length > 0) {
+          // standard single repetition per row or custom quantity
+          excelData.forEach((_, idx) => {
+            const rowObjects = resolveDynamicObjects ? resolveDynamicObjects(objects, idx) : objects;
+            zplPayload += convertToZPL(labelConfig, rowObjects, 1) + "\n";
+          });
+        } else {
+          // single static sticker with PQ multiplier
+          zplPayload = convertToZPL(labelConfig, objects, printCopies);
+        }
+
+        setIsPreparingPrint(true);
+        api.printThermalRaw(zplPayload, thermalPort)
+          .then((res: any) => {
+            setIsPreparingPrint(false);
+            if (res.success) {
+              alert(`[Electron OS] Đã biên dịch ZPL và gửi trực tiếp thành công tới cổng ${thermalPort}!`);
+            } else {
+              alert(`[Electron Error] Không thể gửi tới cổng ${thermalPort}: ${res.error || "Lỗi thiết bị"}`);
+            }
+          })
+          .catch((err: any) => {
+            setIsPreparingPrint(false);
+            alert(`[System Connection Fault] Lỗi kết nối luồng in: ${err.message || err}`);
+          });
+
+      } else {
+        // --- SECURE SILENT OFFICE PRINTING (A4/A5 grid sheets) ---
+        setIsPreparingPrint(true);
+        handleSelectObject(null); // deselect focused outline
+        setIsSystemPrinting(true); // make sure full layout is painted
+
+        const wasDesign = officePreviewMode === 'design';
+        if (wasDesign) {
+          setOfficePreviewMode('sheet');
+          setWasDesignModeForPrint(true);
+        }
+
+        // Wait for double frame validation (perfect for browser paint loops)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              api.printOffice({
+                deviceName: selectedElectronPrinter,
+                copies: 1, // Let grid layout calculate item coordinates
+                landscape: sheetConfig.orientation === 'landscape',
+                pageSize: sheetConfig.paperSize,
+                color: true
+              }).then((res: any) => {
+                setIsPreparingPrint(false);
+                setIsSystemPrinting(false);
+                if (wasDesign) {
+                  setOfficePreviewMode('design');
+                }
+                if (res.success) {
+                  alert(`[Electron OS] In nhãn văn phòng thành công tới máy in: ${selectedElectronPrinter || "Mặc định hệ thống"}!`);
+                } else {
+                  alert(`[Electron Error] Lỗi in ấn: ${res.error || "Không hỗ trợ khổ in"}`);
+                }
+              }).catch((err: any) => {
+                setIsPreparingPrint(false);
+                setIsSystemPrinting(false);
+                if (wasDesign) {
+                  setOfficePreviewMode('design');
+                }
+                alert(`[System Exception] Lỗi gọi in: ${err.message}`);
+              });
+            }, 800);
+          });
+        });
+      }
+      return;
+    }
+
+    // --- STANDARD CHROMIUM POPUP DIALOG FALLBACK ---
     setIsPreparingPrint(true);
-    
     handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
     
@@ -2467,22 +2585,27 @@ export default function App() {
       setOfficePreviewMode('sheet');
       setWasDesignModeForPrint(true);
     }
-  };
 
-  const handleTriggerActualPrint = () => {
-    // Check if running inside iframe
-    const isInIframe = window.self !== window.top;
-    if (isInIframe) {
-      setShowPrintModal(true);
-      setIsPreparingPrint(false); // Reset nhanh để tương tác modal
-    } else {
-      window.focus();
-      window.print();
-      // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
-      setTimeout(() => {
-        setIsPreparingPrint(false);
-      }, 800);
-    }
+    // Cơ chế "Await Render": Sắp xếp luồng vẽ thẻ <svg> của GPU & React render xong bằng requestAnimationFrame kép và microtasks
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          // Check if running inside iframe
+          const isInIframe = window.self !== window.top;
+          if (isInIframe) {
+            setShowPrintModal(true);
+            setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+          } else {
+            window.focus();
+            window.print();
+            // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
+            setTimeout(() => {
+              setIsPreparingPrint(false);
+            }, 800);
+          }
+        }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
+      });
+    });
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -3927,6 +4050,70 @@ export default function App() {
                     </button>
                   </div>
                 )}
+
+                    {/* ELECTRON ACTIVE DEKTOP SETTING GAUGE */}
+                    {typeof window !== 'undefined' && (window as any).electronAPI && (
+                      <div className="mt-4 pt-4 border-t border-indigo-200/50 space-y-3.5 bg-indigo-50/40 p-3 rounded-xl border border-indigo-150 shadow-3xs animate-fadeIn">
+                        <div className="flex items-center space-x-2">
+                          <span className="flex h-2 w-2 relative">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                          <span className="text-[11px] font-black text-indigo-950 uppercase tracking-widest leading-none">
+                            Kết nối Electron (Ngoại Tuyến)
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] select-none">
+                          <span className="text-slate-600 font-bold">In trực tiếp bỏ qua hộp thoại</span>
+                          <input
+                            type="checkbox"
+                            checked={useElectronDirectPrint}
+                            onChange={(e) => setUseElectronDirectPrint(e.target.checked)}
+                            className="w-4 h-4 text-kiot-cyan bg-gray-105 border-gray-300 rounded focus:ring-kiot-cyan"
+                          />
+                        </div>
+
+                        {useElectronDirectPrint && (
+                          <div className="space-y-3 text-xs">
+                            {sheetConfig.mode === 'office' ? (
+                              <div className="space-y-1.5">
+                                <label className="block text-[10.5px] text-slate-500 font-bold">Máy in văn phòng (Silent)</label>
+                                <select
+                                  value={selectedElectronPrinter}
+                                  onChange={(e) => setSelectedElectronPrinter(e.target.value)}
+                                  className="w-full bg-white border border-gray-300 rounded-lg p-1.5 outline-none font-bold text-slate-800 focus:border-kiot-cyan text-xs"
+                                >
+                                  <option value="">-- Máy in mặc định OS --</option>
+                                  {electronPrinters.map((p, pIdx) => (
+                                    <option key={pIdx} value={p.name}>
+                                      {p.name} {p.isDefault ? " (Mặc định)" : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex justify-between items-center text-[10.5px]">
+                                  <label className="block text-slate-500 font-bold">Cổng in nhiệt (Port/Share)</label>
+                                  <span className="text-slate-400 font-bold">LPT1 / USB001</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={thermalPort}
+                                  onChange={(e) => setThermalPort(e.target.value)}
+                                  placeholder="Ví dụ: USB001 hoặc \\localhost\Xprinter"
+                                  className="w-full bg-white border border-gray-300 rounded-lg p-1.5 outline-none font-bold font-mono text-slate-800 text-xs focus:border-kiot-cyan"
+                                />
+                                <p className="text-[9.5px] text-slate-400 font-medium leading-normal">
+                                  * Nhập <strong className="text-slate-500 font-semibold">USB001</strong> hoặc đường dẫn mạng dạng <strong className="text-slate-500 font-semibold">\\localhost\Xprinter</strong> để nạp mã ZPL offline trực tiếp.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                     </div>
                   )}
                 </div>
@@ -4976,7 +5163,6 @@ export default function App() {
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
             isPreparingPrint={isPreparingPrint}
-            onTriggerActualPrint={handleTriggerActualPrint}
           />
 
         </main>
