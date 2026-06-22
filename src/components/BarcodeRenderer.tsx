@@ -248,9 +248,13 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     resolvedFontFamily = "var(--font-mono)";
   }
 
+  const isPrint = finalPixelScale === BASE_DPI_SCALE;
+
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+    fontSize: isPrint
+      ? `${finalFontSizePt * 0.3528}mm`
+      : `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
@@ -341,7 +345,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
               <div
                 style={{
                   ...textStyle,
-                  marginBottom: `${marginPx}px`,
+                  marginBottom: isPrint ? `${marginMm}mm` : `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
@@ -392,7 +396,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
               <div
                 style={{
                   ...textStyle,
-                  marginTop: `${marginPx}px`,
+                  marginTop: isPrint ? `${marginMm}mm` : `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
                 className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"

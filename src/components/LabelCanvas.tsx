@@ -342,7 +342,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
           fontSize: isPrint
-            ? `${fontSizeVal || obj.fontSize || 10}pt`
+            ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
             : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
@@ -2559,8 +2559,8 @@ export function LabelCanvas({
                     transformOrigin: activeAngle ? "center center" : "top left",
                     "--o-transform-origin": activeAngle ? "center center" : "top left",
                     // Standard inline properties as custom CSS variables for our print-stylesheet engine:
-                    "--o-x": `${activeX}mm`,
-                    "--o-y": `${activeY}mm`,
+                    "--o-x": `${stdX}mm`,
+                    "--o-y": `${stdY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
                     "--o-print-height": `${activeH}mm`,
