@@ -2,14 +2,19 @@
   "name": "react-example",
   "private": true,
   "version": "1.0.0",
+  "description": "Ung dung in tem KiotLabel",
+  "author": "KiotLabel",
   "type": "module",
+  "main": "main.cjs",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "build:desktop": "vite build",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "electron:start": "electron .",
+    "dist:win": "vite build && electron-builder --win --x64 --ia32"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -38,6 +43,39 @@
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "electron": "^22.3.27",
+    "electron-builder": "^24.13.3",
+    "cross-env": "^7.0.3"
+  },
+  "build": {
+    "appId": "com.kiotviet.kiotlabel.designer",
+    "productName": "KiotLabelDesigner",
+    "copyright": "Copyright © 2026 KiotViet",
+    "directories": {
+      "output": "dist_desktop"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.cjs",
+      "logo.ico"
+    ],
+    "win": {
+      "icon": "logo.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName}_Portable_${version}_Win32_x64.${ext}",
+      "requestExecutionLevel": "user"
+    }
   }
 }

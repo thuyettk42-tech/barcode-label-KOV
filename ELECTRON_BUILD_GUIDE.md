@@ -17,13 +17,13 @@ Mở tệp `package.json` và thêm các trường sau vào:
 {
   "name": "kiotlabel-designer-desktop",
   "version": "1.0.0",
-  "main": "main.js",
+  "main": "main.cjs",
   "scripts": {
     "dev:web": "tsx server.ts",
     "build:web": "vite build",
     "electron:start": "electron .",
     "electron:dev": "concurrently \"vite\" \"cross-env NODE_ENV=development electron .\"",
-    "dist:win": "vite build && electron-builder --win --x64"
+    "dist:win": "vite build && electron-builder --win --x64 --ia32"
   },
   "dependencies": {
     // ... Giữ nguyên các thư viện React hiện tại ...
@@ -43,8 +43,8 @@ Mở tệp `package.json` và thêm các trường sau vào:
     },
     "files": [
       "dist/**/*",
-      "main.js",
-      "preload.js",
+      "main.cjs",
+      "preload.cjs",
       "logo.ico"
     ],
     "win": {

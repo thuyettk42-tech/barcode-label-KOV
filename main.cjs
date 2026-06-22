@@ -24,7 +24,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false, // Disable web security for local app asset loading and offline CORS-free operations
-      preload: path.join(__dirname, "preload.js")
+      preload: path.join(__dirname, "preload.cjs")
     }
   });
 
