@@ -273,333 +273,393 @@ function processBarcodeContentInCanvas(
   return { valid: true, encodedContent: raw };
 }
 
-// High DPI 300 DPI (11.811 px/mm) Canvas print cells renderer component
+// Singleton measuring context for high-performance instant string width measurement
+let measurementCanvas: HTMLCanvasElement | null = null;
+let measurementCtx: CanvasRenderingContext2D | null = null;
+
+function getMeasurementContext(): CanvasRenderingContext2D | null {
+  if (typeof window === "undefined") return null;
+  if (!measurementCanvas) {
+    measurementCanvas = document.createElement("canvas");
+    measurementCtx = measurementCanvas.getContext("2d");
+  }
+  return measurementCtx;
+}
+
+function wrapTextSvg(
+  content: string,
+  widthMm: number,
+  fontSizePt: number,
+  fontFamily: string,
+  fontWeight: string,
+  fontStyle: string
+): string[] {
+  const ctx = getMeasurementContext();
+  if (!ctx) return [content];
+
+  const fontName = fontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
+                 : fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
+                 : fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
+                 : fontFamily === "monospace" ? "'JetBrains Mono', monospace"
+                 : "'Inter', sans-serif";
+
+  // Use 1mm = 10px scale in memory for stable width conversions
+  const scale = 10;
+  const pixelW = widthMm * scale;
+  const canvasFontSize = fontSizePt * 0.3528 * scale;
+  ctx.font = `${fontStyle} ${fontWeight} ${canvasFontSize}px ${fontName}`;
+
+  const words = content.split(" ");
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (let i = 0; i < words.length; i++) {
+    const testLine = currentLine + (currentLine ? " " : "") + words[i];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > pixelW && i > 0) {
+      lines.push(currentLine);
+      currentLine = words[i];
+    } else {
+      currentLine = testLine;
+    }
+  }
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  return lines;
+}
+
+// High DPI SVG-based vector print cell renderer component
 const PrintCanvasCell: React.FC<{
   objects: LabelObject[];
   labelConfig: LabelConfig;
   width: number;
   height: number;
 }> = ({ objects, labelConfig, width, height }) => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [assetUrls, setAssetUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    // 1mm = 11.811px (300 DPI)
-    const scale = 11.811;
-
-    // Clear Canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Tô màu nền
-    ctx.fillStyle = labelConfig.bgColor || "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const drawAll = async () => {
-      // 1. Draw Background Image if specified
-      if (labelConfig.bgImage) {
-        await new Promise<void>((resolve) => {
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          img.src = labelConfig.bgImage!;
-          img.onload = () => {
-            ctx.save();
-            ctx.globalAlpha = labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3;
-            if (labelConfig.bgImageSize === "repeat") {
-              const pattern = ctx.createPattern(img, "repeat");
-              if (pattern) {
-                ctx.fillStyle = pattern;
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-              }
-            } else {
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            }
-            ctx.restore();
-            resolve();
-          };
-          img.onerror = () => {
-            resolve();
-          };
-        });
-      }
-
-      // 2. Draw Objects
+    let active = true;
+    const loadAssets = async () => {
+      const urls: Record<string, string> = {};
       for (const obj of objects) {
-        const stdX = (labelConfig.width / 2) + obj.x;
-        const stdY = (labelConfig.height / 2) + obj.y;
-
-        const pixelX = stdX * scale;
-        const pixelY = stdY * scale;
-        const pixelW = obj.width * scale;
-        const pixelH = obj.height * scale;
-
-        ctx.save();
-
-        if (obj.angle) {
-          ctx.translate(pixelX + pixelW / 2, pixelY + pixelH / 2);
-          ctx.rotate((obj.angle * Math.PI) / 180);
-          ctx.translate(-(pixelX + pixelW / 2), -(pixelY + pixelH / 2));
-        }
-
-        if (obj.type === "text") {
-          const resolvedText = formatLabelText(obj);
-          const fontStyle = obj.fontStyle || "normal";
-          const fontWeight = obj.fontWeight || "normal";
-          const fontName = obj.fontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
-                         : obj.fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
-                         : obj.fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
-                         : obj.fontFamily === "monospace" ? "Courier New, monospace"
-                         : "sans-serif";
-
-          const canvasFontSize = obj.fontSize ? obj.fontSize * 0.3528 * scale : 10 * 0.3528 * scale;
-          ctx.font = `${fontStyle} ${fontWeight} ${canvasFontSize}px ${fontName}`;
-          ctx.fillStyle = obj.color || "#000000";
-          ctx.textBaseline = "top";
-
-          const textalign = obj.textAlign || "left";
-          ctx.textAlign = textalign === "center" ? "center" : textalign === "right" ? "right" : "left";
-
-          let drawTextX = pixelX;
-          if (textalign === "center") {
-            drawTextX = pixelX + pixelW / 2;
-          } else if (textalign === "right") {
-            drawTextX = pixelX + pixelW;
-          }
-
-          const textToDraw = `${obj.prefixText || ""}${resolvedText}${obj.suffixText || ""}`;
-          const words = textToDraw.split(" ");
-          const lines: string[] = [];
-          let currentLine = "";
-
-          for (let i = 0; i < words.length; i++) {
-            const testLine = currentLine + (currentLine ? " " : "") + words[i];
-            const metrics = ctx.measureText(testLine);
-            if (metrics.width > pixelW && i > 0) {
-              lines.push(currentLine);
-              currentLine = words[i];
-            } else {
-              currentLine = testLine;
-            }
-          }
-          if (currentLine) {
-            lines.push(currentLine);
-          }
-
-          const origin = obj.textFlowOrigin || "center";
-          const totalTextHeight = lines.length * canvasFontSize * 1.25;
-          let drawTextY = pixelY;
-
-          if (origin.startsWith("center") || origin === "center") {
-            drawTextY = pixelY + (pixelH - totalTextHeight) / 2;
-          } else if (origin.startsWith("bottom")) {
-            drawTextY = pixelY + pixelH - totalTextHeight;
-          }
-
-          if (drawTextY < pixelY) drawTextY = pixelY;
-
-          lines.forEach((lineText, idx) => {
-            const lineY = drawTextY + idx * canvasFontSize * 1.25;
-            ctx.fillText(lineText, drawTextX, lineY);
-
-            if (obj.textDecorationUnderline || obj.textDecorationLineThrough) {
-              const textWidth = ctx.measureText(lineText).width;
-              let lineStartX = drawTextX;
-              if (textalign === "center") {
-                lineStartX = drawTextX - textWidth / 2;
-              } else if (textalign === "right") {
-                lineStartX = drawTextX - textWidth;
-              }
-
-              ctx.beginPath();
-              ctx.lineWidth = Math.max(1, canvasFontSize / 12);
-              ctx.strokeStyle = obj.color || "#000000";
-
-              if (obj.textDecorationUnderline) {
-                const underlineY = lineY + canvasFontSize * 1.05;
-                ctx.moveTo(lineStartX, underlineY);
-                ctx.lineTo(lineStartX + textWidth, underlineY);
-              }
-              if (obj.textDecorationLineThrough) {
-                const lineThroughY = lineY + canvasFontSize / 2;
-                ctx.moveTo(lineStartX, lineThroughY);
-                ctx.lineTo(lineStartX + textWidth, lineThroughY);
-              }
-              ctx.stroke();
-            }
-          });
-        }
-        else if (obj.type === "barcode") {
+        if (obj.type === "barcode") {
           const validation = processBarcodeContentInCanvas(obj.content, obj.barcodeFormat || "CODE128");
           const barcodeContentToDraw = validation.valid ? validation.encodedContent : "";
-
           if (barcodeContentToDraw) {
-            await new Promise<void>((resolve) => {
+            try {
               const tempCanvas = document.createElement("canvas");
-              try {
-                JsBarcode(tempCanvas, barcodeContentToDraw, {
-                  format: obj.barcodeFormat || "CODE128",
-                  width: obj.barcodeWidth || 2,
-                  height: Math.max(20, Math.round((obj.barcodeHeight || 15) * 4)),
-                  displayValue: false,
-                  margin: 0,
-                  background: "transparent",
-                  lineColor: obj.color || "#000000",
-                });
-
-                const showBelow = obj.barcodeShowTextBelow ?? obj.displayValue;
-                const showAbove = obj.barcodeShowTextAbove ?? false;
-                const barcodeTextFontSize = obj.barcodeFontSize || obj.fontSize || 6;
-                const textMargin = (obj.barcodeTextMargin !== undefined ? obj.barcodeTextMargin : 0.5) * scale;
-                const textHeight = barcodeTextFontSize * 0.3528 * scale;
-
-                let barcodeSocksHeight = pixelH;
-                let socksY = pixelY;
-                let textY = pixelY + pixelH;
-
-                if (showBelow) {
-                  barcodeSocksHeight = pixelH - textHeight - textMargin;
-                  textY = pixelY + barcodeSocksHeight + textMargin;
-                } else if (showAbove) {
-                  barcodeSocksHeight = pixelH - textHeight - textMargin;
-                  socksY = pixelY + textHeight + textMargin;
-                  textY = pixelY;
-                }
-
-                if (barcodeSocksHeight < 5) barcodeSocksHeight = 5;
-
-                ctx.drawImage(tempCanvas, pixelX, socksY, pixelW, barcodeSocksHeight);
-
-                if (showBelow || showAbove) {
-                  const fontName = obj.barcodeFontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
-                                 : obj.barcodeFontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
-                                 : obj.barcodeFontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
-                                 : obj.barcodeFontFamily === "monospace" ? "Courier New, monospace"
-                                 : "sans-serif";
-
-                  ctx.font = `${obj.barcodeFontStyle || "normal"} ${obj.barcodeFontWeight || "normal"} ${textHeight}px ${fontName}`;
-                  ctx.fillStyle = obj.barcodeTextColor || obj.color || "#000000";
-                  ctx.textBaseline = "top";
-                  ctx.textAlign = "center";
-                  ctx.fillText(obj.content, pixelX + pixelW / 2, textY);
-                }
-              } catch (e) {
-                console.error("Vẽ barcode canvas in thất bại:", e);
-                ctx.strokeStyle = "red";
-                ctx.lineWidth = 1;
-                ctx.strokeRect(pixelX, pixelY, pixelW, pixelH);
-              }
-              resolve();
-            });
+              const tempScale = 8;
+              const hPx = Math.max(50, Math.round((obj.barcodeHeight || 15) * tempScale));
+              
+              JsBarcode(tempCanvas, barcodeContentToDraw, {
+                format: obj.barcodeFormat || "CODE128",
+                width: obj.barcodeWidth || 2,
+                height: hPx,
+                displayValue: false,
+                margin: 0,
+                background: "transparent",
+                lineColor: obj.color || "#000000",
+              });
+              urls[obj.id] = tempCanvas.toDataURL("image/png");
+            } catch (e) {
+              console.error("Barcode generation failed in vector:", e);
+            }
           }
-        }
-        else if (obj.type === "qrcode") {
+        } else if (obj.type === "qrcode") {
           const cleanContent = obj.content.trim();
           if (cleanContent) {
-            await new Promise<void>((resolve) => {
-              QRCode.toDataURL(cleanContent, {
-                width: Math.max(400, Math.round(pixelW)),
+            try {
+              const url = await QRCode.toDataURL(cleanContent, {
+                width: 400,
                 margin: 0,
                 color: {
                   dark: obj.color || "#000000",
                   light: "#ffffff",
                 },
                 errorCorrectionLevel: "H",
-              })
-              .then((url) => {
-                const qrImg = new Image();
-                qrImg.src = url;
-                qrImg.onload = () => {
-                  ctx.drawImage(qrImg, pixelX, pixelY, pixelW, pixelH);
-                  resolve();
-                };
-                qrImg.onerror = () => resolve();
-              })
-              .catch((err) => {
-                console.error("Vẽ QR canvas in thất bại:", err);
-                resolve();
               });
-            });
-          }
-        }
-        else if (obj.type === "image" && obj.content) {
-          await new Promise<void>((resolve) => {
-            const logoImg = new Image();
-            logoImg.crossOrigin = "anonymous";
-            logoImg.src = obj.content;
-            logoImg.onload = () => {
-              ctx.drawImage(logoImg, pixelX, pixelY, pixelW, pixelH);
-              resolve();
-            };
-            logoImg.onerror = () => {
-              resolve();
-            };
-          });
-        }
-        else if (obj.type === "shape" && obj.shapeType) {
-          ctx.strokeStyle = obj.shapeStrokeColor || obj.color || "#000000";
-          ctx.fillStyle = obj.shapeFillColor || "transparent";
-          const strokeWidthVal = obj.shapeStrokeWidth !== undefined ? obj.shapeStrokeWidth : 1;
-          ctx.lineWidth = strokeWidthVal * 0.3528 * scale;
-
-          if (obj.shapeType === "rect") {
-            const radius = (obj.shapeCornerRadius || 0) * 0.3528 * scale;
-            if (radius > 0) {
-              ctx.beginPath();
-              ctx.roundRect(pixelX, pixelY, pixelW, pixelH, radius);
-              if (obj.shapeFillColor && obj.shapeFillColor !== "transparent") {
-                ctx.fill();
-              }
-              ctx.stroke();
-            } else {
-              if (obj.shapeFillColor && obj.shapeFillColor !== "transparent") {
-                ctx.fillRect(pixelX, pixelY, pixelW, pixelH);
-              }
-              ctx.strokeRect(pixelX, pixelY, pixelW, pixelH);
+              urls[obj.id] = url;
+            } catch (e) {
+              console.error("QRCode generation failed in vector:", e);
             }
           }
-          else if (obj.shapeType === "circle") {
-            ctx.beginPath();
-            const radiusX = pixelW / 2;
-            const radiusY = pixelH / 2;
-            ctx.ellipse(pixelX + radiusX, pixelY + radiusY, radiusX, radiusY, 0, 0, 2 * Math.PI);
-            if (obj.shapeFillColor && obj.shapeFillColor !== "transparent") {
-              ctx.fill();
-            }
-            ctx.stroke();
-          }
-          else if (obj.shapeType === "line") {
-            ctx.beginPath();
-            ctx.moveTo(pixelX, pixelY);
-            ctx.lineTo(pixelX + pixelW, pixelY + pixelH);
-            ctx.stroke();
-          }
         }
-
-        ctx.restore();
+      }
+      if (active) {
+        setAssetUrls(urls);
       }
     };
-
-    drawAll();
-  }, [objects, labelConfig, width, height]);
-
-  const scale = 11.811;
-  const canvasW = Math.round(width * scale);
-  const canvasH = Math.round(height * scale);
+    loadAssets();
+    return () => {
+      active = false;
+    };
+  }, [objects]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={canvasW}
-      height={canvasH}
-      className="w-full h-full block"
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      width="100%"
+      height="100%"
+      xmlns="http://www.w3.org/2000/svg"
+      className="absolute inset-0 block w-full h-full"
       style={{
         boxSizing: "border-box",
-        backgroundColor: "transparent",
+        backgroundColor: labelConfig.bgColor || "#ffffff",
       }}
-    />
+    >
+      {/* Background Image */}
+      {labelConfig.bgImage && (
+        <image
+          href={labelConfig.bgImage}
+          x="0"
+          y="0"
+          width="100%"
+          height="100%"
+          opacity={labelConfig.bgImageOpacity !== undefined ? labelConfig.bgImageOpacity : 0.3}
+          preserveAspectRatio={labelConfig.bgImageSize === "repeat" ? undefined : "none"}
+        />
+      )}
+
+      {/* Label Elements */}
+      {objects.map((obj) => {
+        const stdX = (width / 2) + obj.x;
+        const stdY = (height / 2) + obj.y;
+
+        const left = stdX;
+        const top = stdY;
+        const w = obj.width;
+        const h = obj.height;
+
+        const rotationStr = obj.angle ? `rotate(${obj.angle}, ${left + w / 2}, ${top + h / 2})` : "";
+
+        if (obj.type === "text") {
+          const resolvedText = formatLabelText(obj);
+          const fullText = `${obj.prefixText || ""}${resolvedText}${obj.suffixText || ""}`;
+          
+          const fontSizePt = obj.fontSize || 10;
+          const fontStyle = obj.fontStyle || "normal";
+          const fontWeight = obj.fontWeight || "normal";
+          const fontFamily = obj.fontFamily === "Arial" ? "Arial, Helvetica, sans-serif"
+                           : obj.fontFamily === "Times New Roman" ? "'Times New Roman', Times, serif"
+                           : obj.fontFamily === "Tahoma" ? "Tahoma, Geneva, sans-serif"
+                           : obj.fontFamily === "monospace" ? "'JetBrains Mono', monospace"
+                           : "'Inter', sans-serif";
+
+          const lines = wrapTextSvg(fullText, w, fontSizePt, obj.fontFamily || "Inter", fontWeight, fontStyle);
+          
+          const fontSizeMm = fontSizePt * 0.3528;
+          const lineH_mm = fontSizeMm * 1.25;
+          const totalTextHeight = lines.length * lineH_mm;
+
+          const origin = obj.textFlowOrigin || "center";
+          let startY = top;
+          if (origin.startsWith("center") || origin === "center") {
+            startY = top + (h - totalTextHeight) / 2;
+          } else if (origin.startsWith("bottom")) {
+            startY = top + h - totalTextHeight;
+          }
+
+          const textAlign = obj.textAlign || "left";
+          let textX = left;
+          let textAnchor: "start" | "middle" | "end" = "start";
+          if (textAlign === "center") {
+            textX = left + w / 2;
+            textAnchor = "middle";
+          } else if (textAlign === "right") {
+            textX = left + w;
+            textAnchor = "end";
+          }
+
+          return (
+            <g key={obj.id} transform={rotationStr || undefined}>
+              {lines.map((lineText, idx) => {
+                const lineY = startY + (idx * lineH_mm);
+                return (
+                  <text
+                    key={idx}
+                    x={textX}
+                    y={lineY}
+                    fontSize={fontSizeMm}
+                    fontFamily={fontFamily}
+                    fontWeight={fontWeight}
+                    fontStyle={fontStyle}
+                    fill={obj.color || "#000000"}
+                    textAnchor={textAnchor}
+                    dominantBaseline="hanging"
+                    style={{
+                      textDecoration: obj.textDecorationUnderline ? "underline" : obj.textDecorationLineThrough ? "line-through" : "none",
+                      whiteSpace: "pre",
+                    }}
+                  >
+                    {lineText}
+                  </text>
+                );
+              })}
+            </g>
+          );
+        }
+
+        if (obj.type === "barcode") {
+          const barcodeUrl = assetUrls[obj.id];
+          const showBelow = obj.barcodeShowTextBelow ?? obj.displayValue;
+          const showAbove = obj.barcodeShowTextAbove ?? false;
+          const textHeight = (obj.barcodeFontSize || obj.fontSize || 6) * 0.3528;
+          const textMargin = (obj.barcodeTextMargin !== undefined ? obj.barcodeTextMargin : 0.5);
+
+          let barcodeHeightMm = h;
+          let socksY = top;
+          let textY = top + h;
+
+          if (showBelow) {
+            barcodeHeightMm = h - textHeight - textMargin;
+            textY = top + barcodeHeightMm + textMargin;
+          } else if (showAbove) {
+            barcodeHeightMm = h - textHeight - textMargin;
+            socksY = top + textHeight + textMargin;
+            textY = top;
+          }
+          if (barcodeHeightMm < 1) barcodeHeightMm = 1;
+
+          return (
+            <g key={obj.id} transform={rotationStr || undefined}>
+              {barcodeUrl ? (
+                <image
+                  href={barcodeUrl}
+                  x={left}
+                  y={socksY}
+                  width={w}
+                  height={barcodeHeightMm}
+                  preserveAspectRatio="none"
+                />
+              ) : (
+                <rect
+                  x={left}
+                  y={socksY}
+                  width={w}
+                  height={barcodeHeightMm}
+                  fill="#eeeeee"
+                />
+              )}
+              {(showBelow || showAbove) && (
+                <text
+                  x={left + w / 2}
+                  y={textY}
+                  fontSize={textHeight}
+                  fontFamily={obj.barcodeFontFamily === "monospace" ? "JetBrains Mono, monospace" : "Inter, sans-serif"}
+                  fontWeight={obj.barcodeFontWeight || "normal"}
+                  fontStyle={obj.barcodeFontStyle || "normal"}
+                  fill={obj.barcodeTextColor || obj.color || "#000000"}
+                  textAnchor="middle"
+                  dominantBaseline="hanging"
+                >
+                  {obj.content}
+                </text>
+              )}
+            </g>
+          );
+        }
+
+        if (obj.type === "qrcode") {
+          const qrUrl = assetUrls[obj.id];
+          return (
+            <g key={obj.id} transform={rotationStr || undefined}>
+              {qrUrl ? (
+                <image
+                  href={qrUrl}
+                  x={left}
+                  y={top}
+                  width={w}
+                  height={h}
+                  preserveAspectRatio="none"
+                />
+              ) : (
+                <rect
+                  x={left}
+                  y={top}
+                  width={w}
+                  height={h}
+                  fill="#eeeeee"
+                />
+              )}
+            </g>
+          );
+        }
+
+        if (obj.type === "image" && obj.content) {
+          return (
+            <g key={obj.id} transform={rotationStr || undefined}>
+              <image
+                href={obj.content}
+                x={left}
+                y={top}
+                width={w}
+                height={h}
+                preserveAspectRatio="none"
+              />
+            </g>
+          );
+        }
+
+        if (obj.type === "shape" && obj.shapeType) {
+          const strokeWidth = (obj.shapeStrokeWidth !== undefined ? obj.shapeStrokeWidth : 1) * 0.3528;
+          const strokeColor = obj.shapeStrokeColor || obj.color || "#000000";
+          const fillColor = obj.shapeFillColor || "transparent";
+
+          if (obj.shapeType === "rect") {
+            const rx = (obj.shapeCornerRadius || 0) * 0.3528;
+            return (
+              <rect
+                key={obj.id}
+                x={left}
+                y={top}
+                width={w}
+                height={h}
+                rx={rx}
+                ry={rx}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                fill={fillColor}
+                transform={rotationStr || undefined}
+              />
+            );
+          }
+
+          if (obj.shapeType === "circle" || obj.shapeType === "oval") {
+            return (
+              <ellipse
+                key={obj.id}
+                cx={left + w / 2}
+                cy={top + h / 2}
+                rx={w / 2}
+                ry={h / 2}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                fill={fillColor}
+                transform={rotationStr || undefined}
+              />
+            );
+          }
+
+          if (obj.shapeType === "line") {
+            return (
+              <line
+                key={obj.id}
+                x1={left}
+                y1={top + h / 2}
+                x2={left + w}
+                y2={top + h / 2}
+                stroke={strokeColor}
+                strokeWidth={strokeWidth}
+                transform={rotationStr || undefined}
+              />
+            );
+          }
+        }
+
+        return null;
+      })}
+    </svg>
   );
 };
 
