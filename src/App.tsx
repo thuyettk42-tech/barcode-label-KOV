@@ -2500,18 +2500,78 @@ export default function App() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          // Check if running inside iframe
-          const isInIframe = window.self !== window.top;
-          if (isInIframe) {
-            setShowPrintModal(true);
-            setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+          const api = (window as any).electronAPI;
+          if (api && api.printOffice) {
+            // Chạy trong môi trường Electron: Sử dụng Print API với các thông số kích cỡ chính xác và Loại Bỏ lề tuyệt đối
+            let printLandscape = false;
+            let isCustomPage = false;
+            let customPageW = labelConfig.width;
+            let customPageH = labelConfig.height;
+            let printPageSize: any = "A4";
+
+            const isThermal = sheetConfig && sheetConfig.mode === 'thermal';
+            const isOffice = sheetConfig && sheetConfig.mode === 'office';
+            const showOfficeSheet = isOffice && officePreviewMode === 'sheet';
+            const showThermalSheetGrid = isThermal && officePreviewMode === 'sheet';
+
+            if (showOfficeSheet && sheetConfig) {
+              printPageSize = sheetConfig.paperSize === "A5" ? "A5" : (sheetConfig.paperSize === "custom" ? "custom" : "A4");
+              printLandscape = sheetConfig.orientation === "landscape";
+              if (printPageSize === "custom") {
+                isCustomPage = true;
+                customPageW = sheetConfig.customWidth || 210;
+                customPageH = sheetConfig.customHeight || 297;
+              }
+            } else if (showThermalSheetGrid && sheetConfig) {
+              const cols = sheetConfig.cols || 1;
+              const colGap = sheetConfig.colGap || 0;
+              const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+              const backingWidth = cols * labelConfig.width + (cols - 1) * colGap + rollSideMargin * 2;
+              printLandscape = backingWidth > labelConfig.height;
+              isCustomPage = true;
+              customPageW = backingWidth;
+              customPageH = labelConfig.height;
+            } else {
+              // In nhãn đơn lẻ chế độ Bàn Thiết Kế
+              printLandscape = labelConfig.width > labelConfig.height;
+              isCustomPage = true;
+              customPageW = labelConfig.width;
+              customPageH = labelConfig.height;
+            }
+
+            api.printOffice({
+              copies: printCopies || 1,
+              landscape: printLandscape,
+              isCustomPage,
+              customPageW,
+              customPageH,
+              pageSize: printPageSize,
+              margins: { marginType: "none" }, // Khóa lề 0mm trực tiếp bằng Electron
+              color: true
+            }).then(() => {
+              setTimeout(() => {
+                setIsPreparingPrint(false);
+              }, 400);
+            }).catch((err: any) => {
+              console.error("Lỗi khi gọi hộp thoại in Electron:", err);
+              setTimeout(() => {
+                setIsPreparingPrint(false);
+              }, 400);
+            });
           } else {
-            window.focus();
-            window.print();
-            // Đóng hộp thoại in xong hoàn tất chuẩn bị
-            setTimeout(() => {
-              setIsPreparingPrint(false);
-            }, 800);
+            // Check if running inside iframe (standard browser fallback)
+            const isInIframe = window.self !== window.top;
+            if (isInIframe) {
+              setShowPrintModal(true);
+              setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+            } else {
+              window.focus();
+              window.print();
+              // Đóng hộp thoại in xong hoàn tất chuẩn bị
+              setTimeout(() => {
+                setIsPreparingPrint(false);
+              }, 800);
+            }
           }
         }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
       });

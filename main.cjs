@@ -91,12 +91,25 @@ ipcMain.handle("get-printers", async (event) => {
 /**
  * Sửa lỗi 4 & in ấn: Lắng nghe sự kiện in từ trình duyệt để kích hoạt hộp thoại in hệ thống (Hỗ trợ máy in thường và Save as PDF)
  */
-ipcMain.on("window-print", (event) => {
+ipcMain.on("window-print", (event, options = {}) => {
   const webContents = event.sender;
   if (webContents) {
+    let pageSizeOption = options.pageSize || "A4";
+    if (options.isCustomPage && options.customPageW && options.customPageH) {
+      pageSizeOption = {
+        width: Math.round(options.customPageW * 1000),  // 1 mm = 1000 microns
+        height: Math.round(options.customPageH * 1000)
+      };
+    }
+
     webContents.print({
       silent: false,          // BẮT BUỘC: Hiển thị hộp thoại chọn máy in
       printBackground: true,  // BẮT BUỘC: Giữ màu nền/ảnh nền khi in
+      color: true,
+      landscape: options.landscape || false,
+      margins: options.margins || { marginType: "none" }, // Vô hiệu hóa lề mặc định để khớp tọa độ 100%
+      pageSize: pageSizeOption,
+      copies: options.copies || 1
     }, (success, errorType) => {
       if (!success) {
         console.warn("Người dùng đã hủy in hoặc có lỗi xảy ra:", errorType);
@@ -114,13 +127,21 @@ ipcMain.handle("print-office", async (event, options = {}) => {
   }
 
   return new Promise((resolve) => {
+    let pageSizeOption = options.pageSize || "A4";
+    if (options.isCustomPage && options.customPageW && options.customPageH) {
+      pageSizeOption = {
+        width: Math.round(options.customPageW * 1000),  // 1 mm = 1000 microns
+        height: Math.round(options.customPageH * 1000)
+      };
+    }
+
     const printOptions = {
       silent: false, // Bắt buộc mở hội thoại chọn máy in hoặc Lưu dưới dạng PDF
       color: options.color !== false,
       copies: options.copies || 1,
-      margins: options.margins || { marginType: "default" },
+      margins: options.margins || { marginType: "none" }, // Vô hiệu hóa lề mặc định để không bị lệch tọa độ
       landscape: options.landscape || false,
-      pageSize: options.pageSize || "A4"
+      pageSize: pageSizeOption
     };
 
     mainWindow.webContents.print(printOptions, (success, errorType) => {

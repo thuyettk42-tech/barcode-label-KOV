@@ -1207,8 +1207,9 @@ export function LabelCanvas({
       const activeObj = objects.find((o) => o.id === dragState.objectId);
       if (!activeObj) return;
 
-      const deltaXpx = e.clientX - dragState.startX;
-      const deltaYpx = e.clientY - dragState.startY;
+      const zoom = getWorkspaceZoom();
+      const deltaXpx = (e.clientX - dragState.startX) / zoom;
+      const deltaYpx = (e.clientY - dragState.startY) / zoom;
 
       // Convert delta px to millimeters
       const deltaXmm = deltaXpx / pixelScale;
@@ -1324,8 +1325,9 @@ export function LabelCanvas({
       const activeObj = objects.find((o) => o.id === resizeState.objectId);
       if (!activeObj) return;
 
-      const deltaXpx = e.clientX - resizeState.startX;
-      const deltaYpx = e.clientY - resizeState.startY;
+      const zoom = getWorkspaceZoom();
+      const deltaXpx = (e.clientX - resizeState.startX) / zoom;
+      const deltaYpx = (e.clientY - resizeState.startY) / zoom;
 
       // Convert delta in pixels to millimeters
       const deltaXmm = deltaXpx / pixelScale;
