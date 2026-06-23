@@ -10,6 +10,7 @@ import { LabelCanvas } from "./components/LabelCanvas";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
 import * as XLSX from "xlsx";
+import html2canvas from "html2canvas";
 import { 
   Printer, 
   Plus, 
@@ -2485,7 +2486,6 @@ export default function App() {
   const handlePrintLabel = () => {
     if (isPreparingPrint) return; // Chống spam click (double-click/flood prevention)
 
-    // --- STANDARD CHROMIUM POPUP DIALOG FLOW ---
     setIsPreparingPrint(true);
     handleSelectObject(null); // Deselect so focused outline does not print
     setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
@@ -2496,23 +2496,25 @@ export default function App() {
       setWasDesignModeForPrint(true);
     }
 
-    // Cơ chế "Await Render": Sắp xếp luồng vẽ thẻ <svg> của GPU & React render xong bằng requestAnimationFrame kép và microtasks
+    // Cơ chế "Await Render": Đợi React render xong các phần tử SVG, mã vạch hoàn tất
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setTimeout(() => {
-          const api = (window as any).electronAPI;
-          if (api && api.printOffice) {
-            // Chạy trong môi trường Electron: Sử dụng Print API với các thông số kích cỡ chính xác và Loại Bỏ lề tuyệt đối
-            let printLandscape = false;
-            let isCustomPage = false;
-            let customPageW = labelConfig.width;
-            let customPageH = labelConfig.height;
-            let printPageSize: any = "A4";
+        setTimeout(async () => {
+          try {
+            // Xác định khổ giấy in mục tiêu theo milimét
+            let printW = labelConfig.width;
+            let printH = labelConfig.height;
 
             const isThermal = sheetConfig && sheetConfig.mode === 'thermal';
             const isOffice = sheetConfig && sheetConfig.mode === 'office';
             const showOfficeSheet = isOffice && officePreviewMode === 'sheet';
             const showThermalSheetGrid = isThermal && officePreviewMode === 'sheet';
+
+            let printLandscape = false;
+            let isCustomPage = false;
+            let customPageW = labelConfig.width;
+            let customPageH = labelConfig.height;
+            let printPageSize: any = "A4";
 
             if (showOfficeSheet && sheetConfig) {
               printPageSize = sheetConfig.paperSize === "A5" ? "A5" : (sheetConfig.paperSize === "custom" ? "custom" : "A4");
@@ -2532,48 +2534,195 @@ export default function App() {
               customPageW = backingWidth;
               customPageH = labelConfig.height;
             } else {
-              // In nhãn đơn lẻ chế độ Bàn Thiết Kế
               printLandscape = labelConfig.width > labelConfig.height;
               isCustomPage = true;
               customPageW = labelConfig.width;
               customPageH = labelConfig.height;
             }
 
-            api.printOffice({
-              copies: printCopies || 1,
-              landscape: printLandscape,
-              isCustomPage,
-              customPageW,
-              customPageH,
-              pageSize: printPageSize,
-              margins: { marginType: "none" }, // Khóa lề 0mm trực tiếp bằng Electron
-              color: true
-            }).then(() => {
-              setTimeout(() => {
-                setIsPreparingPrint(false);
-              }, 400);
-            }).catch((err: any) => {
-              console.error("Lỗi khi gọi hộp thoại in Electron:", err);
-              setTimeout(() => {
-                setIsPreparingPrint(false);
-              }, 400);
-            });
-          } else {
-            // Check if running inside iframe (standard browser fallback)
-            const isInIframe = window.self !== window.top;
-            if (isInIframe) {
-              setShowPrintModal(true);
-              setIsPreparingPrint(false); // Reset nhanh để tương tác modal
+            if (isCustomPage) {
+              printW = customPageW;
+              printH = customPageH;
             } else {
-              window.focus();
-              window.print();
-              // Đóng hộp thoại in xong hoàn tất chuẩn bị
-              setTimeout(() => {
-                setIsPreparingPrint(false);
-              }, 800);
+              if (printPageSize === "A5") {
+                printW = printLandscape ? 210 : 148;
+                printH = printLandscape ? 148 : 210;
+              } else {
+                printW = printLandscape ? 297 : 210;
+                printH = printLandscape ? 210 : 297;
+              }
+            }
+            const orientationStyle = printLandscape ? 'landscape' : 'portrait';
+
+            // Tìm các trang/nhãn hiển thị để chụp màn hình
+            const officePages = document.querySelectorAll('.office-print-page');
+            const batchPages = document.querySelectorAll('.batch-print-page');
+            const singleCanvas = document.querySelector('#thermal-label-canvas');
+
+            let targets: HTMLElement[] = [];
+            if (officePages && officePages.length > 0) {
+              targets = Array.from(officePages) as HTMLElement[];
+            } else if (batchPages && batchPages.length > 0) {
+              targets = Array.from(batchPages) as HTMLElement[];
+            } else if (singleCanvas) {
+              targets = [singleCanvas as HTMLElement];
+            }
+
+            if (targets.length === 0) {
+              console.warn("Không tìm thấy tệp tin hoặc nhãn để in");
+              setIsPreparingPrint(false);
+              setIsSystemPrinting(false);
+              if (wasDesign) setOfficePreviewMode('design');
+              return;
+            }
+
+            // Chụp toàn bộ nhãn thành chuỗi ảnh Base64 chất lượng siêu nét (scale: 3)
+            const base64Images: string[] = [];
+            const canvasOptions = {
+              scale: 3, // Phóng to 3 lần cho độ phân giải siêu cao sắc nét
+              useCORS: true,
+              allowTaint: true,
+              logging: false,
+              backgroundColor: '#ffffff'
+            };
+
+            for (let i = 0; i < targets.length; i++) {
+              const canvas = await html2canvas(targets[i], canvasOptions);
+              base64Images.push(canvas.toDataURL('image/png'));
+            }
+
+            // Tiến hành in thông qua Iframe ẩn với kích thước nghiêm ngặt
+            await new Promise<void>((resolve) => {
+              const iframe = document.createElement('iframe');
+              iframe.style.position = 'fixed';
+              iframe.style.width = '0px';
+              iframe.style.height = '0px';
+              iframe.style.top = '-9999px';
+              iframe.style.left = '-9999px';
+              iframe.style.border = 'none';
+              document.body.appendChild(iframe);
+
+              const handleMessage = (e: MessageEvent) => {
+                if (e.data && e.data.type === 'PRINTER_IFRAME_READY') {
+                  window.removeEventListener('message', handleMessage);
+                  iframe.focus();
+                  if (iframe.contentWindow) {
+                    iframe.contentWindow.print();
+                  }
+                  setTimeout(() => {
+                    if (document.body.contains(iframe)) {
+                      document.body.removeChild(iframe);
+                    }
+                    resolve();
+                  }, 2000);
+                }
+              };
+
+              window.addEventListener('message', handleMessage);
+
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+              if (iframeDoc) {
+                iframeDoc.open();
+                const imgTags = base64Images.map((src) => `<img src="${src}" />`).join('');
+                iframeDoc.write(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="utf-8">
+                    <title>Print Label Job</title>
+                    <style>
+                      @media print {
+                        @page {
+                          size: ${printW}mm ${printH}mm ${orientationStyle};
+                          margin: 0 !important;
+                        }
+                        html, body {
+                          margin: 0 !important;
+                          padding: 0 !important;
+                          width: ${printW}mm !important;
+                          height: ${printH}mm !important;
+                          background-color: white !important;
+                          -webkit-print-color-adjust: exact !important;
+                          print-color-adjust: exact !important;
+                          color-adjust: exact !important;
+                        }
+                        body {
+                          margin: 0 !important;
+                          padding: 0 !important;
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                          justify-content: flex-start;
+                        }
+                        img {
+                          width: ${printW}mm !important;
+                          height: ${printH}mm !important;
+                          display: block;
+                          object-fit: fill;
+                          page-break-after: always;
+                          break-after: page;
+                          margin: 0 !important;
+                          padding: 0 !important;
+                          border: none !important;
+                        }
+                        img:last-of-type {
+                          page-break-after: avoid;
+                          break-after: avoid;
+                        }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    ${imgTags}
+                    <script>
+                      let loadedCount = 0;
+                      const imgs = document.getElementsByTagName('img');
+                      const total = imgs.length;
+                      if (total === 0) {
+                        window.parent.postMessage({ type: 'PRINTER_IFRAME_READY' }, '*');
+                      } else {
+                        for (let i = 0; i < total; i++) {
+                          if (imgs[i].complete) {
+                            loadedCount++;
+                            if (loadedCount === total) {
+                              window.parent.postMessage({ type: 'PRINTER_IFRAME_READY' }, '*');
+                            }
+                          } else {
+                            imgs[i].addEventListener('load', () => {
+                              loadedCount++;
+                              if (loadedCount === total) {
+                                window.parent.postMessage({ type: 'PRINTER_IFRAME_READY' }, '*');
+                              }
+                            });
+                            imgs[i].addEventListener('error', () => {
+                              loadedCount++;
+                              if (loadedCount === total) {
+                                window.parent.postMessage({ type: 'PRINTER_IFRAME_READY' }, '*');
+                              }
+                            });
+                          }
+                        }
+                      }
+                    </script>
+                  </body>
+                  </html>
+                `);
+                iframeDoc.close();
+              }
+            });
+
+          } catch (err) {
+            console.error("Lỗi khi kết xuất in:", err);
+          } finally {
+            // Restore status and preview modes
+            setIsPreparingPrint(false);
+            setIsSystemPrinting(false);
+            if (wasDesign) {
+              setOfficePreviewMode('design');
+              setWasDesignModeForPrint(false);
             }
           }
-        }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
+        }, 800); // Tăng lên 800ms để đảm bảo 100% tài nguyên vẽ và phông chữ đã sẵn sàng
       });
     });
   };
