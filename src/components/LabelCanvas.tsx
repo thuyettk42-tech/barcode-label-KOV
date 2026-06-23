@@ -341,9 +341,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${(fontSizeVal || obj.fontSize || 10) * 0.3528}mm`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -501,14 +499,21 @@ export function LabelCanvas({
       if (el) {
         const zoomStr = window.getComputedStyle(el).zoom;
         if (zoomStr && zoomStr !== "normal") {
-          const val = parseFloat(zoomStr);
-          if (!isNaN(val) && val > 0) return val;
+          if (zoomStr.includes("%")) {
+            const val = parseFloat(zoomStr);
+            if (!isNaN(val) && val > 0) return val / 100;
+          } else {
+            const val = parseFloat(zoomStr);
+            if (!isNaN(val) && val > 0) return val;
+          }
         }
       }
     } catch (err) {
       // safe fallback
     }
-    return 1.0;
+    // app-scale-wrapper has a standard zoom of 0.85 in CSS.
+    // If zoomStr is "normal" or undef in Electron, fallback to 0.85 so coordinates match perfectly.
+    return 0.85;
   };
 
   // Dynamic values in pixels (defined at top to allow safe closure referencing in drag and marquee handlers)
@@ -849,9 +854,12 @@ export function LabelCanvas({
           size: ${finalWStr} ${finalHStr} !important;
           margin: 0 !important;
         }
-        body {
+        html, body, *, iframe {
           margin: 0 !important;
           padding: 0 !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
         }
       }
     `;

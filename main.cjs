@@ -22,7 +22,6 @@ function createWindow() {
     width: 1280,
     height: 850,
     title: "KiotLabel Designer Desktop - Ngoại Tuyến Hoàn Toàn",
-    // Use logo.ico if present, otherwise fallback gracefully
     icon: fs.existsSync(path.join(__dirname, "logo.ico"))
       ? path.join(__dirname, "logo.ico")
       : undefined,
@@ -31,7 +30,9 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false, // Cho phép tải tệp cục bộ và tránh lỗi CORS ngoại tuyến
-      preload: path.join(__dirname, "preload.cjs")
+      preload: path.join(__dirname, "preload.cjs"),
+      // Cho phép kéo thả trực tiếp, tránh bị can thiệp bởi electron webPreferences
+      enableBlinkFeatures: "PointerEvents"
     }
   });
 
@@ -50,6 +51,9 @@ function createWindow() {
     mainWindow = null;
   });
 }
+
+// Thêm lệnh disableHardwareAcceleration() theo đúng yêu cầu để xử lý triệt để lỗi màu sắc lệch/xỉn do phần cứng tăng tốc của card đồ họa
+app.disableHardwareAcceleration();
 
 // 1. Electron lifecycle events
 app.whenReady().then(() => {
@@ -85,7 +89,7 @@ ipcMain.handle("get-printers", async (event) => {
 });
 
 /**
- * Sửa lỗi 4: Lắng nghe sự kiện in từ trình duyệt để kích hoạt hộp thoại in hệ thống (Hỗ trợ máy in thường và Save as PDF)
+ * Sửa lỗi 4 & in ấn: Lắng nghe sự kiện in từ trình duyệt để kích hoạt hộp thoại in hệ thống (Hỗ trợ máy in thường và Save as PDF)
  */
 ipcMain.on("window-print", (event) => {
   const webContents = event.sender;
