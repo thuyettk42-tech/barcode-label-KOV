@@ -28,6 +28,7 @@ import {
   Grid3X3,
   Undo2,
   Redo2,
+  Eye,
   BookOpen,
   Info,
   ExternalLink,
@@ -651,6 +652,7 @@ export default function App() {
   const [isQuickSizeOpen, setIsQuickSizeOpen] = useState<boolean>(false);
   const [printCopies, setPrintCopies] = useState<number>(24);
   const [printCopiesInput, setPrintCopiesInput] = useState<string>("24");
+  const [printEngine, setPrintEngine] = useState<'vector' | 'canvas'>('vector');
   const [printQuantityMode, setPrintQuantityMode] = useState<'constant' | 'excel_column'>('constant');
   const [printQuantityColumn, setPrintQuantityColumn] = useState<string>("");
   const [isBatchPrinting, setIsBatchPrinting] = useState<boolean>(false);
@@ -662,6 +664,11 @@ export default function App() {
   const [rowGapUnit, setRowGapUnit] = useState<'mm' | 'inch'>('mm');
   const [colGapInput, setColGapInput] = useState<string>("");
   const [rowGapInput, setRowGapInput] = useState<string>("");
+
+  const [isPrintPreviewOpen, setIsPrintPreviewOpen] = useState<boolean>(false);
+  const [previewZoom, setPreviewZoom] = useState<number>(0.55);
+  const [previewLayout, setPreviewLayout] = useState<'scroll' | 'single'>('scroll');
+  const [previewActivePageIndex, setPreviewActivePageIndex] = useState<number>(0);
 
   useEffect(() => {
     if (document.activeElement?.id !== "roll-width-input") {
@@ -1134,6 +1141,28 @@ export default function App() {
 
   const printManifest = useMemo(() => printManifestData.manifest, [printManifestData]);
   const printLimitWarning = useMemo(() => printManifestData.warning, [printManifestData]);
+
+  const previewTotalPages = useMemo(() => {
+    if (!sheetConfig) return 1;
+    const isOffice = sheetConfig.mode === "office";
+    const totalItems = (excelData && excelData.length > 0) 
+      ? (printManifest.length || excelData.length) 
+      : (printCopies || 1);
+    
+    if (isOffice) {
+      const cellsPerSheet = Math.max(1, (sheetConfig.rows || 1) * (sheetConfig.cols || 1));
+      return Math.max(1, Math.ceil(totalItems / cellsPerSheet));
+    } else {
+      const cols = Math.max(1, sheetConfig.cols || 1);
+      return Math.max(1, Math.ceil(totalItems / cols));
+    }
+  }, [sheetConfig, excelData, printManifest, printCopies]);
+
+  useEffect(() => {
+    if (previewActivePageIndex >= previewTotalPages) {
+      setPreviewActivePageIndex(Math.max(0, previewTotalPages - 1));
+    }
+  }, [previewTotalPages, previewActivePageIndex]);
 
   // Wrapper for cell level dynamic object resolver that respects the repeating print count
   const resolveDynamicObjectsForCell = (objs: LabelObject[], globalCellIndex: number) => {
@@ -2554,7 +2583,186 @@ export default function App() {
             }
             const orientationStyle = printLandscape ? 'landscape' : 'portrait';
 
-            // Tìm các trang/nhãn hiển thị để chụp màn hình
+            // --- HỖ TRỢ IN VECTOR SIÊU TỐC KHÔNG GIẬT LAG "BARTENDER PORTABLE" ---
+            if (printEngine === 'vector') {
+              const officePages = document.querySelectorAll('.office-print-page');
+              const batchPages = document.querySelectorAll('.batch-print-page');
+              const singleCanvas = document.querySelector('#thermal-label-canvas');
+
+              let targets: HTMLElement[] = [];
+              if (officePages && officePages.length > 0) {
+                targets = Array.from(officePages) as HTMLElement[];
+              } else if (batchPages && batchPages.length > 0) {
+                targets = Array.from(batchPages) as HTMLElement[];
+              } else if (singleCanvas) {
+                targets = [singleCanvas as HTMLElement];
+              }
+
+              if (targets.length === 0) {
+                console.warn("Không tìm thấy tệp tin hoặc nhãn để in");
+                setIsPreparingPrint(false);
+                setIsSystemPrinting(false);
+                if (wasDesign) setOfficePreviewMode('design');
+                return;
+              }
+
+              // Khởi tạo phơi iframe độc lập vô lề
+              const iframe = document.createElement('iframe');
+              iframe.style.position = 'fixed';
+              iframe.style.width = '0px';
+              iframe.style.height = '0px';
+              iframe.style.top = '-9999px';
+              iframe.style.left = '-9999px';
+              iframe.style.border = 'none';
+              document.body.appendChild(iframe);
+
+              const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+              if (iframeDoc) {
+                iframeDoc.open();
+                iframeDoc.write(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <meta charset="utf-8">
+                    <title>Vector Print Job</title>
+                    <style>
+                      @media print {
+                        @page {
+                          size: ${printW}mm ${printH}mm;
+                          margin: 0 !important;
+                        }
+                        html, body {
+                          margin: 0 !important;
+                          padding: 0 !important;
+                          width: ${printW}mm !important;
+                          height: ${printH}mm !important;
+                          background-color: white !important;
+                          overflow: hidden !important;
+                        }
+                        body {
+                          display: block !important;
+                        }
+                        #print-root {
+                          width: 100% !important;
+                          height: 100% !important;
+                          margin: 0 !important;
+                          padding: 0 !important;
+                          box-sizing: border-box !important;
+                        }
+                        * {
+                          box-sizing: border-box !important;
+                          -webkit-print-color-adjust: exact !important;
+                          print-color-adjust: exact !important;
+                          color-adjust: exact !important;
+                        }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div id="print-root"></div>
+                  </body>
+                  </html>
+                `);
+                iframeDoc.close();
+
+                // Đồng bộ các biến cấu hình CSS (millimeter sizing) từ gốc sang iframe
+                const parentStyle = document.documentElement.style;
+                const iframeRoot = iframeDoc.documentElement;
+                for (let i = 0; i < parentStyle.length; i++) {
+                  const key = parentStyle[i];
+                  if (key.startsWith('--print-') || key.startsWith('--o-')) {
+                    iframeRoot.style.setProperty(key, parentStyle.getPropertyValue(key));
+                  }
+                }
+
+                // Sao chép găm toàn bộ stylesheet và fonts liên đới
+                document.querySelectorAll('style, link[rel="stylesheet"]').forEach(styleNode => {
+                  iframeDoc.head.appendChild(styleNode.cloneNode(true));
+                });
+
+                const printRoot = iframeDoc.getElementById('print-root');
+                if (printRoot) {
+                  targets.forEach((target) => {
+                    const clone = target.cloneNode(true) as HTMLElement;
+
+                    // Diệt sạch các nút điều chỉnh kích cỡ, tay quay, nút xoay của chế độ thiết kế
+                    const cleanSelectors = [
+                      '.resize-handle',
+                      '.rotate-handle',
+                      '.no-print',
+                      'button',
+                      'select',
+                      'input:not([type="checkbox"])',
+                      '.border-dashed'
+                    ];
+                    cleanSelectors.forEach(sel => {
+                      clone.querySelectorAll(sel).forEach(el => el.remove());
+                    });
+
+                    // Làm sạch viền báo xanh rực khi đang chọn của KiotViet
+                    clone.querySelectorAll('[class*="border-kiot-cyan"]').forEach(el => {
+                      el.classList.remove('border-kiot-cyan', 'ring-1', 'ring-kiot-cyan');
+                    });
+                    clone.querySelectorAll('[class*="ring-kiot-cyan"]').forEach(el => {
+                      el.classList.remove('ring-kiot-cyan', 'ring-1');
+                    });
+
+                    // Triệt tiêu thuộc tính lề lệch 24px của canvas thiết kế đơn lẻ khi in
+                    if (clone.id === "thermal-label-canvas") {
+                      clone.style.left = "0px";
+                      clone.style.top = "0px";
+                      clone.style.margin = "0px";
+                      clone.style.padding = "0px";
+                      clone.style.transform = "none";
+                      clone.style.boxShadow = "none";
+                      clone.style.border = "none";
+                    }
+
+                    printRoot.appendChild(clone);
+                  });
+                }
+
+                // Gọi lệnh in thẳng
+                setTimeout(() => {
+                  iframe.focus();
+                  if (iframe.contentWindow) {
+                    iframe.contentWindow.print();
+                  }
+                  setTimeout(() => {
+                    if (document.body.contains(iframe)) {
+                      document.body.removeChild(iframe);
+                    }
+                    setIsPreparingPrint(false);
+                    setIsSystemPrinting(false);
+                    if (wasDesign) {
+                      setOfficePreviewMode('design');
+                      setWasDesignModeForPrint(false);
+                    }
+                  }, 1200);
+                }, 150);
+              } else {
+                setIsPreparingPrint(false);
+                setIsSystemPrinting(false);
+              }
+              return; // Hoàn tất in vector siêu tốc!
+            }
+
+            // --- BẮT ĐẦU CƠ CHẾ ĐỘC QUYỀN "BARTENDER PORTABLE" ---
+            // 1. Tạo container đệm trung gian ở cấp Root (body gốc), bỏ qua hoàn toàn CSS Zoom 0.85
+            const captureArea = document.createElement('div');
+            captureArea.style.position = 'fixed';
+            captureArea.style.top = '0';
+            captureArea.style.left = '0';
+            captureArea.style.width = '10000px';
+            captureArea.style.height = '10000px';
+            captureArea.style.backgroundColor = 'transparent';
+            captureArea.style.zIndex = '-999999';
+            captureArea.style.pointerEvents = 'none';
+            captureArea.style.opacity = '1';
+            captureArea.style.overflow = 'visible';
+            document.body.appendChild(captureArea);
+
+            // Tìm các trang/nhãn hiển thị phát sinh thực tế
             const officePages = document.querySelectorAll('.office-print-page');
             const batchPages = document.querySelectorAll('.batch-print-page');
             const singleCanvas = document.querySelector('#thermal-label-canvas');
@@ -2570,16 +2778,18 @@ export default function App() {
 
             if (targets.length === 0) {
               console.warn("Không tìm thấy tệp tin hoặc nhãn để in");
+              if (document.body.contains(captureArea)) {
+                document.body.removeChild(captureArea);
+              }
               setIsPreparingPrint(false);
               setIsSystemPrinting(false);
               if (wasDesign) setOfficePreviewMode('design');
               return;
             }
 
-            // Chụp toàn bộ nhãn thành chuỗi ảnh Base64 chất lượng siêu nét (scale: 3)
             const base64Images: string[] = [];
             const canvasOptions = {
-              scale: 3, // Phóng to 3 lần cho độ phân giải siêu cao sắc nét
+              scale: 3, // Hệ số phân giải gấp 3 lần gốc ~300DPI siêu nét mịn
               useCORS: true,
               allowTaint: true,
               logging: false,
@@ -2587,11 +2797,76 @@ export default function App() {
             };
 
             for (let i = 0; i < targets.length; i++) {
-              const canvas = await html2canvas(targets[i], canvasOptions);
+              const target = targets[i];
+
+              // Tạo một khu vực wrapper mới để loại bỏ mọi CSS scale / scroll trong workspace hiện tại
+              const wrapper = document.createElement('div');
+              wrapper.style.position = 'absolute';
+              wrapper.style.left = '0';
+              wrapper.style.top = '0';
+              
+              // Đọc chính xác kích thước thực tế theo pixel của đối tượng
+              const targetRect = target.getBoundingClientRect();
+              const wPx = target.offsetWidth || targetRect.width;
+              const hPx = target.offsetHeight || targetRect.height;
+              
+              wrapper.style.width = `${wPx}px`;
+              wrapper.style.height = `${hPx}px`;
+              wrapper.style.backgroundColor = '#ffffff';
+              wrapper.style.overflow = 'hidden';
+              captureArea.appendChild(wrapper);
+
+              // Sao bản sao DOM sâu
+              const clone = target.cloneNode(true) as HTMLElement;
+
+              // Loại bỏ các control dính theo chế độ thiết kế
+              const cleanSelectors = [
+                '.resize-handle',
+                '.rotate-handle',
+                '.no-print',
+                'button',
+                'select',
+                'input:not([type="checkbox"])',
+                '.border-dashed'
+              ];
+              cleanSelectors.forEach(sel => {
+                clone.querySelectorAll(sel).forEach(el => el.remove());
+              });
+
+              // Làm sạch hoàn toàn viền báo biên nét đứt/xanh rực rỡ chọn đối tượng khi in
+              clone.querySelectorAll('[class*="border-kiot-cyan"]').forEach(el => {
+                el.classList.remove('border-kiot-cyan', 'ring-1', 'ring-kiot-cyan');
+              });
+              clone.querySelectorAll('[class*="ring-kiot-cyan"]').forEach(el => {
+                el.classList.remove('ring-kiot-cyan', 'ring-1');
+              });
+
+              // Ép bản sao chiếm trọn vẹn wrapper và không lệch biên độ dòng chảy
+              clone.style.position = 'relative';
+              clone.style.left = '0';
+              clone.style.top = '0';
+              clone.style.margin = '0';
+              clone.style.padding = '0';
+              clone.style.transform = 'none';
+              clone.style.boxShadow = 'none';
+              clone.style.border = 'none';
+
+              wrapper.appendChild(clone);
+
+              // Tiến hành chụp màn hình wrapper có tỉ lệ 1:1 chuẩn xác không bị ảnh hưởng bởi Zoom 0.85
+              const canvas = await html2canvas(wrapper, canvasOptions);
               base64Images.push(canvas.toDataURL('image/png'));
+
+              // Xóa bỏ wrapper khỏi cache để giải phóng bộ nhớ
+              captureArea.removeChild(wrapper);
             }
 
-            // Tiến hành in thông qua Iframe ẩn với kích thước nghiêm ngặt
+            // Gỡ bỏ và dọn sạch captureArea trung gian
+            if (document.body.contains(captureArea)) {
+              document.body.removeChild(captureArea);
+            }
+
+            // In tệp tin dùng Iframe ẩn với cấu hình lề và kích thước cực kỳ nghiêm ngặt
             await new Promise<void>((resolve) => {
               const iframe = document.createElement('iframe');
               iframe.style.position = 'fixed';
@@ -2633,7 +2908,7 @@ export default function App() {
                     <style>
                       @media print {
                         @page {
-                          size: ${printW}mm ${printH}mm ${orientationStyle};
+                          size: ${printW}mm ${printH}mm;
                           margin: 0 !important;
                         }
                         html, body {
@@ -2642,6 +2917,7 @@ export default function App() {
                           width: ${printW}mm !important;
                           height: ${printH}mm !important;
                           background-color: white !important;
+                          overflow: hidden !important;
                           -webkit-print-color-adjust: exact !important;
                           print-color-adjust: exact !important;
                           color-adjust: exact !important;
@@ -2655,8 +2931,8 @@ export default function App() {
                           justify-content: flex-start;
                         }
                         img {
-                          width: ${printW}mm !important;
-                          height: ${printH}mm !important;
+                          width: 100% !important;
+                          height: 100% !important;
                           display: block;
                           object-fit: fill;
                           page-break-after: always;
@@ -4916,6 +5192,39 @@ export default function App() {
                       </div>
                     )}
 
+                    {/* CƠ CHẾ KẾT XUẤT BẢN IN */}
+                    <div className="space-y-1 pt-1.5 pb-1">
+                      <label className="block text-[10px] text-slate-500 font-extrabold uppercase select-none mb-1">
+                        CƠ CHẾ KẾT XUẤT BẢN IN:
+                      </label>
+                      <div className="grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200/85">
+                        <button
+                          type="button"
+                          onClick={() => setPrintEngine('vector')}
+                          className={`px-1 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center leading-tight ${
+                            printEngine === 'vector'
+                              ? "bg-white text-kiot-navy shadow-xs border border-gray-200 font-black"
+                              : "text-slate-500 hover:text-slate-800 font-semibold"
+                          }`}
+                          title="Kết xuất Vector siêu tốc, nét vĩnh viễn, không trễ RAM, khuyên dùng"
+                        >
+                          Vector (Bartender)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPrintEngine('canvas')}
+                          className={`px-1 py-1.5 text-[11px] font-bold rounded-lg transition-all cursor-pointer text-center leading-tight ${
+                            printEngine === 'canvas'
+                              ? "bg-white text-kiot-navy shadow-xs border border-gray-200 font-black"
+                              : "text-slate-500 hover:text-slate-800 font-semibold"
+                          }`}
+                          title="Chụp ảnh canvas JPG/PNG, độ tương thích tối đa"
+                        >
+                          Chụp ảnh Canvas
+                        </button>
+                      </div>
+                    </div>
+
                     {printLimitWarning && (
                       <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-lg leading-relaxed font-semibold animate-pulse shadow-xs max-h-[140px] overflow-y-auto select-text font-sans">
                         ⚠️ <span className="font-bold">Cảnh báo an toàn:</span> {printLimitWarning}
@@ -4923,28 +5232,44 @@ export default function App() {
                     )}
                   </div>
 
-                  <button
-                    onClick={handlePrintLabel}
-                    disabled={isPreparingPrint}
-                    className={`w-full py-3 rounded-xl flex items-center justify-center space-x-2 transition-all duration-150 text-xs font-black border-b-[3px] ${
-                      isPreparingPrint
-                        ? "bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed opacity-75 shadow-none scale-100"
-                        : "bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] border-sky-600"
-                    }`}
-                    title={isPreparingPrint ? "Đang chuẩn bị vẽ nhãn & mã vạch..." : "Gọi lệnh in nhãn dán tiêu chuẩn (Ctrl + P)"}
-                  >
-                    {isPreparingPrint ? (
-                      <>
-                        <RefreshCw className="w-4.5 h-4.5 stroke-[3] animate-spin" />
-                        <span className="tracking-widest uppercase font-black font-sans">ĐANG CHUẨN BỊ IN...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Printer className="w-4.5 h-4.5 stroke-[3]" />
-                        <span className="tracking-widest uppercase font-black font-sans">IN NHÃN (CTRL + P)</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex flex-col space-y-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSelectObject(null); // Deselect outline so it does not print
+                        setIsPrintPreviewOpen(true);
+                      }}
+                      disabled={isPreparingPrint}
+                      className="w-full py-3 rounded-xl flex items-center justify-center space-x-2 transition-all duration-150 text-xs font-black uppercase font-sans border-b-[3px] bg-gradient-to-r from-kiot-cyan to-sky-500 hover:from-sky-500 hover:to-sky-600 text-white cursor-pointer shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] border-sky-600"
+                      title="Xem trước kết quả xếp trang đầy đủ và in"
+                    >
+                      <Eye className="w-4.5 h-4.5 stroke-[3]" />
+                      <span className="tracking-widest">XEM TRƯỚC BẢN IN (PREVIEW)</span>
+                    </button>
+
+                    <button
+                      onClick={handlePrintLabel}
+                      disabled={isPreparingPrint}
+                      className={`w-full py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all duration-150 text-[11px] font-black border-b-[3px] ${
+                        isPreparingPrint
+                          ? "bg-slate-300 text-slate-500 border-slate-400 cursor-not-allowed opacity-75 shadow-none scale-100"
+                          : "bg-white hover:bg-slate-50 text-slate-700 border-slate-300 hover:border-slate-400 cursor-pointer shadow-3xs active:scale-[0.98] border-b-slate-400"
+                      }`}
+                      title={isPreparingPrint ? "Đang chuẩn bị vẽ nhãn & mã vạch..." : "Gọi lệnh in nhãn dán tiêu chuẩn lập tức (Ctrl + P)"}
+                    >
+                      {isPreparingPrint ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 stroke-[3] animate-spin" />
+                          <span className="tracking-wider uppercase font-black font-sans">ĐANG KHỞI TẠO...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Printer className="w-3.5 h-3.5 stroke-[3]" />
+                          <span className="tracking-wider uppercase font-black font-sans">IN TRỰC TIẾP (CTRL + P)</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -5286,6 +5611,289 @@ export default function App() {
 
         </main>
       </div>
+
+      {/* ONLINE/OFFLINE PRINT PREVIEW INTEGRATION MODAL */}
+      {isPrintPreviewOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0F172A] overflow-hidden flex flex-col font-sans select-none no-print is-previewing-modal">
+          {/* Header */}
+          <div className="bg-[#1E293B] border-b border-slate-700/60 text-white px-5 py-3 shrink-0 flex items-center justify-between shadow-md">
+            <div className="flex items-center space-x-3">
+              <div className="p-1.5 rounded-lg bg-blue-600 shrink-0">
+                <Printer className="w-5 h-5 text-white" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-extrabold text-[13px] md:text-sm tracking-wider leading-none uppercase truncate text-white">KiotLabel - Xem Trước Bản In Ô Ngoại Tuyến</h2>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1.5">
+                  Độ phân giải thực: 300 DPI | {sheetConfig?.mode === 'office' ? `Khổ giấy: ${sheetConfig?.paperSize === 'custom' ? 'Tự chọn' : sheetConfig?.paperSize}` : 'Khổ cuộn Thermal'} ({labelConfig.width}x{labelConfig.height}mm)
+                </p>
+              </div>
+            </div>
+
+            {/* Visual Stats Badge */}
+            <div className="hidden lg:flex items-center space-x-2 bg-slate-800/80 border border-slate-700 px-3 py-1.5 rounded-lg text-[11px] font-bold shrink-0">
+              <span className="text-slate-400">Thiết lập:</span>
+              <span className="text-emerald-400 font-extrabold">
+                {sheetConfig?.mode === 'office' ? `${sheetConfig?.cols} cột x ${sheetConfig?.rows} hàng` : 'Cuộn 1 hàng'}
+              </span>
+              <span className="text-slate-500">|</span>
+              <span className="text-slate-400">Tổng:</span>
+              <span className="text-sky-400 font-black">
+                {excelData && excelData.length > 0 ? (printManifest.length || excelData.length) : printCopies} nhãn ({previewTotalPages} trang)
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsPrintPreviewOpen(false)}
+                className="px-3.5 py-2.5 bg-slate-700 hover:bg-slate-650 font-bold border border-slate-600 rounded-lg text-[11.5px] leading-none cursor-pointer transition text-white flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Trở lại</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPrintPreviewOpen(false);
+                  setTimeout(() => {
+                    handlePrintLabel();
+                  }, 150);
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 font-black rounded-lg text-[11.5px] tracking-wider uppercase flex items-center gap-1.5 shadow-md active:scale-[0.98] cursor-pointer text-white"
+              >
+                <Printer className="w-4 h-4 text-white" />
+                <span>IN NGAY</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Core Body Container */}
+          <div className="flex-1 flex overflow-hidden min-h-0 bg-slate-900/40">
+            {/* Left Sidebar Preferences Panel */}
+            <aside className="w-[285px] shrink-0 border-r border-slate-800 bg-[#1E293B] text-slate-200 p-4.5 flex flex-col justify-between overflow-y-auto">
+              <div className="space-y-4 pt-1">
+                <div className="pb-2.5 border-b border-slate-800">
+                  <h3 className="text-[10.5px] font-extrabold uppercase text-slate-400 tracking-wider">Cấu Hình Bản In</h3>
+                </div>
+
+                {/* Copies */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] text-slate-400 font-bold uppercase tracking-wide">Số Bản in:</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="1000"
+                      value={printCopies}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        if (!isNaN(val) && val > 0) setPrintCopies(val);
+                      }}
+                      disabled={excelData && excelData.length > 0 && printQuantityMode === "excel_column"}
+                      className="flex-1 bg-slate-850 border border-slate-700 text-white text-xs font-bold rounded-lg px-2.5 py-2 focus:border-blue-500 outline-none text-center"
+                    />
+                    <span className="text-[11.5px] font-semibold text-slate-400">nhãn</span>
+                  </div>
+                  {excelData && excelData.length > 0 && printQuantityMode === "excel_column" && (
+                    <p className="text-[9.5px] text-amber-400 italic leading-tight bg-amber-950/20 px-2 py-1 rounded border border-amber-900/30">
+                      ⚡ Lấy tự động theo cột Excel: {printQuantityColumn}
+                    </p>
+                  )}
+                </div>
+
+                {/* Print engine selection choice */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] text-slate-400 font-bold uppercase tracking-wide">Cơ chế in ấn:</label>
+                  <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setPrintEngine('vector')}
+                      className={`py-1.5 px-2 text-[10px] font-extrabold rounded transition ${
+                        printEngine === 'vector'
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white hover:bg-slate-850"
+                      }`}
+                    >
+                      Vector (Chuẩn)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPrintEngine('canvas')}
+                      className={`py-1.5 px-2 text-[10px] font-extrabold rounded transition ${
+                        printEngine === 'canvas'
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white hover:bg-slate-850"
+                      }`}
+                    >
+                      Canvas (Ảnh)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Preview layout styles */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] text-slate-400 font-bold uppercase tracking-wide">Bố Cục Xem Trước:</label>
+                  <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewLayout('scroll')}
+                      className={`py-1.5 px-2 text-[10px] font-extrabold rounded transition ${
+                        previewLayout === 'scroll'
+                          ? "bg-slate-700 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white hover:bg-slate-850"
+                      }`}
+                    >
+                      Cuộn liên tiếp
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewLayout('single')}
+                      className={`py-1.5 px-2 text-[10px] font-extrabold rounded transition ${
+                        previewLayout === 'single'
+                          ? "bg-slate-700 text-white shadow-xs"
+                          : "text-slate-400 hover:text-white hover:bg-slate-850"
+                      }`}
+                    >
+                      Xem từng trang
+                    </button>
+                  </div>
+                </div>
+
+                {/* Zoom controls */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10.5px] text-slate-400 font-bold uppercase tracking-wide">Tỷ Lệ Xem: {Math.round(previewZoom * 100)}%</label>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewZoom(prev => Math.max(0.15, prev - 0.1))}
+                      className="w-8 h-8 rounded-lg bg-slate-850 hover:bg-slate-750 font-black flex items-center justify-center text-slate-200 border border-slate-700 cursor-pointer"
+                    >
+                      <Minus className="w-3 h-3 text-slate-200" />
+                    </button>
+                    <input
+                      type="range"
+                      min="0.15"
+                      max="1.8"
+                      step="0.05"
+                      value={previewZoom}
+                      onChange={(e) => setPreviewZoom(parseFloat(e.target.value))}
+                      className="flex-1 accent-blue-500 h-1 bg-slate-850 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPreviewZoom(prev => Math.min(1.8, prev + 0.1))}
+                      className="w-8 h-8 rounded-lg bg-slate-850 hover:bg-slate-750 font-black flex items-center justify-center text-slate-200 border border-slate-700 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-slate-200" />
+                    </button>
+                  </div>
+                  <div className="flex justify-between pt-1 text-[9.5px] font-semibold text-slate-400">
+                    <button type="button" onClick={() => setPreviewZoom(0.35)} className="hover:text-blue-400 cursor-pointer bg-transparent border-0 outline-none">Nhỏ (35%)</button>
+                    <button type="button" onClick={() => setPreviewZoom(0.55)} className="hover:text-blue-400 cursor-pointer bg-transparent border-0 outline-none">Vừa (55%)</button>
+                    <button type="button" onClick={() => setPreviewZoom(1.0)} className="hover:text-blue-400 cursor-pointer bg-transparent border-0 outline-none">1:1 (100%)</button>
+                  </div>
+                </div>
+
+                {/* Diagnostic Details */}
+                <div className="pt-3 border-t border-slate-800/80 text-[10px] text-slate-400 space-y-2 select-text">
+                  <div className="flex justify-between border-b border-slate-800/30 pb-1">
+                    <span>In nhanh:</span>
+                    <span className="font-mono text-[#38BDF8] font-extrabold">{(window as any).ipcRenderer ? "Desktop Core Engine" : "Broswer Web App"}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800/30 pb-1">
+                    <span>Nơi in định dạng:</span>
+                    <span className="font-mono text-[#34D399] font-extrabold">{labelConfig.width}x{labelConfig.height} mm</span>
+                  </div>
+                  <p className="text-[9.5px] text-slate-500 leading-relaxed font-semibold italic pt-1 leading-normal">
+                    * Nhãn được vẽ chuẩn kích thước thật ở 300 DPI, hỗ trợ tự sắp hàng cột và ngắt decal cuộn tự động.
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-[9.5px] text-slate-500 text-center select-text font-black uppercase font-mono pb-2">
+                KiotLabel Designer (v4.2 Offline)
+              </div>
+            </aside>
+
+            {/* Center preview canvas sheet area */}
+            <div className="flex-1 overflow-auto p-8 flex flex-col items-center justify-start bg-slate-950/75 relative">
+              {/* If single page layout is selected, add side paddles to navigate pages */}
+              {previewLayout === 'single' && previewTotalPages > 1 && (
+                <div className="absolute right-6 top-6 bg-slate-800 border border-slate-700/80 text-white rounded-lg flex items-center space-x-2.5 p-1 px-3 shadow-lg z-40 text-[11px] font-bold select-none">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewActivePageIndex(prev => Math.max(0, prev - 1))}
+                    disabled={previewActivePageIndex === 0}
+                    className={`px-2 py-1 rounded transition ${previewActivePageIndex === 0 ? "text-slate-500 cursor-not-allowed" : "text-white hover:bg-slate-700 cursor-pointer"}`}
+                  >
+                    ←
+                  </button>
+                  <span className="text-slate-300 font-mono">
+                    Trang {previewActivePageIndex + 1} / {previewTotalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewActivePageIndex(prev => Math.min(previewTotalPages - 1, prev + 1))}
+                    disabled={previewActivePageIndex === previewTotalPages - 1}
+                    className={`px-2 py-1 rounded transition ${previewActivePageIndex === previewTotalPages - 1 ? "text-slate-500 cursor-not-allowed" : "text-white hover:bg-slate-700 cursor-pointer"}`}
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+
+              {/* Dynamic CSS Styles injected to simulate single-page pagination layout hiding of other siblings */}
+              {previewLayout === 'single' && (
+                <style dangerouslySetInnerHTML={{ __html: `
+                  .is-previewing-modal .office-print-page,
+                  .is-previewing-modal .batch-print-page {
+                    display: none !important;
+                  }
+                  .is-previewing-modal .office-print-page:nth-child(${previewActivePageIndex + 1}),
+                  .is-previewing-modal .batch-print-page:nth-child(${previewActivePageIndex + 1}) {
+                    display: grid !important;
+                  }
+                  .is-previewing-modal .batch-print-page:nth-child(${previewActivePageIndex + 1}) {
+                    display: flex !important;
+                  }
+                `}} />
+              )}
+
+              {/* Scaled Sheets Preview Container wrapper */}
+              <div 
+                className="preview-sheet-wrapper pointer-events-none select-none origin-top transition-transform duration-100 flex flex-col items-center pb-24"
+                style={{
+                  transform: `scale(${previewZoom})`,
+                  transformOrigin: 'top center',
+                }}
+              >
+                <div className="preview-canvas-sandbox pointer-events-none text-slate-800">
+                  <LabelCanvas
+                    labelConfig={labelConfig}
+                    objects={displayObjects}
+                    selectedId={null}
+                    selectedIds={[]}
+                    pixelScale={8.4915} // standard crisp browser preview scaling
+                    gridSnapSize={0}
+                    onSelectObject={() => {}}
+                    onUpdateObjectCoordinates={() => {}}
+                    onUpdateObjectGeometry={() => {}}
+                    onDeleteObject={() => {}}
+                    isBatchPrinting={isBatchPrinting}
+                    excelData={excelData}
+                    resolveDynamicObjects={resolveDynamicObjectsForCell}
+                    sheetConfig={sheetConfig}
+                    officePreviewMode="sheet" // force sheet rendering
+                    printCopies={printCopies}
+                    printManifestLength={printManifest.length}
+                    isSystemPrinting={true} // render all pages for print mockup
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4. IFRAME PRINT PROTECTOR AND ASSISTANT MODAL (High Density Aesthetics) */}
       {showPrintModal && (

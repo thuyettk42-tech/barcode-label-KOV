@@ -254,4 +254,61 @@
   }
 }
 
+/* --- PHONG CÁCH TRÌNH XEM TRƯỚC BẢN IN OFFLINE INTEGRATION --- */
+.is-previewing-modal .no-print,
+.is-previewing-modal #sidebar-ui,
+.is-previewing-modal header,
+.is-previewing-modal .resize-handle,
+.is-previewing-modal .rotate-handle,
+.is-previewing-modal .border-dashed,
+.is-previewing-modal [class*="floating-quick-print"],
+.is-previewing-modal .absolute.top-4.right-4,
+.is-previewing-modal .bg-white\/95.rounded-lg.border,
+.is-previewing-modal .text-\[12px\].font-bold.text-\[\#1E293B\] {
+  display: none !important;
+}
+
+.is-previewing-modal #label-editor-workspace {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  overflow: visible !important;
+  display: block !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.is-previewing-modal #label-editor-workspace > div {
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Let the sheet pages render clearly like physical papers inside preview */
+.is-previewing-modal .office-print-page,
+.is-previewing-modal .batch-print-page {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 4px !important;
+  background-color: #ffffff !important;
+  margin-bottom: 24px !important;
+  pointer-events: none !important;
+}
+
+/* Support paginated or filtered single page layouts */
+.is-previewing-modal .office-print-page.hidden-preview-page,
+.is-previewing-modal .batch-print-page.hidden-preview-page {
+  display: none !important;
+}
+
+
 
