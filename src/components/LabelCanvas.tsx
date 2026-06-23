@@ -3384,31 +3384,6 @@ export function LabelCanvas({
             </span>
           </div>
 
-          {/* Subtle Inspect button integrated into status bar */}
-          <button
-            type="button"
-            onClick={() => {
-              const pw = (window as any).pywebview;
-              if (pw && pw.api && typeof pw.api.show_devtools === "function") {
-                pw.api.show_devtools()
-                  .then((res: any) => {
-                    if (res && res.status === "error") {
-                      alert("Không thể mở DevTools: " + res.message);
-                    }
-                  })
-                  .catch((err: any) => {
-                    alert("Lỗi kết nối ứng dụng offline: " + err);
-                  });
-              } else {
-                alert("Tính năng Inspect chỉ khả dụng trên ứng dụng bản Offline cài đặt. Trên trình duyệt web này, vui lòng nhấn phím F12 hoặc nhấp chuột phải chọn 'Inspect' (Kiểm tra) để xem.");
-              }
-            }}
-            className="flex items-center space-x-1 py-1 px-2.5 rounded-full bg-slate-50 border border-slate-200 text-[10.5px] font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100/90 hover:border-slate-300 transition pointer-events-auto shadow-sm cursor-pointer select-none"
-            title="Kiểm tra phản hồi & nhật ký lỗi hoạt động"
-          >
-            <Terminal className="w-3 h-3 text-slate-400" />
-            <span>Inspect</span>
-          </button>
         </div>
       </div>
 

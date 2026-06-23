@@ -456,44 +456,7 @@ export default function App() {
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
 
-  // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
-  useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 60; // 60 lần thử * 300ms = 18 giây dò tìm tối đa
-    const interval = setInterval(() => {
-      attempts++;
-      const pw = (window as any).pywebview;
-      if (pw && pw.api && typeof pw.api.mark_app_loaded === "function") {
-        pw.api.mark_app_loaded()
-          .then((res: any) => {
-            console.log("[DESKTOP] Đã báo cáo tải ứng dụng React thành công.", res);
-            clearInterval(interval);
-          })
-          .catch((err: any) => {
-            console.error("[DESKTOP] Lỗi gọi API báo cáo tải:", err);
-            clearInterval(interval);
-          });
-      } else if (attempts >= maxAttempts) {
-        clearInterval(interval);
-      }
-    }, 300);
 
-    const reportReady = () => {
-      const pw = (window as any).pywebview;
-      if (pw && pw.api && typeof pw.api.mark_app_loaded === "function") {
-        pw.api.mark_app_loaded()
-          .then(() => clearInterval(interval))
-          .catch(() => {});
-      }
-    };
-
-    window.addEventListener("pywebviewready", reportReady);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("pywebviewready", reportReady);
-    };
-  }, []);
 
   // Temporary string states for numeric inputs to allow easy deletion/re-typing
   const [widthInput, setWidthInput] = useState<string>("65");
@@ -833,33 +796,7 @@ export default function App() {
   // Combined trigger to launch native file selectors across all target runtime frames
   const triggerExcelLoadDialog = async (modeOverride?: 'new' | 'sync') => {
     const activeMode = modeOverride || excelUploadMode;
-    // @ts-ignore
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.load_excel_native) {
-      try {
-        // @ts-ignore
-        const response = await window.pywebview.api.load_excel_native();
-        if (response && response.status === "success" && response.base64) {
-          setExcelFilePath(response.file_path);
-          
-          // Match array bounds
-          const binaryStr = atob(response.base64);
-          const len = binaryStr.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-          }
-          
-          const ok = processExcelBinary(bytes.buffer, response.filename, activeMode === 'new');
-          if (ok) {
-            setExcelFileBase64(response.base64);
-          }
-        } else if (response && response.status === "error") {
-          alert("Lỗi mở file thông qua hệ điều hành: " + response.message);
-        }
-      } catch (err: any) {
-        alert("Lỗi khởi tạo hộp thoại chọn file hệ thống: " + err.message);
-      }
-    } else if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+    if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
       try {
         // @ts-ignore
         const [handle] = await window.showOpenFilePicker({
@@ -899,37 +836,8 @@ export default function App() {
 
   // COMPLETELY SYSTEM-HIDDEN BACKGROUND EXCEL HOT UPDATE Worker
   const handleDirectExcelSync = async () => {
-    // 1. Pywebview native background update path (completely silent!)
-    // @ts-ignore
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.read_file_base64_direct && excelFilePath) {
-      try {
-        // @ts-ignore
-        const response = await window.pywebview.api.read_file_base64_direct(excelFilePath);
-        if (response && response.status === "success" && response.base64) {
-          // Convert base64 back to ArrayBuffer
-          const binaryStr = atob(response.base64);
-          const len = binaryStr.length;
-          const bytes = new Uint8Array(len);
-          for (let i = 0; i < len; i++) {
-            bytes[i] = binaryStr.charCodeAt(i);
-          }
-          const ok = processExcelBinary(bytes.buffer, response.filename, false); // Always sync mode (preserve mappings)
-          if (ok) {
-            setExcelFileBase64(response.base64);
-            alert(`[ĐỒNG BỘ CHẠY NGẦM THÀNH CÔNG]\nHệ thống đã tự động quét và làm mới dữ liệu từ đường dẫn:\n"${excelFilePath}"\n\n✓ Giữ nguyên 100% tất cả các liên kết trường dữ liệu.`);
-          }
-        } else if (response && response.status === "error") {
-          // If the file was moved or is inaccessible, offer standard re-picking fallback
-          alert(`Không thể tự động đồng bộ ẩn: ${response.message}\n\nHệ thống sẽ hiển thị hộp thoại chọn lại file để khôi phục.`);
-          triggerExcelLoadDialog('sync');
-        }
-      } catch (err: any) {
-        alert("Lỗi đồng bộ chạy ngầm: " + err.message);
-        triggerExcelLoadDialog('sync');
-      }
-    }
-    // 2. Modern browser File Access handle updates (completely silent if permission still granted!)
-    else if (excelFileHandle) {
+    // 1. Modern browser File Access handle updates (completely silent if permission still granted!)
+    if (excelFileHandle) {
       try {
         const opt = { mode: 'read' as const };
         let permissionGranted = false;
@@ -962,7 +870,7 @@ export default function App() {
         triggerExcelLoadDialog('sync');
       }
     }
-    // 3. Fallback path: standard web upload dialog
+    // 2. Fallback path: standard web upload dialog
     else {
       triggerExcelLoadDialog('sync');
     }
@@ -1839,54 +1747,9 @@ export default function App() {
         mimeType = "text/plain;charset=utf-8";
       }
       
-      // Check if running in Python pywebview desktop container to prompt native saving
-      // @ts-ignore
-      if (window.pywebview && window.pywebview.api && window.pywebview.api.save_file_native) {
-        // @ts-ignore
-        window.pywebview.api.save_file_native(filename, fileContent)
-          .then((result: any) => {
-            let success = false;
-            let pathSaved: string | null = null;
-            let filenameSaved: string | null = null;
-
-            if (result === "success" || result === true) {
-              success = true;
-            } else if (result && typeof result === "object") {
-              if (result.status === "success") {
-                success = true;
-                pathSaved = result.file_path || null;
-                filenameSaved = result.filename || null;
-              } else if (result.status === "error") {
-                alert(`Lỗi lưu tệp tin thông qua ứng dụng offline: ${result.message}`);
-                return;
-              }
-            }
-
-            if (success) {
-              if (pathSaved) {
-                setCurrentFilePath(pathSaved);
-                setCurrentLocalStorageKey(null);
-                if (filenameSaved) {
-                  setCustomSaveName(filenameSaved.replace(/\.(kvl|json)$/i, ""));
-                }
-                setSaveLogs(prev => [
-                  { time: new Date().toLocaleTimeString("vi-VN"), path: pathSaved!, type: 'save' },
-                  ...prev
-                ]);
-              }
-              alert(`Đã lưu thành công tệp tin thiết kế (.kvl) vào máy tính của bạn!`);
-              onSuccess?.();
-            }
-          })
-          .catch((err: any) => {
-            alert("Lỗi gọi API lưu tệp tin Python: " + err.message);
-          });
-        return;
-      }
-      
       // If running in browser and supports showSaveFilePicker, use it to get a real local file handle!
       // @ts-ignore
-      else if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+      if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
         // @ts-ignore
         const opts = {
           suggestedName: filename,
@@ -1942,60 +1805,8 @@ export default function App() {
 
   // Quick In-place save for offline mode
   const handleQuickSave = () => {
-    // If we have an active file path in PyWebView offline mode, save directly
-    // @ts-ignore
-    if (currentFilePath && window.pywebview && window.pywebview.api && window.pywebview.api.save_file_direct) {
-      const compactExcelRows = excelData.map((row) => {
-        return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
-      });
-
-      const exportData: any = {
-        version: "2.5",
-        name: customSaveName || labelConfig.name || "tem_thiet_ke",
-        timestamp: new Date().toLocaleTimeString("vi-VN") + " " + new Date().toLocaleDateString("vi-VN"),
-        labelConfig,
-        sheetConfig,
-        objects,
-        excelFileName,
-        excelFilePath,
-        excelColumns,
-        excelRowsCompact: compactExcelRows,
-        excelOriginalBase64: excelFileBase64 || "",
-        printQuantityMode,
-        printQuantityColumn,
-      };
-
-      try {
-        const jsonStr = JSON.stringify(exportData);
-        let fileContent = jsonStr;
-        if (currentFilePath.endsWith('.kvl')) {
-          fileContent = btoa(unescape(encodeURIComponent(jsonStr)));
-        }
-
-        // @ts-ignore
-        window.pywebview.api.save_file_direct(currentFilePath, fileContent)
-          .then((result: any) => {
-            if (result && result.status === "success") {
-              setSaveLogs(prev => [
-                { time: new Date().toLocaleTimeString("vi-VN"), path: currentFilePath, type: 'quick-save' },
-                ...prev
-              ]);
-              alert(`Đã tự động lưu đè và cập nhật thành công vào file:\n${result.filename}`);
-            } else if (result && result.status === "error") {
-              alert(`Lỗi khi lưu đè tệp tin: ${result.message}`);
-            } else {
-              alert("Lưu tệp tin thất bại!");
-            }
-          })
-          .catch((err: any) => {
-            alert("Lỗi kết nối lưu đè trực tiếp Python: " + err.message);
-          });
-      } catch (err: any) {
-        alert("Lỗi mã hóa dữ liệu: " + err.message);
-      }
-    } 
     // If we have an active file handle in Web File System Access API (Google Chrome / Edge)
-    else if (activeFileHandle) {
+    if (activeFileHandle) {
       const compactExcelRows = excelData.map((row) => {
         return excelColumns.map((col) => row[col] !== undefined ? row[col] : "");
       });
@@ -2040,9 +1851,8 @@ export default function App() {
         alert("Lỗi mã hóa dữ liệu: " + err.message);
       }
     }
-    // If we have an active file in browser (currentFilePath is set but window.pywebview is not available), let's save directly by downloading!
-    // @ts-ignore
-    else if (currentFilePath && (!window.pywebview || !window.pywebview.api)) {
+    // If we have an active file in browser (currentFilePath is set), let's save directly by downloading!
+    else if (currentFilePath) {
       handleExportToFile(customSaveName || labelConfig.name || "tem_thiet_ke", currentFilePath.endsWith('.json') ? 'json' : 'kvl');
     }
     // If we have a connected browser local storage design template, save directly to local storage
@@ -2087,59 +1897,7 @@ export default function App() {
 
   // Open native system file selector in PyWebView
   const triggerImportFile = () => {
-    // @ts-ignore
-    if (window.pywebview && window.pywebview.api && window.pywebview.api.load_file_native) {
-      // @ts-ignore
-      window.pywebview.api.load_file_native()
-        .then((response: any) => {
-          if (response && (response.status === "success" || response.status === "warning_locked") && response.content) {
-            try {
-              if (response.status === "warning_locked") {
-                const confirmOpen = window.confirm(response.message);
-                if (!confirmOpen) {
-                  return;
-                } else {
-                  // User chose to "open anyway". Let's lock it explicitly under our session
-                  // @ts-ignore
-                  if (window.pywebview && window.pywebview.api && window.pywebview.api.create_lock_direct) {
-                    // @ts-ignore
-                    window.pywebview.api.create_lock_direct(response.file_path);
-                  }
-                }
-              }
-
-              let parsedData: any = null;
-              try {
-                parsedData = JSON.parse(response.content);
-              } catch (jsonErr) {
-                const decodedStr = decodeURIComponent(escape(atob(response.content.trim())));
-                parsedData = JSON.parse(decodedStr);
-              }
-              
-              const restored = restoreDesignAndExcel(parsedData);
-              if (restored) {
-                setCurrentFilePath(response.file_path);
-                setCurrentLocalStorageKey(null);
-                setActiveFileHandle(null);
-                setCustomSaveName(response.filename.replace(/\.(kvl|json)$/i, ""));
-                setSaveLogs(prev => [
-                  { time: new Date().toLocaleTimeString("vi-VN"), path: response.file_path, type: 'import' },
-                  ...prev
-                ]);
-              } else {
-                alert("Nội dung tệp thiếu thông số cấu trúc (labelConfig/objects).");
-              }
-            } catch (err: any) {
-              alert("Lỗi phân tích tệp KVL/JSON: " + err.message);
-            }
-          } else if (response && response.status === "error") {
-            alert("Lỗi mở tệp tin: " + response.message);
-          }
-        })
-        .catch((err: any) => {
-          alert("Lỗi nạp tệp qua Python: " + err.message);
-        });
-    } else if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
+    if (typeof window !== 'undefined' && 'showOpenFilePicker' in window) {
       // @ts-ignore
       window.showOpenFilePicker({
         types: [
@@ -2328,18 +2086,7 @@ export default function App() {
   // Synchronise global hotkey intercept for Ctrl+P, Ctrl+S, Ctrl+O, etc.
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Bắt phím mở DevTools (F12 hoặc Ctrl+Shift+I) cho ứng dụng Desktop chạy Offline
-      if (
-        e.key === "F12" || 
-        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "i")
-      ) {
-        const pw = (window as any).pywebview;
-        if (pw && pw.api && typeof pw.api.show_devtools === "function") {
-          e.preventDefault();
-          pw.api.show_devtools();
-          return;
-        }
-      }
+
 
       const activeEl = document.activeElement;
       const isEditingInput = activeEl && (
@@ -2672,11 +2419,8 @@ export default function App() {
               className="h-7 px-2 rounded-lg bg-white hover:bg-emerald-50 text-[11px] font-black text-emerald-900 tracking-wide flex items-center space-x-1.5 border border-emerald-300 hover:border-emerald-450 transition cursor-pointer shadow-sm shrink-0 hover:scale-[1.02] active:scale-[0.98]"
               title="Chọn file thiết kế .kvl để khôi phục lại mẫu tem, khổ tem, khổ giấy và dữ liệu Excel đã lưu"
               onClick={(e) => {
-                // @ts-ignore
-                if (window.pywebview && window.pywebview.api && window.pywebview.api.load_file_native) {
-                  e.preventDefault();
-                  triggerImportFile();
-                }
+                e.preventDefault();
+                triggerImportFile();
               }}
             >
               <Upload className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
