@@ -762,6 +762,7 @@ export default function App() {
   const [isStep3Expanded, setIsStep3Expanded] = useState<boolean>(true);
   const [isAiRecognizerExpanded, setIsAiRecognizerExpanded] = useState<boolean>(false);
   const [aiImage, setAiImage] = useState<string | null>(null);
+  const [aiImageUrlInput, setAiImageUrlInput] = useState<string>("");
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
   const [aiStatusMessage, setAiStatusMessage] = useState<string>("");
   const [userCustomApiKey, setUserCustomApiKey] = useState<string>(() => localStorage.getItem("barcode_designer_gemini_key") || "");
@@ -779,11 +780,9 @@ export default function App() {
     }
   }, [desiredRollWidth]);
 
-  // Global paste handler for smart clipboard image load
+  // Global paste handler for smart clipboard image load and designer elements
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      if (!isAiRecognizerExpanded) return;
-      
+    const handlePasteEvent = (e: ClipboardEvent) => {
       // Do not intercept pasting if the user is currently typing in an input, textarea, or contenteditable element
       const activeEl = document.activeElement;
       if (activeEl) {
@@ -794,30 +793,40 @@ export default function App() {
       }
 
       const items = e.clipboardData?.items;
-      if (!items) return;
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf("image") !== -1) {
-          const file = items[i].getAsFile();
-          if (file) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              if (event.target?.result) {
-                setAiImage(event.target.result as string);
-                setShowSuccessBadge(true);
-                setTimeout(() => setShowSuccessBadge(false), 3500);
-              }
-            };
-            reader.readAsDataURL(file);
-            e.preventDefault();
-            break;
+      let hasImage = false;
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          if (items[i].type.indexOf("image") !== -1) {
+            const file = items[i].getAsFile();
+            if (file) {
+              hasImage = true;
+              const reader = new FileReader();
+              reader.onload = (event) => {
+                if (event.target?.result) {
+                  setAiImage(event.target.result as string);
+                  setIsAiRecognizerExpanded(true); // Auto-expand/open AI Recognizer sidebar!
+                  setShowSuccessBadge(true);
+                  setTimeout(() => setShowSuccessBadge(false), 3500);
+                }
+              };
+              reader.readAsDataURL(file);
+              e.preventDefault();
+              break;
+            }
           }
         }
       }
+
+      // If no image was found/pasted, and we have custom design elements copied in our designer clipboard, paste them!
+      if (!hasImage && clipboard.length > 0) {
+        handlePaste();
+        e.preventDefault();
+      }
     };
 
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, [isAiRecognizerExpanded]);
+    window.addEventListener("paste", handlePasteEvent);
+    return () => window.removeEventListener("paste", handlePasteEvent);
+  }, [clipboard, handlePaste]);
 
   // Forward computed roll width synchronization hook
   useEffect(() => {
@@ -2639,11 +2648,6 @@ export default function App() {
           e.preventDefault();
           handleCopy();
         }
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "v") {
-        if (!isEditingInput) {
-          e.preventDefault();
-          handlePaste();
-        }
       } else if ((e.ctrlKey || e.metaKey) && (e.key === "+" || e.key === "=")) {
         if (!isEditingInput && selectedIds.length > 0) {
           e.preventDefault();
@@ -4295,51 +4299,172 @@ export default function App() {
                             </p>
                           </div>
 
-                          {/* Elegant Drag-and-Drop Area */}
-                          <div
-                            ref={dropzoneRef}
-                            tabIndex={0}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              setIsHoveringDropzone(true);
-                            }}
-                            onDragLeave={() => {
-                              setIsHoveringDropzone(false);
-                            }}
-                            onMouseEnter={() => {
-                              setIsHoveringDropzone(true);
-                              dropzoneRef.current?.focus();
-                            }}
-                            onMouseLeave={() => {
-                              setIsHoveringDropzone(false);
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              setIsHoveringDropzone(false);
-                              
-                              // 1. Try to read from files
-                              const files = e.dataTransfer.files;
-                              if (files && files[0]) {
-                                const file = files[0];
-                                if (file.type.startsWith("image/")) {
-                                  const reader = new FileReader();
-                                  reader.onload = (event) => {
-                                    if (event.target?.result) {
-                                      setAiImage(event.target.result as string);
-                                      setShowSuccessBadge(true);
-                                      setTimeout(() => setShowSuccessBadge(false), 3500);
+                          {/* Elegant Drag-and-Drop / Input Options */}
+                          <div className="space-y-3">
+                            {/* Hàng trên: 2 Lựa chọn cực kỳ đơn giản */}
+                            <div className="space-y-2 text-[11px] text-slate-600 font-bold">
+                              {/* Dòng 1: Tải tệp ảnh từ máy tính */}
+                              <div className="flex items-center justify-between gap-3 bg-slate-50/50 px-2.5 py-1.5 rounded-lg border border-slate-100">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                  Tải tệp ảnh từ máy tính:
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const input = document.createElement("input");
+                                    input.type = "file";
+                                    input.accept = "image/*";
+                                    input.onchange = (ev: any) => {
+                                      const file = ev.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          if (event.target?.result) {
+                                            setAiImage(event.target.result as string);
+                                            setShowSuccessBadge(true);
+                                            setTimeout(() => setShowSuccessBadge(false), 3500);
+                                          }
+                                        };
+                                        reader.readAsDataURL(file);
+                                      }
+                                    };
+                                    input.click();
+                                  }}
+                                  className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-[10px] font-black select-none cursor-pointer transition border border-orange-600 shadow-3xs flex items-center gap-1 shrink-0"
+                                >
+                                  <CloudUpload className="w-3 h-3" />
+                                  <span>Chọn tệp ảnh</span>
+                                </button>
+                              </div>
+
+                              {/* Dòng 2: Chèn URL ảnh */}
+                              <div className="flex items-center justify-between gap-3 bg-slate-50/50 px-2.5 py-1.5 rounded-lg border border-slate-100 overflow-hidden">
+                                <span className="flex items-center gap-1.5 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                                  Chèn URL ảnh:
+                                </span>
+                                <div className="flex items-center gap-1 flex-1 max-w-[180px] sm:max-w-[220px] overflow-hidden">
+                                  <input
+                                    type="text"
+                                    placeholder="Dán link ảnh tại đây..."
+                                    value={aiImageUrlInput}
+                                    onChange={(e) => setAiImageUrlInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter' && aiImageUrlInput.trim()) {
+                                        setAiImage(aiImageUrlInput.trim());
+                                        setShowSuccessBadge(true);
+                                        setTimeout(() => setShowSuccessBadge(false), 3500);
+                                      }
+                                    }}
+                                    className="w-full px-2 py-1 text-[10px] font-semibold text-slate-800 bg-white border border-slate-200 rounded-md outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-550 placeholder-slate-400 truncate"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (aiImageUrlInput.trim()) {
+                                        setAiImage(aiImageUrlInput.trim());
+                                        setShowSuccessBadge(true);
+                                        setTimeout(() => setShowSuccessBadge(false), 3500);
+                                      }
+                                    }}
+                                    className="px-2 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-md text-[9px] font-black transition select-none cursor-pointer shrink-0"
+                                  >
+                                    Lưu
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Vùng kéo thả & Nhận diện Paste trực tiếp khi rê chuột */}
+                            <div
+                              ref={dropzoneRef}
+                              tabIndex={0}
+                              onDragOver={(e) => {
+                                e.preventDefault();
+                                setIsHoveringDropzone(true);
+                              }}
+                              onDragLeave={() => {
+                                setIsHoveringDropzone(false);
+                              }}
+                              onMouseEnter={() => {
+                                setIsHoveringDropzone(true);
+                                window.focus(); // Shift browser focus to this iframe immediately
+                                dropzoneRef.current?.focus(); // Focus this element to capture Paste event
+                              }}
+                              onMouseLeave={() => {
+                                setIsHoveringDropzone(false);
+                              }}
+                              onDrop={(e) => {
+                                e.preventDefault();
+                                setIsHoveringDropzone(false);
+                                
+                                // 1. Try to read from files
+                                const files = e.dataTransfer.files;
+                                if (files && files[0]) {
+                                  const file = files[0];
+                                  if (file.type.startsWith("image/")) {
+                                    const reader = new FileReader();
+                                    reader.onload = (event) => {
+                                      if (event.target?.result) {
+                                        setAiImage(event.target.result as string);
+                                        setShowSuccessBadge(true);
+                                        setTimeout(() => setShowSuccessBadge(false), 3500);
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                    return;
+                                  }
+                                }
+
+                                // 2. Try to read from items
+                                const items = e.dataTransfer.items;
+                                if (items) {
+                                  for (let i = 0; i < items.length; i++) {
+                                    if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+                                      const file = items[i].getAsFile();
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (event) => {
+                                          if (event.target?.result) {
+                                            setAiImage(event.target.result as string);
+                                            setShowSuccessBadge(true);
+                                            setTimeout(() => setShowSuccessBadge(false), 3500);
+                                          }
+                                        };
+                                        reader.readAsDataURL(file);
+                                        return;
+                                      }
                                     }
-                                  };
-                                  reader.readAsDataURL(file);
+                                  }
+                                }
+
+                                // 3. Try URLs
+                                const imageUrl = e.dataTransfer.getData("text/html");
+                                if (imageUrl) {
+                                  const match = imageUrl.match(/src="([^"]+)"/);
+                                  if (match && match[1]) {
+                                    setAiImage(match[1]);
+                                    setShowSuccessBadge(true);
+                                    setTimeout(() => setShowSuccessBadge(false), 3500);
+                                    return;
+                                  }
+                                }
+                                
+                                const textUrl = e.dataTransfer.getData("text/plain");
+                                if (textUrl && (textUrl.startsWith("http://") || textUrl.startsWith("https://") || textUrl.startsWith("data:image/"))) {
+                                  setAiImage(textUrl);
+                                  setShowSuccessBadge(true);
+                                  setTimeout(() => setShowSuccessBadge(false), 3500);
                                   return;
                                 }
-                              }
-
-                              // 2. Try to read from items (e.g. dragged directly from some clipboard or applications)
-                              const items = e.dataTransfer.items;
-                              if (items) {
+                              }}
+                              onPaste={(e) => {
+                                const items = e.clipboardData?.items;
+                                if (!items) return;
                                 for (let i = 0; i < items.length; i++) {
-                                  if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+                                  if (items[i].type.indexOf("image") !== -1) {
                                     const file = items[i].getAsFile();
                                     if (file) {
                                       const reader = new FileReader();
@@ -4351,211 +4476,60 @@ export default function App() {
                                         }
                                       };
                                       reader.readAsDataURL(file);
-                                      return;
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      break;
                                     }
                                   }
                                 }
-                              }
-
-                              // 3. Try to get HTML image src or direct URL
-                              const imageUrl = e.dataTransfer.getData("text/html");
-                              if (imageUrl) {
-                                const match = imageUrl.match(/src="([^"]+)"/);
-                                if (match && match[1]) {
-                                  setAiImage(match[1]);
-                                  setShowSuccessBadge(true);
-                                  setTimeout(() => setShowSuccessBadge(false), 3500);
-                                  return;
-                                }
-                              }
-                              
-                              const textUrl = e.dataTransfer.getData("text/plain");
-                              if (textUrl && (textUrl.startsWith("http://") || textUrl.startsWith("https://") || textUrl.startsWith("data:image/"))) {
-                                setAiImage(textUrl);
-                                setShowSuccessBadge(true);
-                                setTimeout(() => setShowSuccessBadge(false), 3500);
-                                return;
-                              }
-                            }}
-                            onPaste={(e) => {
-                              // Direct onPaste handler as fallback/enhancement
-                              const items = e.clipboardData?.items;
-                              if (!items) return;
-                              for (let i = 0; i < items.length; i++) {
-                                if (items[i].type.indexOf("image") !== -1) {
-                                  const file = items[i].getAsFile();
-                                  if (file) {
-                                    const reader = new FileReader();
-                                    reader.onload = (event) => {
-                                      if (event.target?.result) {
-                                        setAiImage(event.target.result as string);
-                                        setShowSuccessBadge(true);
-                                        setTimeout(() => setShowSuccessBadge(false), 3500);
-                                      }
-                                    };
-                                    reader.readAsDataURL(file);
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    break;
-                                  }
-                                }
-                              }
-                            }}
-                            onClick={() => {
-                              dropzoneRef.current?.focus();
-                            }}
-                            className={`relative border-2 border-dashed rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer min-h-[180px] transition-all duration-150 outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent ${
-                              isHoveringDropzone
-                                ? "border-orange-500 bg-orange-50/50"
-                                : "border-gray-300 hover:border-orange-400 hover:bg-slate-50/30"
-                            }`}
-                          >
-                            {showSuccessBadge && (
-                              <div className="absolute top-2.5 right-2.5 bg-emerald-500 text-white font-extrabold text-[10.5px] px-2.5 py-0.5 rounded-full flex items-center space-x-1 shadow-sm animate-bounce z-10">
-                                <span>✓ Đã tải ảnh mẫu tem thành công!</span>
-                              </div>
-                            )}
-
-                            {aiImage ? (
-                              <div className="relative w-full h-full max-h-[220px] flex items-center justify-center overflow-hidden rounded-lg group/img">
-                                <img
-                                  src={aiImage}
-                                  alt="Label preview"
-                                  className="max-h-[190px] object-contain rounded-md border border-slate-200"
-                                  referrerPolicy="no-referrer"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setAiImage(null);
-                                  }}
-                                  className="absolute top-2 right-2 p-1.5 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-md transition transform scale-90 opacity-0 group-hover/img:opacity-100 group-hover/img:scale-100 cursor-pointer"
-                                  title="Xóa ảnh"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-1 rounded-full select-none shadow-sm pointer-events-none opacity-80">
-                                  Click hoặc thả ảnh khác để thay đổi
+                              }}
+                              onClick={() => {
+                                dropzoneRef.current?.focus();
+                              }}
+                              className={`relative border border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer h-[130px] transition-all duration-150 outline-none select-none overflow-hidden ${
+                                isHoveringDropzone
+                                  ? "border-orange-500 bg-orange-50/50 ring-1 ring-orange-500/20"
+                                  : "border-slate-200 hover:border-orange-400 hover:bg-slate-50/5"
+                              }`}
+                            >
+                              {showSuccessBadge && (
+                                <div className="absolute top-2 right-2 bg-emerald-500 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full flex items-center space-x-1 shadow-sm animate-bounce z-10">
+                                  <span>✓ Đã tải ảnh mẫu tem!</span>
                                 </div>
-                              </div>
-                            ) : (
-                              <div className="text-center space-y-3 select-none w-full">
-                                <div className="w-11 h-11 mx-auto bg-orange-100 rounded-full flex items-center justify-center shadow-3xs group-hover:scale-105 transition-transform duration-150">
-                                  <CloudUpload className="w-6 h-6 text-orange-600" />
-                                </div>
-                                <div className="space-y-1">
-                                  <p className="font-extrabold text-xs text-slate-700">Tải ảnh mẫu tem cần bóc tách layout</p>
-                                  <p className="text-[10px] text-slate-400">Kéo thả ảnh vào đây hoặc sử dụng các nút bên dưới</p>
-                                </div>
+                              )}
 
-                                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 max-w-sm mx-auto">
+                              {aiImage ? (
+                                <div className="relative w-full h-full p-2 flex items-center justify-center group/img">
+                                  <img
+                                    src={aiImage}
+                                    alt="Label preview"
+                                    className="max-h-[110px] max-w-full object-contain rounded-md border border-slate-100"
+                                    referrerPolicy="no-referrer"
+                                  />
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      const input = document.createElement("input");
-                                      input.type = "file";
-                                      input.accept = "image/*";
-                                      input.onchange = (ev: any) => {
-                                        const file = ev.target.files?.[0];
-                                        if (file) {
-                                          const reader = new FileReader();
-                                          reader.onload = (event) => {
-                                            if (event.target?.result) {
-                                              setAiImage(event.target.result as string);
-                                              setShowSuccessBadge(true);
-                                              setTimeout(() => setShowSuccessBadge(false), 3500);
-                                            }
-                                          };
-                                          reader.readAsDataURL(file);
-                                        }
-                                      };
-                                      input.click();
+                                      setAiImage(null);
                                     }}
-                                    className="w-full sm:w-auto px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-[11px] font-extrabold select-none cursor-pointer transition border border-orange-600 shadow-sm flex items-center justify-center gap-1.5"
+                                    className="absolute top-1.5 right-1.5 p-1 bg-rose-600 text-white rounded-full hover:bg-rose-700 shadow-md transition transform scale-90 opacity-0 group-hover/img:opacity-100 group-hover/img:scale-100 cursor-pointer z-20"
+                                    title="Xóa ảnh"
                                   >
-                                    <CloudUpload className="w-3.5 h-3.5" />
-                                    <span>Chọn tệp ảnh</span>
+                                    <X className="w-3 h-3" />
                                   </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      try {
-                                        // Focus the dedicated paste input
-                                        pasteInputRef.current?.focus();
-                                        
-                                        if (navigator.clipboard && navigator.clipboard.read) {
-                                          const clipboardItems = await navigator.clipboard.read();
-                                          for (const item of clipboardItems) {
-                                            for (const type of item.types) {
-                                              if (type.startsWith("image/")) {
-                                                const blob = await item.getType(type);
-                                                const reader = new FileReader();
-                                                reader.onload = (event) => {
-                                                  if (event.target?.result) {
-                                                    setAiImage(event.target.result as string);
-                                                    setShowSuccessBadge(true);
-                                                    setTimeout(() => setShowSuccessBadge(false), 3500);
-                                                  }
-                                                };
-                                                reader.readAsDataURL(blob);
-                                                return;
-                                              }
-                                            }
-                                          }
-                                        }
-                                        alert("💡 Hãy click vào ô nhập dưới đây rồi ấn Ctrl + V để dán ảnh đã chụp!");
-                                      } catch (err: any) {
-                                        // Log as standard log to avoid triggering test errors for restricted browser features
-                                        console.log("Clipboard API read blocked by browser permissions policy inside iframe. Guiding user to standard keyboard paste.", err);
-                                        pasteInputRef.current?.focus();
-                                        alert("💡 Do chính sách bảo mật trình duyệt trong khung xem thử, tính năng tự động đọc bộ nhớ tạm bị hạn chế.\n\n👉 Vui lòng nhấn vào ô nhập liệu bên dưới rồi nhấn tổ hợp phím Ctrl + V để dán ảnh mẫu tem của bạn!");
-                                      }
-                                    }}
-                                    className="w-full sm:w-auto px-3 py-1.5 bg-white hover:bg-orange-50 text-orange-700 rounded-md text-[11px] font-extrabold select-none cursor-pointer transition border border-orange-200 hover:border-orange-300 shadow-sm flex items-center justify-center gap-1.5"
-                                  >
-                                    <span>📋 Dán từ Clipboard</span>
-                                  </button>
+                                  <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 bg-slate-900/80 backdrop-blur-xs text-white text-[8px] font-black px-2 py-0.5 rounded-full select-none shadow-sm pointer-events-none opacity-80 whitespace-nowrap">
+                                    Thả hoặc Ctrl + V để thay đổi
+                                  </div>
                                 </div>
-
-                                <div className="max-w-[280px] mx-auto space-y-1.5">
-                                  <input
-                                    ref={pasteInputRef}
-                                    type="text"
-                                    placeholder="Nhấp vào đây rồi nhấn Ctrl+V để dán"
-                                    className="w-full px-3 py-1.5 text-[11.5px] font-bold text-center text-orange-950 bg-orange-50/70 border border-orange-200 rounded-lg outline-none focus:bg-white focus:border-orange-500 focus:ring-2 focus:ring-orange-550 placeholder-orange-400 transition shadow-2xs"
-                                    onPaste={(ev) => {
-                                      const items = ev.clipboardData?.items;
-                                      if (!items) return;
-                                      for (let i = 0; i < items.length; i++) {
-                                        if (items[i].type.indexOf("image") !== -1) {
-                                          const file = items[i].getAsFile();
-                                          if (file) {
-                                            const reader = new FileReader();
-                                            reader.onload = (event) => {
-                                              if (event.target?.result) {
-                                                setAiImage(event.target.result as string);
-                                                setShowSuccessBadge(true);
-                                                setTimeout(() => setShowSuccessBadge(false), 3500);
-                                              }
-                                            };
-                                            reader.readAsDataURL(file);
-                                            ev.preventDefault();
-                                            break;
-                                          }
-                                        }
-                                      }
-                                    }}
-                                  />
-                                  <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                                    💡 Hoặc rê chuột vào ô trên và bấm <kbd className="px-1 py-0.5 bg-orange-200 text-orange-950 rounded border border-orange-300 font-mono text-[10px] shadow-3xs">Ctrl + V</kbd> bất kỳ lúc nào để dán ảnh đã chụp màn hình!
+                              ) : (
+                                <div className="text-center select-none w-full flex flex-col items-center justify-center space-y-1">
+                                  <CloudUpload className={`w-6 h-6 transition-colors ${isHoveringDropzone ? 'text-orange-600 animate-pulse' : 'text-slate-400'}`} />
+                                  <p className={`font-black text-xs transition-colors ${isHoveringDropzone ? 'text-orange-600' : 'text-slate-600'}`}>
+                                    {isHoveringDropzone ? "Sẵn sàng dán! Ấn Ctrl + V" : "Kéo thả hoặc Dán ảnh (Ctrl + V)"}
                                   </p>
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </div>
 
                           {/* Action and status updates */}
