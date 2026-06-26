@@ -89,3 +89,68 @@ export function constrainCoordinates(
     y: Math.round(finalY * 10) / 10 
   };
 }
+
+/**
+ * Compresses and resizes a base64 image or image URL to have a maximum dimension,
+ * returning a compressed JPEG base64 data URL.
+ * This reduces payload size by 10x-100x and drastically speeds up Gemini API analysis.
+ */
+export function resizeImage(src: string, maxDimension: number = 1024): Promise<string> {
+  return new Promise((resolve) => {
+    // If the src is not a data URL and not a valid URL, resolve immediately
+    if (!src || (!src.startsWith("data:") && !src.startsWith("http://") && !src.startsWith("https://"))) {
+      resolve(src);
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    
+    img.onload = () => {
+      let width = img.width;
+      let height = img.height;
+
+      // Only resize if one of the dimensions exceeds the maximum
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = Math.round((height * maxDimension) / width);
+          width = maxDimension;
+        } else {
+          width = Math.round((width * maxDimension) / height);
+          height = maxDimension;
+        }
+      } else {
+        // If it's already smaller, but we want to compress it as a JPEG to reduce size anyway, we can proceed
+      }
+
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(src);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to JPEG with 0.8 quality (highly compressed but visually almost identical for text/labels)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        resolve(dataUrl);
+      } catch (err) {
+        console.warn("Error scaling image on canvas, falling back to original", err);
+        resolve(src);
+      }
+    };
+
+    img.onerror = (err) => {
+      console.warn("Failed to load image for resizing, falling back to original", err);
+      resolve(src);
+    };
+
+    img.src = src;
+  });
+}
+

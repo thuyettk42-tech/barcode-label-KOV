@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { LabelConfig, LabelObject, ObjectType, SheetLayoutConfig } from "./types";
+import { resizeImage } from "./utils";
 import { LabelCanvas } from "./components/LabelCanvas";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
@@ -783,15 +784,6 @@ export default function App() {
   // Global paste handler for smart clipboard image load and designer elements
   useEffect(() => {
     const handlePasteEvent = (e: ClipboardEvent) => {
-      // Do not intercept pasting if the user is currently typing in an input, textarea, or contenteditable element
-      const activeEl = document.activeElement;
-      if (activeEl) {
-        const tagName = activeEl.tagName.toLowerCase();
-        if (tagName === "input" || tagName === "textarea" || activeEl.getAttribute("contenteditable") === "true") {
-          return;
-        }
-      }
-
       const items = e.clipboardData?.items;
       let hasImage = false;
       if (items) {
@@ -805,27 +797,54 @@ export default function App() {
                 if (event.target?.result) {
                   setAiImage(event.target.result as string);
                   setIsAiRecognizerExpanded(true); // Auto-expand/open AI Recognizer sidebar!
+                  setActiveSidebarTab('layout'); // Switch to Layout tab which contains the AI section so user can see it!
                   setShowSuccessBadge(true);
                   setTimeout(() => setShowSuccessBadge(false), 3500);
                 }
               };
               reader.readAsDataURL(file);
               e.preventDefault();
+              e.stopPropagation();
               break;
             }
           }
         }
       }
 
-      // If no image was found/pasted, and we have custom design elements copied in our designer clipboard, paste them!
-      if (!hasImage && clipboard.length > 0) {
+      // If an image was pasted, we stop here (already handled)
+      if (hasImage) return;
+
+      // If no image was found/pasted, check if user is typing in inputs.
+      // If typing in input, we let the browser paste text normally (do NOT intercept).
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (tagName === "input" || tagName === "textarea" || activeEl.getAttribute("contenteditable") === "true") {
+          return;
+        }
+      }
+
+      // If no input is focused, and we have custom design elements copied in our designer clipboard, paste them!
+      if (clipboard.length > 0) {
         handlePaste();
         e.preventDefault();
       }
     };
 
-    window.addEventListener("paste", handlePasteEvent);
-    return () => window.removeEventListener("paste", handlePasteEvent);
+    // Auto focus window when mouse enters document body so shortcuts like Ctrl+V work immediately inside iFrame
+    const handleMouseEnter = () => {
+      if (document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        window.focus();
+      }
+    };
+
+    window.addEventListener("paste", handlePasteEvent, true);
+    document.body.addEventListener("mouseenter", handleMouseEnter);
+    
+    return () => {
+      window.removeEventListener("paste", handlePasteEvent, true);
+      document.body.removeEventListener("mouseenter", handleMouseEnter);
+    };
   }, [clipboard, handlePaste]);
 
   // Forward computed roll width synchronization hook
@@ -4254,15 +4273,23 @@ export default function App() {
                                 <Key className="w-3.5 h-3.5 text-orange-600" />
                                 <span>Cấu hình Gemini API Key</span>
                               </span>
-                              <span className="text-[10px] text-slate-400 font-medium">Cá nhân (Tùy chọn)</span>
+                              <span className="text-[10px] text-orange-500 font-bold">Tự động lưu</span>
                             </div>
                             <div className="flex gap-2">
                               <div className="relative flex-1">
                                 <input
                                   type={showCustomApiKey ? "text" : "password"}
                                   value={userCustomApiKey}
-                                  onChange={(e) => setUserCustomApiKey(e.target.value)}
-                                  placeholder="Mặc định sử dụng API Key hệ thống (Miễn phí)..."
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setUserCustomApiKey(val);
+                                    if (val.trim()) {
+                                      localStorage.setItem("barcode_designer_gemini_key", val.trim());
+                                    } else {
+                                      localStorage.removeItem("barcode_designer_gemini_key");
+                                    }
+                                  }}
+                                  placeholder="Dán API Key của bạn tại đây để dùng hạn ngạch riêng..."
                                   className="w-full pl-2 pr-8 py-1.5 text-xs bg-white border border-gray-300 rounded-md text-slate-800 font-medium font-mono focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none"
                                 />
                                 <button
@@ -4283,20 +4310,44 @@ export default function App() {
                                 onClick={() => {
                                   if (userCustomApiKey.trim()) {
                                     localStorage.setItem("barcode_designer_gemini_key", userCustomApiKey.trim());
-                                    alert("✓ Đã lưu thành công Gemini API Key cá nhân của bạn!");
+                                    alert("✓ Đã xác nhận lưu Gemini API Key cá nhân của bạn!");
                                   } else {
                                     localStorage.removeItem("barcode_designer_gemini_key");
                                     alert("✓ Đã xóa API Key cá nhân. Hệ thống sẽ sử dụng API của ứng dụng.");
                                   }
                                 }}
-                                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-[11px] font-extrabold select-none cursor-pointer transition border border-orange-600 shadow-sm"
+                                className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-md text-[11px] font-extrabold select-none cursor-pointer transition border border-orange-600 shadow-sm shrink-0"
                               >
                                 Lưu Key
                               </button>
                             </div>
-                            <p className="text-[10px] text-slate-400 leading-tight">
-                              Ứng dụng mặc định sẵn API Key. Hãy điền Key cá nhân nếu bạn muốn dùng hạn ngạch riêng của mình. Key được lưu trữ hoàn toàn cục bộ trên máy bạn.
-                            </p>
+
+                            {/* Hướng dẫn cách lấy API Key chi tiết theo yêu cầu của người dùng */}
+                            <div className="bg-orange-50/70 border border-orange-100 rounded-lg p-2.5 space-y-1.5 text-[10px] text-orange-950 font-medium">
+                              <p className="font-extrabold text-[10.5px] text-orange-850 flex items-center gap-1">
+                                🔑 Hướng dẫn cách lấy API Key:
+                              </p>
+                              <ol className="list-decimal pl-3.5 space-y-1 leading-relaxed text-orange-900">
+                                <li>
+                                  Truy cập website Google AI Studio:{" "}
+                                  <a 
+                                    href="https://aistudio.google.com/app/apikey" 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="text-orange-700 underline font-black hover:text-orange-850 inline-flex items-center gap-0.5"
+                                  >
+                                    aistudio.google.com <ExternalLink className="w-2.5 h-2.5 inline" />
+                                  </a>
+                                </li>
+                                <li>Đăng nhập bằng <strong>tài khoản Google</strong> của bạn.</li>
+                                <li>Click nút <strong className="bg-orange-100 px-1 py-0.5 rounded text-orange-950">"Create API Key"</strong> (Tạo khóa API mới).</li>
+                                <li>Chọn một Google Cloud Project bất kỳ rồi bấm <strong className="bg-orange-100 px-1 py-0.5 rounded text-orange-950">"Create API key in existing project"</strong>.</li>
+                                <li>Sao chép chuỗi mã (bắt đầu bằng <code className="bg-slate-100 text-slate-800 px-1 font-mono text-[9px] rounded">AIzaSy...</code>) và dán vào ô bên trên.</li>
+                              </ol>
+                              <p className="text-[9.5px] text-slate-500 font-bold leading-normal pt-1 border-t border-orange-100/60">
+                                💡 <strong>Mẹo cực hay:</strong> Hệ thống tự động lưu Key của bạn vào trình duyệt ngay khi bạn dán/gõ. Hãy mở tab mới nếu đang chạy trong khung AI Studio để tránh các giới hạn bảo mật!
+                              </p>
+                            </div>
                           </div>
 
                           {/* Elegant Drag-and-Drop / Input Options */}
@@ -4557,13 +4608,16 @@ export default function App() {
                                 setAiStatusMessage("Khởi chạy trợ lý AI Gemini 3.5 Flash...");
                                 
                                 try {
+                                  setAiStatusMessage("Đang tối ưu dung lượng ảnh để phân tích siêu tốc...");
+                                  const optimizedImg = await resizeImage(aiImage, 1024);
+                                  
                                   // Step-by-step progress simulation to keep user engaged
                                   const progressSteps = [
-                                    "Đang truyền ảnh nhãn độ phân giải cao...",
-                                    "Đang xác thực bảo mật và phân tích hình ảnh...",
+                                    "Đang nén và truyền ảnh nhãn siêu nhẹ (~100KB)...",
+                                    "Đang kết nối API Gemini 3.5 Flash...",
                                     "Gemini đang nhận diện các đối tượng (Text, Barcode, QR, Hình kẻ)...",
                                     "Chuẩn hóa tọa độ dựa trên kích thước thật " + labelConfig.width + "x" + labelConfig.height + "mm...",
-                                    "Kiểm thử lề căn chỉnh và thuộc tính định dạng..."
+                                    "Kiểm thử lề căn chỉnh và tối ưu hóa vị trí..."
                                   ];
                                   
                                   let stepIdx = 0;
@@ -4572,7 +4626,7 @@ export default function App() {
                                       setAiStatusMessage(progressSteps[stepIdx]);
                                       stepIdx++;
                                     }
-                                  }, 1800);
+                                  }, 950);
 
                                   const response = await fetch("/api/gemini/analyze-label", {
                                     method: "POST",
@@ -4580,7 +4634,7 @@ export default function App() {
                                       "Content-Type": "application/json"
                                     },
                                     body: JSON.stringify({
-                                      image: aiImage,
+                                      image: optimizedImg,
                                       width: labelConfig.width,
                                       height: labelConfig.height,
                                       userApiKey: userCustomApiKey.trim() || undefined
@@ -4659,7 +4713,24 @@ export default function App() {
 
                                 } catch (error: any) {
                                   console.error("AI Analysis error:", error);
-                                  alert(`⚠️ Không thể nhận diện mẫu tem:\n\n${error.message || error}`);
+                                  const errMsg = String(error.message || error);
+                                  let friendlyMessage = errMsg;
+                                  const isUsingCustomKey = !!userCustomApiKey.trim();
+                                  
+                                  if (errMsg.includes("prepayment credits") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("429")) {
+                                    if (isUsingCustomKey) {
+                                      friendlyMessage = "API Key cá nhân của bạn hiện đã hết hạn ngạch miễn phí hoặc thiếu số dư (prepayment credits).\n\n💡 CÁCH KHẮC PHỤC:\n- Hãy tạo một API Key mới bằng tài khoản Google khác vẫn còn nguyên hạn ngạch.\n- Hoặc kiểm tra lại thiết lập thanh toán (billing) trên Google Cloud Console của tài khoản đó.";
+                                    } else {
+                                      friendlyMessage = "Hạn ngạch của máy chủ hệ thống tạm thời hết tài khoản trả trước (prepayment credits).\n\n💡 CÁCH KHẮC PHỤC RẤT DỄ DÀNG:\nBạn chỉ cần tự nhập API Key Gemini cá nhân (hoàn toàn miễn phí, tạo trong 30 giây) vào mục 'Cấu hình API Key' ở phía dưới để được phân tích mẫu nhãn hoàn toàn không giới hạn và siêu nhanh nhé!";
+                                    }
+                                  } else if (errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand") || errMsg.includes("503")) {
+                                    friendlyMessage = "Máy chủ Gemini của Google hiện đang quá tải tạm thời (High demand/Unavailable).\n\n💡 CÁCH KHẮC PHỤC:\n- Vui lòng bấm lại nút 'Bắt đầu Phân tích' sau vài giây.\n- Hoặc tự nhập API Key cá nhân của bạn ở phía dưới để được tối ưu hóa băng thông riêng!";
+                                  } else if (errMsg.includes("API_KEY_INVALID") || errMsg.includes("invalid") || errMsg.includes("not valid") || errMsg.includes("API key not found")) {
+                                    if (isUsingCustomKey) {
+                                      friendlyMessage = "API Key cá nhân bạn vừa nhập KHÔNG HỢP LỆ hoặc đã bị Google khóa/thu hồi.\n\n💡 CÁCH KHẮC PHỤC:\n- Hãy kiểm tra xem bạn đã sao chép đủ và chính xác chuỗi API Key chưa.\n- Hoặc click vào liên kết dưới 'Hướng dẫn cách lấy API Key' để tạo một khóa mới hoàn toàn.";
+                                    }
+                                  }
+                                  alert(`⚠️ Lỗi phân tích mẫu nhãn:\n\n${friendlyMessage}`);
                                 } finally {
                                   setIsAiAnalyzing(false);
                                 }
