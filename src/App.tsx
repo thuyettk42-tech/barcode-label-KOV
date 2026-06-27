@@ -425,6 +425,16 @@ export default function App() {
   // The user requested that the old 120% zoom (1.2 * 7.07625 = 8.4915) be the new 100% default scale.
   // Standard pixels per mm is now 8.4915.
   const [pixelScale, setPixelScale] = useState<number>(8.4915);
+  const [interfaceZoom, setInterfaceZoom] = useState<number>(() => {
+    const saved = localStorage.getItem("kiotlabel_interface_zoom");
+    return saved ? parseFloat(saved) : 0.85;
+  });
+
+  const handleUpdateInterfaceZoom = (newZoom: number) => {
+    setInterfaceZoom(newZoom);
+    localStorage.setItem("kiotlabel_interface_zoom", String(newZoom));
+  };
+
   const [gridSnapSize, setGridSnapSize] = useState<number>(1); // 1mm snapping by default
   const [customSaveName, setCustomSaveName] = useState<string>("");
   const [savedDesigns, setSavedDesigns] = useState<Array<{ name: string; timestamp: string; config: LabelConfig; sheetConfig?: SheetLayoutConfig; objects: LabelObject[] }>>([]);
@@ -2796,12 +2806,19 @@ export default function App() {
   // Proxy gate router removed for offline performance
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden font-sans select-none bg-kiot-bg text-kiot-slate app-scale-wrapper">
+    <div 
+      className="h-screen w-screen flex flex-col overflow-hidden font-sans select-none bg-kiot-bg text-kiot-slate app-scale-wrapper"
+      style={{
+        zoom: interfaceZoom,
+        width: `${100 / interfaceZoom}vw`,
+        height: `${100 / interfaceZoom}vh`
+      }}
+    >
       
       {/* 1. TOP APPLICATION NAVIGATION BAR */}
-      <header id="app-header" className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-40 no-print text-kiot-navy shadow-md">
+      <header id="app-header" className="min-h-16 py-2 bg-white border-b border-gray-200 flex flex-wrap gap-2 items-center justify-between px-4 shrink-0 z-40 no-print text-kiot-navy shadow-md">
         <div className="flex items-center space-x-4">
-          <svg viewBox="0 0 326 92" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-11 w-auto shrink-0 select-none transition-transform hover:scale-105" id="kiotviet-svg-logo">
+          <svg viewBox="0 0 326 92" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 md:h-11 w-auto shrink-0 select-none transition-transform hover:scale-105" id="kiotviet-svg-logo">
             {/* Background barcode pattern inside logo wrapper on header */}
             <g opacity="0.12">
               <rect x="2" y="8" width="3" height="76" fill="#000000"/>
@@ -2837,19 +2854,18 @@ export default function App() {
               </radialGradient>
             </defs>
           </svg>
-          <div className="h-9 w-px bg-gray-200" />
-          <div>
-            <h1 className="text-[21px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
-              <span className="text-kiot-cyan">LabelPro</span>
+          <div className="h-6 md:h-9 w-px bg-gray-200 hidden sm:block" />
+          <div className="hidden sm:block">
+            <h1 className="text-lg md:text-[26px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
+              <span className="text-kiot-cyan">KiotLabel</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[11px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">V2.5</span>
+              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.0</span>
             </h1>
-            <p className="text-[13px] text-zinc-500 font-bold mt-1">Hệ thống thiết kế & in tem nhãn liên kết dữ liệu hàng loạt chuyên nghiệp</p>
           </div>
         </div>
 
         {/* TOP QUICK DESIGNS BUTTONS */}
-        <div className="flex items-center space-x-2 bg-slate-50/50 p-1 rounded-xl border border-slate-100/60 shadow-3xs">
+        <div className="flex flex-wrap items-center gap-1.5 md:space-x-2 bg-slate-50/50 p-1 rounded-xl border border-slate-100/60 shadow-3xs">
           {/* Preset Template Selector */}
           <div 
             ref={presetContainerRef}
@@ -5536,9 +5552,9 @@ export default function App() {
             </aside>
           )}
           
-          {/* HORIZONTAL WORKSPACE TOOLBAR - Height set to h-[48px] to perfectly match the sidebar tab headers height */}
-          <section id="workspace-toolbar" className="h-[48px] bg-white border-b border-gray-200 flex items-center justify-between px-3 shrink-0 no-print shadow-xs">
-            <div className="flex items-center space-x-2.5">
+          {/* HORIZONTAL WORKSPACE TOOLBAR - Responsive layout, flex-wrap to prevent overlaps */}
+          <section id="workspace-toolbar" className="min-h-[48px] py-1.5 bg-white border-b border-gray-200 flex flex-wrap gap-2 items-center justify-between px-3 shrink-0 no-print shadow-xs">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
               
               {(sheetConfig.mode === 'office' || sheetConfig.mode === 'thermal') && (
                 <div className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 space-x-2 shrink-0 select-none">
@@ -5573,8 +5589,8 @@ export default function App() {
               )}
               
               {/* Display Zoom controls */}
-              <div className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 space-x-1.5 font-sans">
-                <span className="text-[10.5px] text-gray-400 font-extrabold uppercase select-none tracking-wider">Zoom</span>
+              <div className="flex items-center bg-gray-50 px-2 py-1 rounded-lg border border-gray-200 space-x-1.5 font-sans shrink-0">
+                <span className="text-[10.5px] text-gray-400 font-extrabold uppercase select-none tracking-wider">Zoom Tem</span>
                 <button
                   type="button"
                   onClick={() => setPixelScale(Math.max(1.6983, pixelScale - 0.84915))}
@@ -5591,6 +5607,30 @@ export default function App() {
                   onClick={() => setPixelScale(Math.min(25.4745, pixelScale + 0.84915))}
                   className="p-1 rounded hover:bg-white text-gray-500 hover:text-gray-700 transition cursor-pointer"
                   title="Phóng to phôi dán"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Interface Zoom (UI Zoom) controls */}
+              <div className="flex items-center bg-sky-50/70 px-2 py-1 rounded-lg border border-sky-200 space-x-1.5 font-sans shrink-0">
+                <span className="text-[10.5px] text-sky-700 font-extrabold uppercase select-none tracking-wider">Zoom Giao Diện</span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateInterfaceZoom(Math.max(0.5, Math.round((interfaceZoom - 0.05) * 100) / 100))}
+                  className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
+                  title="Thu nhỏ toàn bộ giao diện ứng dụng (Thích hợp cho màn hình nhỏ)"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[12px] font-mono text-center w-12 text-sky-850 font-bold">
+                  {Math.round(interfaceZoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateInterfaceZoom(Math.min(1.5, Math.round((interfaceZoom + 0.05) * 100) / 100))}
+                  className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
+                  title="Phóng to toàn bộ giao diện ứng dụng"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>

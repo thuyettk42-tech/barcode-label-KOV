@@ -494,6 +494,10 @@ export function LabelCanvas({
   const labelRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
 
+  // Zoom compensation factor for active design selection handles, rotate button, target anchors, and coordinate tooltips
+  const designZoom = pixelScale / 8.4915;
+  const scaleComp = designZoom > 0 ? 1 / designZoom : 1;
+
   // Helper to dynamically read browser zoom on .app-scale-wrapper to fix marquee coordinate offsets
   const getWorkspaceZoom = (): number => {
     try {
@@ -2679,13 +2683,26 @@ export function LabelCanvas({
                 {isPrimarySelected && (
                   <>
                     {/* Rotation line and handle */}
-                    <div className="absolute top-0 left-1/2 w-[1.5px] h-8 bg-kiot-cyan -translate-x-1/2 -translate-y-full hover:scale-x-150 transition-all pointer-events-none no-print z-40" />
+                    <div
+                      className="absolute top-0 left-1/2 bg-kiot-cyan -translate-x-1/2 -translate-y-full hover:scale-x-150 transition-all pointer-events-none no-print z-40"
+                      style={{
+                        width: `${1.5 * designZoom}px`,
+                        height: `${32 * designZoom}px`,
+                      }}
+                    />
                     <div
                       onMouseDown={(e) => handleRotateStart(e, obj)}
-                      className="absolute top-0 left-1/2 w-4.5 h-4.5 bg-white border border-kiot-cyan text-kiot-cyan hover:bg-[#E0F2FE] hover:text-sky-700 cursor-alias flex items-center justify-center -translate-x-1/2 -translate-y-[36px] rounded-full shadow-md z-40 hover:scale-125 transition-all no-print"
+                      className="absolute top-0 left-1/2 bg-white border border-kiot-cyan text-kiot-cyan hover:bg-[#E0F2FE] hover:text-sky-700 cursor-alias flex items-center justify-center rounded-full shadow-md z-40 transition-all no-print"
+                      style={{
+                        width: `${18 * designZoom}px`,
+                        height: `${18 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        top: `-${32 * designZoom}px`,
+                        transform: "translate(-50%, -100%)",
+                      }}
                       title="Kéo để xoay đối tượng (Giữ Shift để hít 15°)"
                     >
-                      <RefreshCw className="w-2.5 h-2.5 stroke-[3]" />
+                      <RefreshCw style={{ width: `${10 * designZoom}px`, height: `${10 * designZoom}px`, strokeWidth: 3 }} />
                     </div>
 
                     {/* Corner Handles */}
@@ -2694,8 +2711,12 @@ export function LabelCanvas({
                       onMouseDown={(e) => handleResizeStart(e, obj, "top-left")}
                       style={{
                         cursor: getRotatedCursor("top-left", obj.angle),
+                        width: `${10 * designZoom}px`,
+                        height: `${10 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(-50%, -50%)",
                       }}
-                      className="absolute top-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      className="absolute top-0 left-0 bg-kiot-cyan border border-white rounded-full shadow-md z-40 no-print transition-all"
                       title="Kéo góc để thay đổi kích thước đồng thời"
                     />
                     {/* Top-Right */}
@@ -2705,8 +2726,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("top-right", obj.angle),
+                        width: `${10 * designZoom}px`,
+                        height: `${10 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(50%, -50%)",
                       }}
-                      className="absolute top-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      className="absolute top-0 right-0 bg-kiot-cyan border border-white rounded-full shadow-md z-40 no-print transition-all"
                       title="Kéo góc để thay đổi kích thước đồng thời"
                     />
                     {/* Bottom-Left */}
@@ -2716,8 +2741,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("bottom-left", obj.angle),
+                        width: `${10 * designZoom}px`,
+                        height: `${10 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(-50%, 50%)",
                       }}
-                      className="absolute bottom-0 left-0 w-2.5 h-2.5 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      className="absolute bottom-0 left-0 bg-kiot-cyan border border-white rounded-full shadow-md z-40 no-print transition-all"
                       title="Kéo góc để thay đổi kích thước đồng thời"
                     />
                     {/* Bottom-Right */}
@@ -2727,8 +2756,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("bottom-right", obj.angle),
+                        width: `${10 * designZoom}px`,
+                        height: `${10 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(50%, 50%)",
                       }}
-                      className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-kiot-cyan border border-white translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-40 no-print"
+                      className="absolute bottom-0 right-0 bg-kiot-cyan border border-white rounded-full shadow-md z-40 no-print transition-all"
                       title="Kéo góc để thay đổi kích thước đồng thời"
                     />
 
@@ -2740,8 +2773,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("top-center", obj.angle),
+                        width: `${8 * designZoom}px`,
+                        height: `${8 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(-50%, -50%)",
                       }}
-                      className="absolute top-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      className="absolute top-0 left-1/2 bg-kiot-cyan border border-white rounded-full shadow-md z-45 no-print transition-all"
                       title="Kéo cạnh để thay đổi kích thước"
                     />
                     {/* Bottom-Center */}
@@ -2751,8 +2788,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("bottom-center", obj.angle),
+                        width: `${8 * designZoom}px`,
+                        height: `${8 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(-50%, 50%)",
                       }}
-                      className="absolute bottom-0 left-1/2 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      className="absolute bottom-0 left-1/2 bg-kiot-cyan border border-white rounded-full shadow-md z-45 no-print transition-all"
                       title="Kéo cạnh để thay đổi kích thước"
                     />
                     {/* Left-Center */}
@@ -2762,8 +2803,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("left-center", obj.angle),
+                        width: `${8 * designZoom}px`,
+                        height: `${8 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(-50%, -50%)",
                       }}
-                      className="absolute top-1/2 left-0 w-2 h-2 bg-kiot-cyan border border-white -translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      className="absolute top-1/2 left-0 bg-kiot-cyan border border-white rounded-full shadow-md z-45 no-print transition-all"
                       title="Kéo cạnh để thay đổi kích thước"
                     />
                     {/* Right-Center */}
@@ -2773,8 +2818,12 @@ export function LabelCanvas({
                       }
                       style={{
                         cursor: getRotatedCursor("right-center", obj.angle),
+                        width: `${8 * designZoom}px`,
+                        height: `${8 * designZoom}px`,
+                        borderWidth: `${1 * designZoom}px`,
+                        transform: "translate(50%, -50%)",
                       }}
-                      className="absolute top-1/2 right-0 w-2 h-2 bg-kiot-cyan border border-white translate-x-1/2 -translate-y-1/2 hover:scale-150 active:scale-150 transition-all rounded-full shadow-md z-45 no-print"
+                      className="absolute top-1/2 right-0 bg-kiot-cyan border border-white rounded-full shadow-md z-45 no-print transition-all"
                       title="Kéo cạnh để thay đổi kích thước"
                     />
 
@@ -2794,34 +2843,54 @@ export function LabelCanvas({
                           style={{
                             left: mLeft,
                             top: mTop,
-                            width: "20px",
-                            height: "20px",
+                            width: `${20 * designZoom}px`,
+                            height: `${20 * designZoom}px`,
                           }}
                           title={`Điểm neo: ${origin}`}
                         >
-                          <div className="relative w-5 h-5 rounded-full border-2 border-red-500 bg-white/85 shadow-md flex items-center justify-center ring-1 ring-red-400 animate-pulse">
+                          <div
+                            className="relative rounded-full border-red-500 bg-white/85 shadow-md flex items-center justify-center ring-red-400 animate-pulse"
+                            style={{
+                              width: `${20 * designZoom}px`,
+                              height: `${20 * designZoom}px`,
+                              borderWidth: `${2 * designZoom}px`,
+                              boxShadow: `0 ${4 * designZoom}px ${6 * designZoom}px -${1 * designZoom}px rgba(0, 0, 0, 0.1), 0 ${2 * designZoom}px ${4 * designZoom}px -${1 * designZoom}px rgba(0, 0, 0, 0.06)`,
+                            }}
+                          >
                             {/* Horizontal line */}
-                            <div className="absolute w-4 h-[1.5px] bg-red-550" />
+                            <div className="absolute bg-red-550" style={{ width: `${16 * designZoom}px`, height: `${1.5 * designZoom}px` }} />
                             {/* Vertical line */}
-                            <div className="absolute h-4 w-[1.5px] bg-red-550" />
+                            <div className="absolute bg-red-550" style={{ height: `${16 * designZoom}px`, width: `${1.5 * designZoom}px` }} />
                             {/* Central dot */}
-                            <div className="w-1.5 h-1.5 bg-red-650 rounded-full z-10" />
+                            <div className="bg-red-650 rounded-full z-10" style={{ width: `${6 * designZoom}px`, height: `${6 * designZoom}px` }} />
                           </div>
                         </div>
                       );
                     })()}
 
-                    <div className="absolute -bottom-9 left-1/2 -translate-x-1/2 bg-kiot-navy text-[12px] text-white px-2 py-1 rounded-lg shadow-xl whitespace-nowrap opacity-100 font-mono font-bold select-none z-50 flex items-center space-x-1.5 pointer-events-none no-print border-2 border-kiot-cyan/40">
+                    <div
+                      className="absolute bg-kiot-navy text-white rounded-lg shadow-xl whitespace-nowrap opacity-100 font-mono font-bold select-none z-50 flex items-center no-print"
+                      style={{
+                        fontSize: `${11 * designZoom}px`,
+                        padding: `${4 * designZoom}px ${8 * designZoom}px`,
+                        borderWidth: `${2 * designZoom}px`,
+                        borderColor: "rgba(6, 182, 212, 0.4)", // bg-kiot-cyan/40
+                        columnGap: `${6 * designZoom}px`,
+                        bottom: `-${36 * designZoom}px`,
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                      }}
+                    >
                       <span>X: {obj.x}mm</span>
-                      <span>•</span>
+                      <span style={{ fontSize: `${8 * designZoom}px` }}>•</span>
                       <span>Y: {obj.y}mm</span>
-                      <span>•</span>
+                      <span style={{ fontSize: `${8 * designZoom}px` }}>•</span>
                       <span>W: {obj.width}mm</span>
-                      <span>•</span>
+                      <span style={{ fontSize: `${8 * designZoom}px` }}>•</span>
                       <span>H: {obj.height}mm</span>
                       {activeAngle > 0 && (
                         <>
-                          <span>•</span>
+                          <span style={{ fontSize: `${8 * designZoom}px` }}>•</span>
                           <span>R: {activeAngle}°</span>
                         </>
                       )}

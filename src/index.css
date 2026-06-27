@@ -217,9 +217,7 @@
 
 @media screen {
   .app-scale-wrapper {
-    zoom: 0.85;
-    width: 117.647vw !important;
-    height: 117.647vh !important;
+    /* Dynamic scaling controlled by React state inline styles */
   }
 
   /* Tăng các kích thước chữ tùy biến của Tailwind thêm 1pt (khoảng 1.33px) */
