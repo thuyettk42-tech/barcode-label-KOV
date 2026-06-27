@@ -399,6 +399,7 @@ export default function App() {
     if (id === null) {
       setSelectedId(null);
       setSelectedIds([]);
+      setActiveSidebarTab('design');
     } else {
       if (isMultiSelect) {
         setSelectedIds((prev) => {
@@ -3045,7 +3046,64 @@ export default function App() {
         {/* SIDEBAR ON THE LEFT - SLIMMER DESIGN TAB HEIGHT & WIDTH (Optimized for small screens) */}
         <aside id="sidebar-ui" className="w-[25%] min-w-[330px] max-w-[420px] bg-white border-r border-gray-200 flex flex-col shrink-0 no-print text-kiot-slate shadow-sm z-10 font-sans">
           
-          {/* TAB BAR HEADER */}
+          {selectedObject ? (
+            <div className="flex-1 flex flex-col overflow-hidden animate-fadeIn">
+              {/* Header Taskbar of the properties sidebar column */}
+              <div className="h-[44px] border-b border-gray-200 bg-slate-50 px-3 flex items-center justify-between select-none shrink-0">
+                <div className="flex items-center space-x-1.5 text-kiot-navy">
+                  <span className="font-extrabold text-[11.5px] uppercase text-kiot-navy tracking-wider select-none shrink-0">
+                    THUỘC TÍNH
+                  </span>
+                  {selectedIds.length > 1 ? (
+                    <span className="text-[9.5px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.5 rounded-md uppercase shrink-0 animate-pulse">
+                      Đã chọn {selectedIds.length} phần tử (Ctrl+Click)
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-sky-50 text-kiot-cyan border border-kiot-cyan/20 font-extrabold px-1.5 py-0.5 rounded-md uppercase shrink-0">
+                      {selectedObject.type === 'text' ? 'Văn bản' : selectedObject.type === 'barcode' ? 'Mã vạch' : selectedObject.type === 'qrcode' ? 'QR Code' : 'Hình ảnh'}
+                    </span>
+                  )}
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => handleSelectObject(null)}
+                  className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 hover:border-emerald-800 font-black text-[11px] rounded-lg transition-all duration-150 flex items-center justify-center space-x-1 cursor-pointer shadow-sm hover:shadow-md hover:scale-[1.04] active:scale-[0.96] focus:outline-none select-none"
+                  title="Đóng thuộc tính & Hủy chọn (Trở về Menu công cụ)"
+                >
+                  <X className="w-3.5 h-3.5 stroke-[3]" />
+                  <span>ĐÓNG (EXIT)</span>
+                </button>
+              </div>
+
+              {/* Scrollable container for PropertiesPanel with zero-overlap padding */}
+              <div className="flex-1 overflow-y-auto p-2.5 bg-white">
+                <PropertiesPanel
+                  selectedObject={selectedObject}
+                  labelConfig={labelConfig}
+                  onChangeObject={handleUpdateObject}
+                  onDeleteObject={handleDeleteObject}
+                  excelColumns={excelColumns}
+                  onSwitchToExcelTab={() => {
+                    setIsExcelExpanded(true);
+                    setTimeout(() => {
+                      document.getElementById("excel-section-header")?.scrollIntoView({ behavior: "smooth" });
+                    }, 100);
+                  }}
+                />
+              </div>
+
+              {/* Sticky bottom guide inside Properties panel */}
+              <footer className="p-2 bg-gray-50 border-t border-gray-200 text-[9.5px] text-gray-500 leading-normal flex items-start space-x-1 shrink-0">
+                <Info className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  Thay đổi vị trí, kích thước, căn lề và thuộc tính liên kết Excel của đối tượng. Nhấp <strong>ĐÓNG</strong> hoặc click vùng trống để lưu &amp; quay lại Menu Công cụ.
+                </p>
+              </footer>
+            </div>
+          ) : (
+            <>
+              {/* TAB BAR HEADER */}
           <div className="flex select-none bg-slate-100 p-2 gap-2 shrink-0 tracking-wider border-b border-gray-200">
             <button
               onClick={() => setActiveSidebarTab('layout')}
@@ -5534,63 +5592,14 @@ export default function App() {
               </p>
             )}
           </footer>
+            </>
+          )}
         </aside>
 
         {/* WORKSPACE AREA ON THE RIGHT - STRETCHABLE SPACE bg-slate-200 (Canvas wrapper is bg-gray-100) */}
         <main className="flex-1 flex flex-col bg-[#E5E7EB] relative">
 
-          {/* EXTRA INSIDE FLOOR COLUMN FOR OBJECT PROPERTIES - FLOATING ABSOLUTE BENEATH "CHẾ ĐỘ XEM" AND CAN DESELECT WITHOUT PUSHING DESIGN STAGE */}
-          {activeSidebarTab === 'design' && selectedObject && (
-            <aside
-              id="properties-sidebar"
-              className="absolute left-0 top-[48px] bottom-0 w-[390px] bg-white border-r border-gray-200 flex flex-col no-print text-kiot-slate shadow-2xl z-20 overflow-hidden animate-fadeIn"
-            >
-              {/* Header Taskbar of the properties sidebar column */}
-              <div className="h-[36px] border-b border-gray-200 bg-slate-50 px-3 flex items-center justify-between select-none shrink-0">
-                <div className="flex items-center space-x-1.5 text-kiot-navy">
-                  <span className="font-extrabold text-[11px] uppercase text-kiot-navy tracking-wider select-none shrink-0">
-                    THUỘC TÍNH
-                  </span>
-                  {selectedIds.length > 1 ? (
-                    <span className="text-[9.5px] bg-amber-50 text-amber-700 border border-amber-200 font-bold px-1.5 py-0.5 rounded-md uppercase shrink-0 animate-pulse">
-                      Đã chọn {selectedIds.length} phần tử (Ctrl+Click)
-                    </span>
-                  ) : (
-                    <span className="text-[9px] bg-sky-50 text-kiot-cyan border border-kiot-cyan/20 font-extrabold px-1.5 py-0.5 rounded-md uppercase shrink-0">
-                      {selectedObject.type === 'text' ? 'Văn bản' : selectedObject.type === 'barcode' ? 'Mã vạch' : selectedObject.type === 'qrcode' ? 'QR Code' : 'Hình ảnh'}
-                    </span>
-                  )}
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => handleSelectObject(null)}
-                  className="p-0.5 px-2 bg-white hover:bg-slate-100 border border-gray-200 hover:border-red-300 text-slate-500 hover:text-red-600 font-extrabold text-[10px] rounded-md transition duration-150 flex items-center justify-center space-x-1 cursor-pointer shadow-xs focus:outline-none"
-                  title="Đóng thuộc tính"
-                >
-                  <X className="w-3 h-3 stroke-[2.5]" />
-                  <span>ĐÓNG</span>
-                </button>
-              </div>
 
-              {/* Scrollable container for PropertiesPanel with zero-overlap padding */}
-              <div className="flex-1 overflow-y-auto p-2.5 bg-white">
-                <PropertiesPanel
-                  selectedObject={selectedObject}
-                  labelConfig={labelConfig}
-                  onChangeObject={handleUpdateObject}
-                  onDeleteObject={handleDeleteObject}
-                  excelColumns={excelColumns}
-                  onSwitchToExcelTab={() => {
-                    setIsExcelExpanded(true);
-                    setTimeout(() => {
-                      document.getElementById("excel-section-header")?.scrollIntoView({ behavior: "smooth" });
-                    }, 100);
-                  }}
-                />
-              </div>
-            </aside>
-          )}
           
           {/* HORIZONTAL WORKSPACE TOOLBAR - Responsive layout, flex-wrap to prevent overlaps */}
           <section id="workspace-toolbar" className="min-h-[48px] py-1.5 bg-white border-b border-gray-200 flex flex-wrap gap-2 items-center justify-between px-3 shrink-0 no-print shadow-xs">
