@@ -430,10 +430,50 @@ export default function App() {
     return saved ? parseFloat(saved) : 0.85;
   });
 
+  const [isZoomUserOverridden, setIsZoomUserOverridden] = useState<boolean>(() => {
+    return localStorage.getItem("kiotlabel_interface_zoom_override") === "true";
+  });
+
   const handleUpdateInterfaceZoom = (newZoom: number) => {
     setInterfaceZoom(newZoom);
     localStorage.setItem("kiotlabel_interface_zoom", String(newZoom));
   };
+
+  // Automatically calculate ideal interface scale on resize for small screen resolutions if not overridden
+  useEffect(() => {
+    if (isZoomUserOverridden) return;
+
+    const handleResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      
+      let idealZoom = 1.0;
+      if (w < 1024) {
+        idealZoom = 0.65;
+      } else if (w < 1200) {
+        idealZoom = 0.72;
+      } else if (w < 1366) {
+        idealZoom = 0.80;
+      } else if (w < 1536) {
+        idealZoom = 0.88;
+      } else {
+        idealZoom = 0.95;
+      }
+
+      // Also clamp by height
+      if (h < 700 && idealZoom > 0.7) {
+        idealZoom = 0.7;
+      } else if (h < 800 && idealZoom > 0.82) {
+        idealZoom = 0.80;
+      }
+
+      setInterfaceZoom(idealZoom);
+    };
+
+    handleResize(); // Initial check on mount
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isZoomUserOverridden]);
 
   const [gridSnapSize, setGridSnapSize] = useState<number>(1); // 1mm snapping by default
   const [customSaveName, setCustomSaveName] = useState<string>("");
@@ -5614,10 +5654,18 @@ export default function App() {
 
               {/* Interface Zoom (UI Zoom) controls */}
               <div className="flex items-center bg-sky-50/70 px-2 py-1 rounded-lg border border-sky-200 space-x-1.5 font-sans shrink-0">
-                <span className="text-[10.5px] text-sky-700 font-extrabold uppercase select-none tracking-wider">Zoom Giao Diện</span>
+                <span className="text-[10.5px] text-sky-700 font-extrabold uppercase select-none tracking-wider">
+                  <span className="hidden sm:inline">Zoom Giao Diện</span>
+                  <span className="sm:hidden">Zoom UI</span>
+                </span>
                 <button
                   type="button"
-                  onClick={() => handleUpdateInterfaceZoom(Math.max(0.5, Math.round((interfaceZoom - 0.05) * 100) / 100))}
+                  onClick={() => {
+                    const newZoom = Math.max(0.5, Math.round((interfaceZoom - 0.05) * 100) / 100);
+                    handleUpdateInterfaceZoom(newZoom);
+                    setIsZoomUserOverridden(true);
+                    localStorage.setItem("kiotlabel_interface_zoom_override", "true");
+                  }}
                   className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
                   title="Thu nhỏ toàn bộ giao diện ứng dụng (Thích hợp cho màn hình nhỏ)"
                 >
@@ -5628,30 +5676,48 @@ export default function App() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => handleUpdateInterfaceZoom(Math.min(1.5, Math.round((interfaceZoom + 0.05) * 100) / 100))}
+                  onClick={() => {
+                    const newZoom = Math.min(1.5, Math.round((interfaceZoom + 0.05) * 100) / 100);
+                    handleUpdateInterfaceZoom(newZoom);
+                    setIsZoomUserOverridden(true);
+                    localStorage.setItem("kiotlabel_interface_zoom_override", "true");
+                  }}
                   className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
                   title="Phóng to toàn bộ giao diện ứng dụng"
                 >
                   <ZoomIn className="w-3.5 h-3.5" />
                 </button>
+                {isZoomUserOverridden && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsZoomUserOverridden(false);
+                      localStorage.removeItem("kiotlabel_interface_zoom_override");
+                    }}
+                    className="text-[9px] bg-sky-200/80 hover:bg-sky-200 text-sky-900 font-black px-1.5 py-0.5 rounded transition select-none uppercase tracking-wide leading-none"
+                    title="Khôi phục tự động scale theo độ phân giải màn hình của bạn"
+                  >
+                    Tự động
+                  </button>
+                )}
               </div>
 
             </div>
-            <div className="flex items-center space-x-3.5">
+            <div className="flex flex-wrap items-center gap-1.5 md:gap-2.5">
               {/* Undo Button */}
               <button
                 type="button"
                 onClick={handleUndo}
                 disabled={past.length === 0}
-                className={`px-4 py-2 transition-all duration-150 rounded-lg text-[13.5px] font-bold flex items-center space-x-2 leading-none shadow-xs border ${
+                className={`px-2.5 md:px-3 py-1.5 transition-all duration-150 rounded-lg text-xs md:text-[13px] font-bold flex items-center space-x-1.5 leading-none shadow-xs border ${
                   past.length === 0
                     ? "bg-gray-55 border-gray-150 text-gray-300 cursor-not-allowed font-sans"
                     : "bg-white hover:bg-slate-50 border-gray-200 hover:border-gray-300 text-slate-700 cursor-pointer hover:scale-[1.02] active:scale-[0.98] font-sans"
                 }`}
                 title="Hoàn tác thao tác trước (Ctrl + Z)"
               >
-                <Undo2 className="w-4.5 h-4.5" />
-                <span className="hidden sm:inline">Hoàn tác</span>
+                <Undo2 className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">Hoàn tác</span>
               </button>
 
               {/* Redo Button */}
@@ -5659,35 +5725,37 @@ export default function App() {
                 type="button"
                 onClick={handleRedo}
                 disabled={future.length === 0}
-                className={`px-4 py-2 transition-all duration-150 rounded-lg text-[13.5px] font-bold flex items-center space-x-2 leading-none shadow-xs border ${
+                className={`px-2.5 md:px-3 py-1.5 transition-all duration-150 rounded-lg text-xs md:text-[13px] font-bold flex items-center space-x-1.5 leading-none shadow-xs border ${
                   future.length === 0
                     ? "bg-gray-55 border-gray-150 text-gray-300 cursor-not-allowed font-sans"
                     : "bg-white hover:bg-slate-50 border-gray-200 hover:border-gray-300 text-slate-700 cursor-pointer hover:scale-[1.02] active:scale-[0.98] font-sans"
                 }`}
                 title="Làm lại thao tác vừa hoàn tác (Ctrl + Y)"
               >
-                <Redo2 className="w-4.5 h-4.5" />
-                <span className="hidden sm:inline">Làm lại</span>
+                <Redo2 className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">Làm lại</span>
               </button>
 
               {/* Blank restart canvas button */}
               <button
                 onClick={handleClearCanvas}
-                className="px-4 py-2 bg-white hover:bg-red-50 border border-red-200 hover:border-red-300 text-red-600 transition-all duration-150 rounded-lg text-[13.5px] font-bold flex items-center space-x-2 leading-none cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98] font-sans"
+                className="px-2.5 md:px-3 py-1.5 bg-white hover:bg-red-50 border border-red-200 hover:border-red-300 text-red-600 transition-all duration-150 rounded-lg text-xs md:text-[13px] font-bold flex items-center space-x-1.5 leading-none cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98] font-sans"
                 title="Xóa toàn bộ các đối tượng hiện tại để bắt đầu thiết kế mới"
               >
-                <Trash2 className="w-4.5 h-4.5" />
-                <span>Xóa hết</span>
+                <Trash2 className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">Xóa hết</span>
+                <span className="lg:hidden">Xóa</span>
               </button>
 
               {/* Reset to default template button */}
               <button
                 onClick={handleResetToDefault}
-                className="px-4 py-2 bg-white hover:bg-amber-50 border border-amber-200 hover:border-amber-300 text-amber-700 transition-all duration-150 rounded-lg text-[13.5px] font-bold flex items-center space-x-2 leading-none cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98] font-sans"
+                className="px-2.5 md:px-3 py-1.5 bg-white hover:bg-amber-50 border border-amber-200 hover:border-amber-300 text-amber-700 transition-all duration-150 rounded-lg text-xs md:text-[13px] font-bold flex items-center space-x-1.5 leading-none cursor-pointer shadow-xs hover:scale-[1.02] active:scale-[0.98] font-sans"
                 title="Khôi phục thiết kế và dữ liệu Excel liên kết về mẫu mặc định ban đầu"
               >
-                <RefreshCw className="w-4.5 h-4.5" />
-                <span>Khôi phục mẫu</span>
+                <RefreshCw className="w-4 h-4 shrink-0" />
+                <span className="hidden lg:inline">Khôi phục mẫu</span>
+                <span className="lg:hidden">Khôi phục</span>
               </button>
             </div>
           </section>
