@@ -523,7 +523,7 @@ export function LabelCanvas({
   const [isPrinting, setIsPrinting] = useState(false);
   const [editingTextId, setEditingTextId] = useState<string | null>(null);
   const [showLogsPopupBottom, setShowLogsPopupBottom] = useState(false);
-  const [isFloatingPrintOpen, setIsFloatingPrintOpen] = useState(true);
+  const [isFloatingPrintOpen, setIsFloatingPrintOpen] = useState(false);
 
   const renderFloatingQuickPrintPanel = () => {
     return (

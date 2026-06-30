@@ -15,18 +15,65 @@
 
 /* Base Scrollbar custom styles */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 16px;
+  height: 16px;
 }
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background-color: #f8fafc;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background-color: #cbd5e1;
+  border-radius: 8px;
+  border: 2px solid #f8fafc;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background-color: #94a3b8;
+}
+::-webkit-scrollbar-thumb:active {
+  background-color: #64748b;
+}
+
+/* Scrollbar Buttons (Arrows) */
+::-webkit-scrollbar-button {
+  display: none;
+}
+::-webkit-scrollbar-button:single-button {
+  display: block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 8px 8px;
+  background-color: #e2e8f0;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-button:single-button:hover {
+  background-color: #cbd5e1;
+}
+::-webkit-scrollbar-button:single-button:active {
+  background-color: #94a3b8;
+}
+
+/* Up arrow (Vertical decrement) */
+::-webkit-scrollbar-button:single-button:vertical:decrement {
+  height: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2500/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='18 15 12 9 6 15'></polyline></svg>");
+}
+
+/* Down arrow (Vertical increment) */
+::-webkit-scrollbar-button:single-button:vertical:increment {
+  height: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
+}
+
+/* Left arrow (Horizontal decrement) */
+::-webkit-scrollbar-button:single-button:horizontal:decrement {
+  width: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='15 18 9 12 15 6'></polyline></svg>");
+}
+
+/* Right arrow (Horizontal increment) */
+::-webkit-scrollbar-button:single-button:horizontal:increment {
+  width: 16px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'><polyline points='9 18 15 12 9 6'></polyline></svg>");
 }
 
 /* Print Overrides and Engine positioning */
