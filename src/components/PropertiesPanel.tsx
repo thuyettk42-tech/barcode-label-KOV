@@ -511,8 +511,8 @@ export function PropertiesPanel({
     };
 
     return (
-      <div id="properties-panel" className="space-y-2.5 pb-8 font-sans">
-        <main className="space-y-2.5">
+      <div id="properties-panel" className="space-y-3.5 pb-8 font-sans animate-fadeIn">
+        <main className="p-3.5 bg-white border border-slate-150 rounded-xl space-y-4 shadow-3xs text-kiot-slate">
           {/* TEXT EXCLUSIVE ATTRIBUTES */}
         {selectedObject.type === "text" && (
           <div className="space-y-2.5 animate-fadeIn">
