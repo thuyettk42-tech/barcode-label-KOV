@@ -9,7 +9,7 @@ import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
 import { mmToPx, pxToMm, BASE_DPI_SCALE } from "../utils";
-import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal } from "lucide-react";
+import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal, FileText, Image } from "lucide-react";
 
 interface LabelCanvasProps {
   labelConfig: LabelConfig;
@@ -59,6 +59,9 @@ interface LabelCanvasProps {
   onUpdatePrintCopies?: (copies: number) => void;
   onPrintLabel?: () => void;
   isPreparingPrint?: boolean;
+  onSavePrintFile?: (format: 'png' | 'pdf') => void;
+  isSavingFile?: boolean;
+  saveFileProgress?: string;
 }
 
 const getRotatedCursor = (
@@ -489,6 +492,9 @@ export function LabelCanvas({
   onUpdatePrintCopies,
   onPrintLabel,
   isPreparingPrint = false,
+  onSavePrintFile,
+  isSavingFile = false,
+  saveFileProgress = "",
 }: LabelCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -717,6 +723,73 @@ export function LabelCanvas({
                   ? `${printManifestLength || 0} bản` 
                   : `${printCopies || 1} bản`}
               </span>
+            </div>
+
+            {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
+            <div className="pt-2.5 border-t border-slate-200/80 space-y-2 bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 font-sans">
+              <div className="flex items-center justify-between">
+                <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                  LƯU FILE ĐỂ IN CHẤT LƯỢNG CAO
+                </span>
+                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-sm">
+                  TEM NHỎ &lt; 10PX
+                </span>
+              </div>
+              <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
+                Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePrintFile?.('pdf');
+                  }}
+                  disabled={isSavingFile}
+                  className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
+                    isSavingFile
+                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
+                  }`}
+                  title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                >
+                  {isSavingFile && saveFileProgress.includes("PDF") ? (
+                    <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-emerald-700" />
+                  ) : (
+                    <FileText className="w-3 h-3 stroke-[2.5]" />
+                  )}
+                  <span className="uppercase tracking-wide">FILE PDF</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePrintFile?.('png');
+                  }}
+                  disabled={isSavingFile}
+                  className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
+                    isSavingFile
+                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
+                  }`}
+                  title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
+                >
+                  {isSavingFile && saveFileProgress.includes("PNG") ? (
+                    <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-blue-700" />
+                  ) : (
+                    <Image className="w-3 h-3 stroke-[2.5]" />
+                  )}
+                  <span className="uppercase tracking-wide">FILE PNG</span>
+                </button>
+              </div>
+
+              {isSavingFile && (
+                <div className="flex items-center space-x-1.5 p-1.5 bg-slate-50 border border-slate-150 rounded-lg text-[9.5px] text-slate-600 font-mono font-bold leading-normal">
+                  <RefreshCw className="w-3 h-3 animate-spin text-kiot-cyan shrink-0" />
+                  <span>{saveFileProgress}</span>
+                </div>
+              )}
             </div>
 
             {/* BIG ACTION BUTTON TO LAUNCH MAIN PRINT DIALOG */}

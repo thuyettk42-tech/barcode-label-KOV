@@ -6112,6 +6112,9 @@ export default function App() {
             onUpdatePrintCopies={setPrintCopies}
             onPrintLabel={handlePrintLabel}
             isPreparingPrint={isPreparingPrint}
+            onSavePrintFile={handleSavePrintFile}
+            isSavingFile={isSavingFile}
+            saveFileProgress={saveFileProgress}
           />
 
         </main>
