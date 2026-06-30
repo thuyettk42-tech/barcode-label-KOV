@@ -10,6 +10,8 @@ import { LabelCanvas } from "./components/LabelCanvas";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
 import * as XLSX from "xlsx";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { 
   Printer, 
   Plus, 
@@ -155,6 +157,8 @@ export default function App() {
   // State to manage showing the quick instructions pop up
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
+  const [isSavingFile, setIsSavingFile] = useState<boolean>(false);
+  const [saveFileProgress, setSaveFileProgress] = useState<string>("");
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>(() => {
@@ -2829,6 +2833,129 @@ export default function App() {
         }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
       });
     });
+  };
+
+  // High-fidelity file exporter for small thermal labels to bypass browser print resolution limits
+  const handleSavePrintFile = (format: 'png' | 'pdf') => {
+    if (isSavingFile) return;
+    setIsSavingFile(true);
+    setSaveFileProgress("Đang chuẩn bị...");
+
+    // Deselect currently selected items to clear design-focused helper boxes and sizing outlines
+    handleSelectObject(null);
+
+    setTimeout(async () => {
+      try {
+        let targetElements: HTMLElement[] = [];
+
+        // If in overview/print mode, attempt to capture the actual generated print sheets/rows
+        if (officePreviewMode === 'sheet') {
+          const thermalPages = document.querySelectorAll('.batch-print-page');
+          const officePages = document.querySelectorAll('.office-print-page');
+
+          if (thermalPages.length > 0) {
+            targetElements = Array.from(thermalPages) as HTMLElement[];
+          } else if (officePages.length > 0) {
+            targetElements = Array.from(officePages) as HTMLElement[];
+          }
+        }
+
+        // Fallback to the main design workspace canvas if in design tab or no batch sheets rendered
+        if (targetElements.length === 0) {
+          const canvasEl = document.getElementById('thermal-label-canvas');
+          if (canvasEl) {
+            targetElements = [canvasEl];
+          }
+        }
+
+        if (targetElements.length === 0) {
+          alert("Không tìm thấy mẫu thiết kế nhãn để xuất file!");
+          setIsSavingFile(false);
+          setSaveFileProgress("");
+          return;
+        }
+
+        const canvases: HTMLCanvasElement[] = [];
+        for (let i = 0; i < targetElements.length; i++) {
+          setSaveFileProgress(`Đang chuyển đổi trang ${i + 1}/${targetElements.length}...`);
+          const el = targetElements[i];
+
+          // Call html2canvas at 4x scale for high-density, sharp elements
+          const canvas = await html2canvas(el, {
+            scale: 4, 
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: labelConfig.bgColor || "#ffffff",
+            logging: false
+          });
+          canvases.push(canvas);
+        }
+
+        setSaveFileProgress("Đang xuất tệp tin...");
+
+        if (format === 'png') {
+          if (canvases.length === 1) {
+            const link = document.createElement('a');
+            link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.png`;
+            link.href = canvases[0].toDataURL('image/png', 1.0);
+            link.click();
+          } else {
+            for (let i = 0; i < canvases.length; i++) {
+              const link = document.createElement('a');
+              link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm_trang_${i + 1}.png`;
+              link.href = canvases[i].toDataURL('image/png', 1.0);
+              link.click();
+              // Prevent browser from throttling concurrent downloads
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+          }
+        } else if (format === 'pdf') {
+          let pdfW = labelConfig.width;
+          let pdfH = labelConfig.height;
+
+          if (officePreviewMode === 'sheet' && sheetConfig) {
+            if (sheetConfig.mode === 'office') {
+              const isLandscape = sheetConfig.orientation === 'landscape';
+              const paperW = sheetConfig.paperSize === 'A4' ? 210 : sheetConfig.paperSize === 'A5' ? 148 : (sheetConfig.customWidth || 210);
+              const paperH = sheetConfig.paperSize === 'A4' ? 297 : sheetConfig.paperSize === 'A5' ? 210 : (sheetConfig.customHeight || 297);
+              pdfW = isLandscape ? paperH : paperW;
+              pdfH = isLandscape ? paperW : paperH;
+            } else if (sheetConfig.mode === 'thermal') {
+              const cols = Math.max(1, sheetConfig.cols || 1);
+              const colGap = sheetConfig.colGap || 0;
+              const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
+              pdfW = cols * labelConfig.width + (cols - 1) * colGap + rollSideMargin * 2;
+              pdfH = labelConfig.height;
+            }
+          }
+
+          const orientation = pdfW > pdfH ? 'l' : 'p';
+          const pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'mm',
+            format: [pdfW, pdfH]
+          });
+
+          for (let i = 0; i < canvases.length; i++) {
+            if (i > 0) {
+              pdf.addPage([pdfW, pdfH], orientation);
+            }
+            const imgData = canvases[i].toDataURL('image/png', 1.0);
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH, undefined, 'FAST');
+          }
+
+          pdf.save(`${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`);
+        }
+
+        setIsSavingFile(false);
+        setSaveFileProgress("");
+      } catch (err) {
+        console.error("Save file error:", err);
+        alert("Đã xảy ra lỗi khi tạo tệp: " + String(err));
+        setIsSavingFile(false);
+        setSaveFileProgress("");
+      }
+    }, 200);
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -5548,6 +5675,67 @@ export default function App() {
                     {printLimitWarning && (
                       <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-lg leading-relaxed font-semibold animate-pulse shadow-xs max-h-[140px] overflow-y-auto select-text font-sans">
                         ⚠️ <span className="font-bold">Cảnh báo an toàn:</span> {printLimitWarning}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
+                  <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5 bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 font-sans">
+                    <div className="flex items-center justify-between">
+                      <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
+                        LƯU FILE ĐỂ IN CHẤT LƯỢNG CAO
+                      </span>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-sm">
+                        TEM NHỎ &lt; 10PX
+                      </span>
+                    </div>
+                    <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
+                      Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSavePrintFile('pdf')}
+                        disabled={isSavingFile}
+                        className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                          isSavingFile
+                            ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
+                        }`}
+                        title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                      >
+                        {isSavingFile && saveFileProgress.includes("PDF") ? (
+                          <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-emerald-700" />
+                        ) : (
+                          <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+                        )}
+                        <span className="uppercase tracking-wide">LƯU FILE PDF</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleSavePrintFile('png')}
+                        disabled={isSavingFile}
+                        className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                          isSavingFile
+                            ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
+                        }`}
+                        title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
+                      >
+                        {isSavingFile && saveFileProgress.includes("PNG") ? (
+                          <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-blue-700" />
+                        ) : (
+                          <Image className="w-3.5 h-3.5 stroke-[2.5]" />
+                        )}
+                        <span className="uppercase tracking-wide">LƯU FILE PNG</span>
+                      </button>
+                    </div>
+
+                    {isSavingFile && (
+                      <div className="flex items-center space-x-1.5 p-1.5 bg-slate-50 border border-slate-150 rounded-lg text-[10px] text-slate-600 font-mono font-bold leading-normal">
+                        <RefreshCw className="w-3 h-3 animate-spin text-kiot-cyan shrink-0" />
+                        <span>{saveFileProgress}</span>
                       </div>
                     )}
                   </div>
