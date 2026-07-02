@@ -3320,7 +3320,7 @@ export default function App() {
             <h1 className="text-lg md:text-[26px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
               <span className="text-kiot-cyan">KiotLabel</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.1</span>
+              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.2</span>
             </h1>
           </div>
         </div>
