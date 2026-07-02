@@ -9,7 +9,7 @@ import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
 import { mmToPx, pxToMm, BASE_DPI_SCALE } from "../utils";
-import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal, FileText, Image } from "lucide-react";
+import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal, FileText, Image, Barcode, QrCode } from "lucide-react";
 
 interface LabelCanvasProps {
   labelConfig: LabelConfig;
@@ -59,7 +59,7 @@ interface LabelCanvasProps {
   onUpdatePrintCopies?: (copies: number) => void;
   onPrintLabel?: () => void;
   isPreparingPrint?: boolean;
-  onSavePrintFile?: (format: 'png' | 'pdf') => void;
+  onSavePrintFile?: (format: 'png' | 'pdf' | 'zpl' | 'tspl') => void;
   isSavingFile?: boolean;
   saveFileProgress?: string;
 }
@@ -344,9 +344,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
           fontWeight: fontWeightVal || "normal",
           fontStyle: fontStyleVal || "normal",
           textDecoration: deco,
-          fontSize: isPrint
-            ? `${fontSizeVal || obj.fontSize || 10}pt`
-            : `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
+          fontSize: `${(fontSizeVal || obj.fontSize || 10) * 0.3528 * pixelScale}px`,
           color: colorVal || undefined,
         }}
       >
@@ -367,7 +365,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
 
   return (
     <div
-      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass} ${isPrint ? "" : "overflow-hidden"}`}
+      className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass}`}
       style={{
         textAlign: textalign as any,
         color: obj.color || "#000000",
@@ -375,7 +373,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
       }}
     >
       <div
-        className={`max-w-full w-full ${isPrint ? "" : "overflow-hidden"}`}
+        className="max-w-full w-full overflow-visible"
         style={{
           textAlign: textalign as any,
           whiteSpace: "pre-wrap",
@@ -738,50 +736,52 @@ export function LabelCanvas({
               <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
                 Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSavePrintFile?.('pdf');
-                  }}
-                  disabled={isSavingFile}
-                  className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
-                    isSavingFile
-                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                      : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
-                  }`}
-                  title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
-                >
-                  {isSavingFile && saveFileProgress.includes("PDF") ? (
-                    <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-emerald-700" />
-                  ) : (
-                    <FileText className="w-3 h-3 stroke-[2.5]" />
-                  )}
-                  <span className="uppercase tracking-wide">FILE PDF</span>
-                </button>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSavePrintFile?.('pdf');
+                    }}
+                    disabled={isSavingFile}
+                    className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
+                      isSavingFile
+                        ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                        : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
+                    }`}
+                    title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                  >
+                    {isSavingFile && saveFileProgress.includes("PDF") ? (
+                      <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-emerald-700" />
+                    ) : (
+                      <FileText className="w-3 h-3 stroke-[2.5]" />
+                    )}
+                    <span className="uppercase tracking-wide">FILE PDF</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSavePrintFile?.('png');
-                  }}
-                  disabled={isSavingFile}
-                  className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
-                    isSavingFile
-                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                      : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
-                  }`}
-                  title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
-                >
-                  {isSavingFile && saveFileProgress.includes("PNG") ? (
-                    <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-blue-700" />
-                  ) : (
-                    <Image className="w-3 h-3 stroke-[2.5]" />
-                  )}
-                  <span className="uppercase tracking-wide">FILE PNG</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSavePrintFile?.('png');
+                    }}
+                    disabled={isSavingFile}
+                    className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
+                      isSavingFile
+                        ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                        : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
+                    }`}
+                    title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
+                  >
+                    {isSavingFile && saveFileProgress.includes("PNG") ? (
+                      <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-blue-700" />
+                    ) : (
+                      <Image className="w-3 h-3 stroke-[2.5]" />
+                    )}
+                    <span className="uppercase tracking-wide">FILE PNG</span>
+                  </button>
+                </div>
               </div>
 
               {isSavingFile && (
@@ -846,12 +846,17 @@ export function LabelCanvas({
   }, []);
 
   const limitPreview =
-    !isPrinting && !isSystemPrinting && !showAllPagesOnScreen;
+    !isPrinting && !isSystemPrinting && !isSavingFile && !showAllPagesOnScreen;
 
   // The scale used for rendering elements during printing must always be standard (BASE_DPI_SCALE = 3.7795)
   // to avoid zoom level (pixelScale) affecting layout dimensions on paper.
+  // When saving files, we use a 300 DPI high-precision scale (11.811) to bypass browser minimum font size issues.
   const printScale =
-    isPrinting || isSystemPrinting ? BASE_DPI_SCALE : pixelScale;
+    isPrinting || isSystemPrinting
+      ? BASE_DPI_SCALE
+      : isSavingFile
+        ? 11.811
+        : pixelScale;
 
   const safeLength = (len: number) => {
     if (isNaN(len) || !isFinite(len) || len < 0) return 0;
@@ -1693,9 +1698,14 @@ export function LabelCanvas({
 
   // Office sheet grid printable view
   if (showOfficeSheet && sheetConfig) {
-    const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const isMobileOrPrint = isPrinting || isSystemPrinting || isSavingFile;
+    const previewScale =
+      isPrinting || isSystemPrinting
+        ? BASE_DPI_SCALE
+        : isSavingFile
+          ? 11.811 // 300 DPI high-precision scale for saving PDF/PNG
+          : pixelScale;
+    const zoomRatio = 1;
     const { width: sW, height: sH } = getSheetDimensions(sheetConfig);
     const pxSheetW = mmToPx(sW, previewScale);
     const pxSheetH = mmToPx(sH, previewScale);
@@ -1778,18 +1788,8 @@ export function LabelCanvas({
                   {
                     width: `${pxSheetW}px`,
                     height: `${pxSheetH}px`,
-                    paddingTop: `${pxMT}px`,
-                    paddingBottom: `${pxMB}px`,
-                    paddingLeft: `${pxML}px`,
-                    paddingRight: `${pxMR}px`,
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${sheetConfig.cols || 1}, ${pxCellW}px)`,
-                    gridTemplateRows: `repeat(${sheetConfig.rows || 1}, ${pxCellH}px)`,
-                    columnGap: `${pxCG}px`,
-                    rowGap: `${pxRG}px`,
+                    position: "relative",
                     boxSizing: "border-box",
-                    alignContent: "start",
-                    justifyContent: "start",
                     "--print-width": `${sW}mm`,
                     "--print-height": `${sH}mm`,
                     "--sheet-m-top": `${sheetConfig.marginTop}mm`,
@@ -1806,6 +1806,11 @@ export function LabelCanvas({
                 {Array.from({ length: safeLength(cellsPerSheet) }).map(
                   (_, cIdx) => {
                     const globalIdx = sIdx * cellsPerSheet + cIdx;
+                    const col = cIdx % (sheetConfig.cols || 1);
+                    const row = Math.floor(cIdx / (sheetConfig.cols || 1));
+                    const cellLeft = pxML + col * (pxCellW + pxCG);
+                    const cellTop = pxMT + row * (pxCellH + pxRG);
+
                     if (globalIdx < totalItems) {
                       const resolvedObjs = resolveDynamicObjects
                         ? resolveDynamicObjects(objects, globalIdx)
@@ -1814,9 +1819,12 @@ export function LabelCanvas({
                       return (
                         <div
                           key={`cell-${sIdx}-${cIdx}`}
-                          className="office-print-cell relative overflow-hidden select-none print:bg-transparent"
+                          className={`office-print-cell absolute select-none print:bg-transparent ${isMobileOrPrint ? "overflow-visible" : "overflow-hidden"}`}
                           style={
                             {
+                              position: "absolute",
+                              left: `${cellLeft}px`,
+                              top: `${cellTop}px`,
                               width: `${pxCellW}px`,
                               height: `${pxCellH}px`,
                               backgroundColor: labelConfig.bgColor || "#ffffff",
@@ -1905,7 +1913,7 @@ export function LabelCanvas({
                                   } as React.CSSProperties
                                 }
                               >
-                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint || obj.type === "text" ? "" : "overflow-hidden"}`}>
                                   {obj.type === "text" &&
                                     renderTextElement(obj, previewScale, isMobileOrPrint)}
 
@@ -1918,6 +1926,7 @@ export function LabelCanvas({
                                       barcodeHeight={obj.barcodeHeight}
                                       fontSize={obj.barcodeFontSize || 6}
                                       pixelScale={previewScale}
+                                     objectHeightMm={obj.height}
                                       barcodeShowTextAbove={
                                         obj.barcodeShowTextAbove
                                       }
@@ -2059,9 +2068,14 @@ export function LabelCanvas({
     isThermalMode && sheetConfig && officePreviewMode === "sheet";
 
   if (showThermalSheetGrid && sheetConfig) {
-    const isMobileOrPrint = isPrinting || isSystemPrinting;
-    const previewScale = isMobileOrPrint ? BASE_DPI_SCALE : 8.4915; // ALWAYS render internally at stable 100% reference scale (8.4915) to guarantee 100% stable font rendering/wrapping metrics
-    const zoomRatio = isMobileOrPrint ? 1 : (pixelScale / 8.4915);
+    const isMobileOrPrint = isPrinting || isSystemPrinting || isSavingFile;
+    const previewScale =
+      isPrinting || isSystemPrinting
+        ? BASE_DPI_SCALE
+        : isSavingFile
+          ? 11.811 // 300 DPI high-precision scale for saving PDF/PNG
+          : pixelScale;
+    const zoomRatio = 1;
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
     const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
@@ -2129,27 +2143,25 @@ export function LabelCanvas({
             const rowEl = (
               <div
                 key={`thermal-row-print-${rIdx}`}
-                className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none flex"
+                className="batch-print-page bg-white relative shadow-lg shrink-0 print:m-0 print:shadow-none print:border-none"
                 style={
                   {
                     width: `${pxBackingW}px`,
                     height: `${pxBackingH}px`,
-                    display: "flex",
-                    flexDirection: "row",
-                    gap: `${pxColGap}px`,
+                    position: "relative",
                     boxSizing: "border-box",
                     "--print-width": `${backingWidth}mm`,
                     "--print-height": `${labelH}mm`,
                     "--print-col-gap": `${colGap}mm`,
                     "--print-padding-left": `${rollSideMargin}mm`,
                     "--print-padding-right": `${rollSideMargin}mm`,
-                    paddingLeft: `${pxSideMargin}px`,
-                    paddingRight: `${pxSideMargin}px`,
                   } as React.CSSProperties
                 }
               >
                 {Array.from({ length: safeLength(cols) }).map((_, cIdx) => {
                   const globalIdx = rIdx * cols + cIdx;
+                  const cellLeft = pxSideMargin + cIdx * (pxCellW + pxColGap);
+
                   if (globalIdx < totalItems) {
                     const resolvedObjs = resolveDynamicObjects
                       ? resolveDynamicObjects(objects, globalIdx)
@@ -2158,9 +2170,12 @@ export function LabelCanvas({
                     return (
                       <div
                         key={`thermal-cell-${rIdx}-${cIdx}`}
-                        className="batch-print-cell relative overflow-hidden select-none print:bg-transparent"
+                        className={`batch-print-cell absolute select-none print:bg-transparent ${isMobileOrPrint ? "overflow-visible" : "overflow-hidden"}`}
                         style={
                           {
+                            position: "absolute",
+                            left: `${cellLeft}px`,
+                            top: "0px",
                             width: `${pxCellW}px`,
                             height: `${pxCellH}px`,
                             backgroundColor: labelConfig.bgColor || "#ffffff",
@@ -2244,7 +2259,7 @@ export function LabelCanvas({
                                 } as React.CSSProperties
                               }
                             >
-                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint ? "" : "overflow-hidden"}`}>
+                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint || obj.type === "text" ? "" : "overflow-hidden"}`}>
                                 {obj.type === "text" &&
                                   renderTextElement(obj, previewScale, isMobileOrPrint)}
 
@@ -2257,6 +2272,7 @@ export function LabelCanvas({
                                     barcodeHeight={obj.barcodeHeight}
                                     fontSize={obj.barcodeFontSize || 6}
                                     pixelScale={previewScale}
+                                    objectHeightMm={obj.height}
                                     barcodeShowTextAbove={
                                       obj.barcodeShowTextAbove
                                     }
@@ -2529,8 +2545,8 @@ export function LabelCanvas({
               : ""
           }`}
           style={{
-            width: `${pxWidth}px`,
-            height: `${pxHeight}px`,
+            width: `${mmToPx(labelConfig.width, printScale)}px`,
+            height: `${mmToPx(labelConfig.height, printScale)}px`,
             left: "24px",
             top: "24px",
             maxWidth: "100%",
@@ -2636,8 +2652,8 @@ export function LabelCanvas({
                     transformOrigin: activeAngle ? "center center" : "top left",
                     "--o-transform-origin": activeAngle ? "center center" : "top left",
                     // Standard inline properties as custom CSS variables for our print-stylesheet engine:
-                    "--o-x": `${activeX}mm`,
-                    "--o-y": `${activeY}mm`,
+                    "--o-x": `${stdX}mm`,
+                    "--o-y": `${stdY}mm`,
                     "--o-w": `${activeW}mm`,
                     "--o-h": `${activeH}mm`,
                     "--o-print-height": `${activeH}mm`,
@@ -2647,7 +2663,7 @@ export function LabelCanvas({
                 }
               >
                 {/* Dynamic Content Rendering */}
-                <div className={`w-full h-full p-0 select-none relative ${(isPrinting || isSystemPrinting) ? "" : "overflow-hidden"}`}>
+                <div className={`w-full h-full p-0 select-none relative ${(isPrinting || isSystemPrinting || isSavingFile) || obj.type === "text" ? "" : "overflow-hidden"}`}>
                   {obj.type === "text" &&
                     (editingTextId === obj.id ? (
                       <textarea
@@ -2690,7 +2706,7 @@ export function LabelCanvas({
                         }}
                       />
                     ) : (
-                      renderTextElement(obj, printScale, isPrinting || isSystemPrinting)
+                      renderTextElement(obj, printScale, isPrinting || isSystemPrinting || isSavingFile)
                     ))}
 
                   {obj.type === "barcode" && (
@@ -2702,6 +2718,7 @@ export function LabelCanvas({
                       barcodeHeight={obj.barcodeHeight}
                       fontSize={obj.barcodeFontSize || 6}
                       pixelScale={printScale}
+                      objectHeightMm={obj.height}
                       barcodeShowTextAbove={obj.barcodeShowTextAbove}
                       barcodeShowTextBelow={obj.barcodeShowTextBelow}
                       barcodeFontFamily={obj.barcodeFontFamily}

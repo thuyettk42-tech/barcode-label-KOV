@@ -4,13 +4,16 @@
  */
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { createRoot } from "react-dom/client";
 import { LabelConfig, LabelObject, ObjectType, SheetLayoutConfig } from "./types";
-import { resizeImage } from "./utils";
+import { resizeImage, safeLocalStorage } from "./utils";
+import { convertToZPL } from "./utils/zplGenerator";
+import { convertToTSPL } from "./utils/tsplGenerator";
 import { LabelCanvas } from "./components/LabelCanvas";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
 import * as XLSX from "xlsx";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import { 
   Printer, 
@@ -137,7 +140,7 @@ export default function App() {
   // 1. Core state for current active label
   const [labelConfig, setLabelConfig] = useState<LabelConfig>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.labelConfig) {
@@ -163,7 +166,7 @@ export default function App() {
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.objects) {
@@ -431,17 +434,17 @@ export default function App() {
   // Standard pixels per mm is now 8.4915.
   const [pixelScale, setPixelScale] = useState<number>(8.4915);
   const [interfaceZoom, setInterfaceZoom] = useState<number>(() => {
-    const saved = localStorage.getItem("kiotlabel_interface_zoom");
+    const saved = safeLocalStorage.getItem("kiotlabel_interface_zoom");
     return saved ? parseFloat(saved) : 0.85;
   });
 
   const [isZoomUserOverridden, setIsZoomUserOverridden] = useState<boolean>(() => {
-    return localStorage.getItem("kiotlabel_interface_zoom_override") === "true";
+    return safeLocalStorage.getItem("kiotlabel_interface_zoom_override") === "true";
   });
 
   const handleUpdateInterfaceZoom = (newZoom: number) => {
     setInterfaceZoom(newZoom);
-    localStorage.setItem("kiotlabel_interface_zoom", String(newZoom));
+    safeLocalStorage.setItem("kiotlabel_interface_zoom", String(newZoom));
   };
 
   // Automatically calculate ideal interface scale on resize for small screen resolutions if not overridden
@@ -512,7 +515,7 @@ export default function App() {
   // Excel Integration state
   const [excelData, setExcelData] = useState<any[]>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.excelData) return parsed.excelData;
@@ -522,7 +525,7 @@ export default function App() {
   });
   const [excelColumns, setExcelColumns] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.excelColumns) return parsed.excelColumns;
@@ -532,7 +535,7 @@ export default function App() {
   });
   const [currentExcelRowIndex, setCurrentExcelRowIndex] = useState<number>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.currentExcelRowIndex !== undefined) return parsed.currentExcelRowIndex;
@@ -542,7 +545,7 @@ export default function App() {
   });
   const [excelFileName, setExcelFileName] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.excelFileName) return parsed.excelFileName;
@@ -552,7 +555,7 @@ export default function App() {
   });
   const [excelFileBase64, setExcelFileBase64] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.excelFileBase64) return parsed.excelFileBase64;
@@ -562,7 +565,7 @@ export default function App() {
   });
   const [excelFilePath, setExcelFilePath] = useState<string | null>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.excelFilePath !== undefined) return parsed.excelFilePath;
@@ -576,7 +579,7 @@ export default function App() {
   const [isExcelExpanded, setIsExcelExpanded] = useState<boolean>(false);
   const [sheetConfig, setSheetConfig] = useState<SheetLayoutConfig>(() => {
     try {
-      const saved = localStorage.getItem("barcode_designer_draft_v1");
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.sheetConfig) {
@@ -614,6 +617,14 @@ export default function App() {
 
   // Báo cáo ứng dụng đã tải đầy đủ thành công cho pywebview để xác nhận không lỗi khi khởi động
   useEffect(() => {
+    // Ẩn màn hình khởi động (startup loader) khi React khởi chạy thành công
+    const loader = document.getElementById("startup-loader");
+    if (loader) {
+      loader.style.opacity = "0";
+      loader.style.transition = "opacity 0.3s ease-out";
+      setTimeout(() => loader.remove(), 300);
+    }
+
     let attempts = 0;
     const maxAttempts = 60; // 60 lần thử * 300ms = 18 giây dò tìm tối đa
     const interval = setInterval(() => {
@@ -789,7 +800,7 @@ export default function App() {
         excelFilePath,
         currentExcelRowIndex
       };
-      localStorage.setItem("barcode_designer_draft_v1", JSON.stringify(draft));
+      safeLocalStorage.setItem("barcode_designer_draft_v1", JSON.stringify(draft));
     } catch (err) {
       console.warn("Failed to auto-save workspace draft to localStorage:", err);
     }
@@ -821,7 +832,7 @@ export default function App() {
   const [aiImageUrlInput, setAiImageUrlInput] = useState<string>("");
   const [isAiAnalyzing, setIsAiAnalyzing] = useState<boolean>(false);
   const [aiStatusMessage, setAiStatusMessage] = useState<string>("");
-  const [userCustomApiKey, setUserCustomApiKey] = useState<string>(() => localStorage.getItem("barcode_designer_gemini_key") || "");
+  const [userCustomApiKey, setUserCustomApiKey] = useState<string>(() => safeLocalStorage.getItem("barcode_designer_gemini_key") || "");
   const [showCustomApiKey, setShowCustomApiKey] = useState<boolean>(false);
   const [isHoveringDropzone, setIsHoveringDropzone] = useState<boolean>(false);
   const [showSuccessBadge, setShowSuccessBadge] = useState<boolean>(false);
@@ -1448,7 +1459,7 @@ export default function App() {
   // Load saved designs on mount (100% Offline Local Storage)
   useEffect(() => {
     try {
-      const loaded = localStorage.getItem("barcode_designer_saved_v1");
+      const loaded = safeLocalStorage.getItem("barcode_designer_saved_v1");
       if (loaded) {
         setSavedDesigns(JSON.parse(loaded));
       }
@@ -2080,7 +2091,7 @@ export default function App() {
     const duplicateFiltered = savedDesigns.filter((d) => d.name !== nameToSave);
     const updated = [newRecord, ...duplicateFiltered].slice(0, 20); // Store up to 20 designs max
 
-    localStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
+    safeLocalStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
     setSavedDesigns(updated);
     setCustomSaveName(nameToSave);
     setCurrentLocalStorageKey(nameToSave);
@@ -2417,7 +2428,7 @@ export default function App() {
       const duplicateFiltered = savedDesigns.filter((d) => d.name !== currentLocalStorageKey);
       const updated = [newRecord, ...duplicateFiltered].slice(0, 20);
 
-      localStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
+      safeLocalStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
       setSavedDesigns(updated);
       setCustomSaveName(currentLocalStorageKey);
       setSaveLogs(prev => [
@@ -2596,7 +2607,7 @@ export default function App() {
     e.stopPropagation();
     if (window.confirm("Bạn muốn xóa mẫu thiết kế đã lưu này?")) {
       const updated = savedDesigns.filter((_, idx) => idx !== index);
-      localStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
+      safeLocalStorage.setItem("barcode_designer_saved_v1", JSON.stringify(updated));
       setSavedDesigns(updated);
     }
   };
@@ -2836,75 +2847,217 @@ export default function App() {
   };
 
   // High-fidelity file exporter for small thermal labels to bypass browser print resolution limits
-  const handleSavePrintFile = (format: 'png' | 'pdf') => {
+  const handleSavePrintFile = (format: 'png' | 'pdf' | 'zpl' | 'tspl') => {
     if (isSavingFile) return;
+
+    const originalZoom = interfaceZoom;
+    const originalPreviewMode = officePreviewMode;
     setIsSavingFile(true);
-    setSaveFileProgress("Đang chuẩn bị...");
+    setSaveFileProgress("Đang chuẩn bị và đồng bộ hóa chế bản thiết kế...");
 
     // Deselect currently selected items to clear design-focused helper boxes and sizing outlines
     handleSelectObject(null);
 
+    // If exporting high-fidelity PNG or PDF, temporarily set state zoom to 1.0 
+    // to bypass browser bounding box and coordinate calculation bugs.
+    // Also temporarily force the view mode to 'sheet' so we export the complete set of printed labels.
+    if (format === 'png' || format === 'pdf') {
+      setInterfaceZoom(1.0);
+      setOfficePreviewMode('sheet');
+    }
+
+    // Give a generous 1000ms timeout for the browser to completely reflow,
+    // recalculate page boundaries, and finish rendering all barcodes and text templates beautifully.
     setTimeout(async () => {
       try {
-        let targetElements: HTMLElement[] = [];
+        if (format === 'zpl') {
+          setSaveFileProgress("Đang biên dịch mã máy ZPL...");
+          const activeObjs = displayObjects;
+          const zplContent = convertToZPL(activeObjs, {
+            dpi: 203, // Máy in nhiệt phổ biến nhất
+            labelWidthMm: labelConfig.width,
+            labelHeightMm: labelConfig.height
+          });
 
-        // If in overview/print mode, attempt to capture the actual generated print sheets/rows
-        if (officePreviewMode === 'sheet') {
-          const thermalPages = document.querySelectorAll('.batch-print-page');
-          const officePages = document.querySelectorAll('.office-print-page');
+          const blob = new Blob([zplContent], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.zpl`;
+          link.click();
+          URL.revokeObjectURL(url);
 
-          if (thermalPages.length > 0) {
-            targetElements = Array.from(thermalPages) as HTMLElement[];
-          } else if (officePages.length > 0) {
-            targetElements = Array.from(officePages) as HTMLElement[];
-          }
-        }
-
-        // Fallback to the main design workspace canvas if in design tab or no batch sheets rendered
-        if (targetElements.length === 0) {
-          const canvasEl = document.getElementById('thermal-label-canvas');
-          if (canvasEl) {
-            targetElements = [canvasEl];
-          }
-        }
-
-        if (targetElements.length === 0) {
-          alert("Không tìm thấy mẫu thiết kế nhãn để xuất file!");
           setIsSavingFile(false);
           setSaveFileProgress("");
           return;
         }
 
-        const canvases: HTMLCanvasElement[] = [];
-        for (let i = 0; i < targetElements.length; i++) {
-          setSaveFileProgress(`Đang chuyển đổi trang ${i + 1}/${targetElements.length}...`);
-          const el = targetElements[i];
-
-          // Call html2canvas at 4x scale for high-density, sharp elements
-          const canvas = await html2canvas(el, {
-            scale: 4, 
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: labelConfig.bgColor || "#ffffff",
-            logging: false
+        if (format === 'tspl') {
+          setSaveFileProgress("Đang biên dịch mã máy TSPL...");
+          const activeObjs = displayObjects;
+          const tsplContent = convertToTSPL(activeObjs, {
+            dpi: 203, // Máy in nhiệt phổ biến nhất
+            labelWidthMm: labelConfig.width,
+            labelHeightMm: labelConfig.height
           });
-          canvases.push(canvas);
+
+          const blob = new Blob([tsplContent], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.ts` + 'pl'; // Ensure clean .tspl extension
+          link.click();
+          URL.revokeObjectURL(url);
+
+          setIsSavingFile(false);
+          setSaveFileProgress("");
+          return;
         }
 
+        // For PNG & PDF: Target the active on-screen perfectly rendered elements directly
+        setSaveFileProgress("Đang phân tích cấu trúc nhãn thiết kế...");
+        
+        let totalCount = 0;
+        let isSingleCanvas = false;
+
+        const thermalPages = document.querySelectorAll('.batch-print-page');
+        const officePages = document.querySelectorAll('.office-print-page');
+        totalCount = thermalPages.length > 0 ? thermalPages.length : officePages.length;
+
+        if (totalCount === 0) {
+          const canvasEl = document.getElementById('thermal-label-canvas');
+          if (canvasEl) {
+            totalCount = 1;
+            isSingleCanvas = true;
+          }
+        }
+
+        if (totalCount === 0) {
+          alert("Không tìm thấy mẫu thiết kế nhãn để xuất file!");
+          if (format === 'png' || format === 'pdf') {
+            setInterfaceZoom(originalZoom);
+            setOfficePreviewMode(originalPreviewMode);
+          }
+          setIsSavingFile(false);
+          setSaveFileProgress("");
+          return;
+        }
+
+        const tempCanvases: (HTMLCanvasElement | null)[] = new Array(totalCount).fill(null);
+
+        try {
+          const chunkSize = 6;
+          for (let i = 0; i < totalCount; i += chunkSize) {
+            const chunkEnd = Math.min(i + chunkSize, totalCount);
+            setSaveFileProgress(`Đang chuyển đổi trang ${i + 1} đến ${chunkEnd} trên tổng số ${totalCount}...`);
+            
+            // Allow React state updates and paint cycles to fully complete
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+            const chunkPromises = [];
+            for (let j = i; j < chunkEnd; j++) {
+              chunkPromises.push((async (index) => {
+                let currentEl: HTMLElement | null = null;
+                if (!isSingleCanvas) {
+                  const thermalPages = document.querySelectorAll('.batch-print-page');
+                  const officePages = document.querySelectorAll('.office-print-page');
+                  if (thermalPages.length > 0) {
+                    currentEl = thermalPages[index] as HTMLElement;
+                  } else if (officePages.length > 0) {
+                    currentEl = officePages[index] as HTMLElement;
+                  }
+                } else {
+                  currentEl = document.getElementById('thermal-label-canvas');
+                }
+
+                if (!currentEl || !document.body.contains(currentEl)) {
+                  console.warn(`Element at index ${index} was unmounted or missing during render loop.`);
+                  return { index, canvas: null };
+                }
+
+                // Use html2canvas at 1.0 scale because the DOM is already rendered 
+                // at the high-fidelity 300 DPI native resolution (11.811 pixels per mm).
+                const canvas = await html2canvas(currentEl, {
+                  scale: 1.0, 
+                  useCORS: true,
+                  allowTaint: true,
+                  backgroundColor: labelConfig.bgColor || "#ffffff",
+                  logging: false,
+                });
+                return { index, canvas };
+              })(j));
+            }
+
+            const results = await Promise.all(chunkPromises);
+            for (const res of results) {
+              if (res.canvas) {
+                tempCanvases[res.index] = res.canvas;
+              }
+            }
+          }
+        } finally {
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        }
+
+        const canvases = tempCanvases.filter((c): c is HTMLCanvasElement => c !== null);
+
         setSaveFileProgress("Đang xuất tệp tin...");
+
+        const activeObjs = displayObjects;
+        const silentZpl = convertToZPL(activeObjs, {
+          dpi: 203,
+          labelWidthMm: labelConfig.width,
+          labelHeightMm: labelConfig.height
+        });
+        const silentTspl = convertToTSPL(activeObjs, {
+          dpi: 203,
+          labelWidthMm: labelConfig.width,
+          labelHeightMm: labelConfig.height
+        });
+
+        const appendMetadataToPng = async (dataUrl: string): Promise<string> => {
+          try {
+            const res = await fetch(dataUrl);
+            const blob = await res.blob();
+            const arrayBuffer = await blob.arrayBuffer();
+            const uint8Array = new Uint8Array(arrayBuffer);
+            
+            const metadataStr = `\n\n---KIOTVIET_PRINT_BRIDGE_METADATA---\n[ZPL]\n${silentZpl}\n[/ZPL]\n[TSPL]\n${silentTspl}\n[/TSPL]\n`;
+            const textEncoder = new TextEncoder();
+            const metadataBytes = textEncoder.encode(metadataStr);
+            
+            const combined = new Uint8Array(uint8Array.length + metadataBytes.length);
+            combined.set(uint8Array, 0);
+            combined.set(metadataBytes, uint8Array.length);
+            
+            const finalBlob = new Blob([combined], { type: 'image/png' });
+            return URL.createObjectURL(finalBlob);
+          } catch (e) {
+            console.error("Failed to append metadata to PNG:", e);
+            return dataUrl;
+          }
+        };
 
         if (format === 'png') {
           if (canvases.length === 1) {
             const link = document.createElement('a');
             link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.png`;
-            link.href = canvases[0].toDataURL('image/png', 1.0);
+            const rawDataUrl = canvases[0].toDataURL('image/png', 1.0);
+            link.href = await appendMetadataToPng(rawDataUrl);
             link.click();
+            if (link.href.startsWith("blob:")) {
+              URL.revokeObjectURL(link.href);
+            }
           } else {
             for (let i = 0; i < canvases.length; i++) {
               const link = document.createElement('a');
               link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm_trang_${i + 1}.png`;
-              link.href = canvases[i].toDataURL('image/png', 1.0);
+              const rawDataUrl = canvases[i].toDataURL('image/png', 1.0);
+              link.href = await appendMetadataToPng(rawDataUrl);
               link.click();
+              if (link.href.startsWith("blob:")) {
+                URL.revokeObjectURL(link.href);
+              }
               // Prevent browser from throttling concurrent downloads
               await new Promise(resolve => setTimeout(resolve, 300));
             }
@@ -2913,7 +3066,7 @@ export default function App() {
           let pdfW = labelConfig.width;
           let pdfH = labelConfig.height;
 
-          if (officePreviewMode === 'sheet' && sheetConfig) {
+          if (!isSingleCanvas && sheetConfig) {
             if (sheetConfig.mode === 'office') {
               const isLandscape = sheetConfig.orientation === 'landscape';
               const paperW = sheetConfig.paperSize === 'A4' ? 210 : sheetConfig.paperSize === 'A5' ? 148 : (sheetConfig.customWidth || 210);
@@ -2936,26 +3089,43 @@ export default function App() {
             format: [pdfW, pdfH]
           });
 
+          // Set metadata properties containing the silent printer language commands
+          pdf.setProperties({
+            title: labelConfig.name || 'ThietKe_Tem',
+            subject: `TSPL:${silentTspl}`,
+            keywords: `ZPL:${silentZpl}`,
+            creator: 'KiotViet Print Bridge'
+          });
+
           for (let i = 0; i < canvases.length; i++) {
             if (i > 0) {
               pdf.addPage([pdfW, pdfH], orientation);
             }
             const imgData = canvases[i].toDataURL('image/png', 1.0);
+            // Embed at exact physical coordinates to guarantee 1:1 accuracy
             pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH, undefined, 'FAST');
           }
 
           pdf.save(`${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`);
         }
 
+        if (format === 'png' || format === 'pdf') {
+          setInterfaceZoom(originalZoom);
+          setOfficePreviewMode(originalPreviewMode);
+        }
         setIsSavingFile(false);
         setSaveFileProgress("");
       } catch (err) {
         console.error("Save file error:", err);
         alert("Đã xảy ra lỗi khi tạo tệp: " + String(err));
+        if (format === 'png' || format === 'pdf') {
+          setInterfaceZoom(originalZoom);
+          setOfficePreviewMode(originalPreviewMode);
+        }
         setIsSavingFile(false);
         setSaveFileProgress("");
       }
-    }, 200);
+    }, 1000);
   };
 
   const selectedObject = objects.find((obj) => obj.id === selectedId) || null;
@@ -4525,9 +4695,9 @@ export default function App() {
                                     const val = e.target.value;
                                     setUserCustomApiKey(val);
                                     if (val.trim()) {
-                                      localStorage.setItem("barcode_designer_gemini_key", val.trim());
+                                      safeLocalStorage.setItem("barcode_designer_gemini_key", val.trim());
                                     } else {
-                                      localStorage.removeItem("barcode_designer_gemini_key");
+                                      safeLocalStorage.removeItem("barcode_designer_gemini_key");
                                     }
                                   }}
                                   placeholder="Dán API Key của bạn tại đây để dùng hạn ngạch riêng..."
@@ -4550,10 +4720,10 @@ export default function App() {
                                 type="button"
                                 onClick={() => {
                                   if (userCustomApiKey.trim()) {
-                                    localStorage.setItem("barcode_designer_gemini_key", userCustomApiKey.trim());
+                                    safeLocalStorage.setItem("barcode_designer_gemini_key", userCustomApiKey.trim());
                                     alert("✓ Đã xác nhận lưu Gemini API Key cá nhân của bạn!");
                                   } else {
-                                    localStorage.removeItem("barcode_designer_gemini_key");
+                                    safeLocalStorage.removeItem("barcode_designer_gemini_key");
                                     alert("✓ Đã xóa API Key cá nhân. Hệ thống sẽ sử dụng API của ứng dụng.");
                                   }
                                 }}
@@ -5692,44 +5862,46 @@ export default function App() {
                     <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
                       Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
                     </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleSavePrintFile('pdf')}
-                        disabled={isSavingFile}
-                        className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
-                          isSavingFile
-                            ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                            : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
-                        }`}
-                        title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
-                      >
-                        {isSavingFile && saveFileProgress.includes("PDF") ? (
-                          <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-emerald-700" />
-                        ) : (
-                          <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
-                        )}
-                        <span className="uppercase tracking-wide">LƯU FILE PDF</span>
-                      </button>
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSavePrintFile('pdf')}
+                          disabled={isSavingFile}
+                          className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                            isSavingFile
+                              ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                              : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
+                          }`}
+                          title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                        >
+                          {isSavingFile && saveFileProgress.includes("PDF") ? (
+                            <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-emerald-700" />
+                          ) : (
+                            <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+                          )}
+                          <span className="uppercase tracking-wide">LƯU FILE PDF</span>
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleSavePrintFile('png')}
-                        disabled={isSavingFile}
-                        className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
-                          isSavingFile
-                            ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                            : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
-                        }`}
-                        title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
-                      >
-                        {isSavingFile && saveFileProgress.includes("PNG") ? (
-                          <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-blue-700" />
-                        ) : (
-                          <Image className="w-3.5 h-3.5 stroke-[2.5]" />
-                        )}
-                        <span className="uppercase tracking-wide">LƯU FILE PNG</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSavePrintFile('png')}
+                          disabled={isSavingFile}
+                          className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                            isSavingFile
+                              ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                              : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
+                          }`}
+                          title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
+                        >
+                          {isSavingFile && saveFileProgress.includes("PNG") ? (
+                            <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-blue-700" />
+                          ) : (
+                            <Image className="w-3.5 h-3.5 stroke-[2.5]" />
+                          )}
+                          <span className="uppercase tracking-wide">LƯU FILE PNG</span>
+                        </button>
+                      </div>
                     </div>
 
                     {isSavingFile && (
@@ -5861,7 +6033,7 @@ export default function App() {
                     const newZoom = Math.max(0.5, Math.round((interfaceZoom - 0.05) * 100) / 100);
                     handleUpdateInterfaceZoom(newZoom);
                     setIsZoomUserOverridden(true);
-                    localStorage.setItem("kiotlabel_interface_zoom_override", "true");
+                    safeLocalStorage.setItem("kiotlabel_interface_zoom_override", "true");
                   }}
                   className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
                   title="Thu nhỏ toàn bộ giao diện ứng dụng (Thích hợp cho màn hình nhỏ)"
@@ -5877,7 +6049,7 @@ export default function App() {
                     const newZoom = Math.min(1.5, Math.round((interfaceZoom + 0.05) * 100) / 100);
                     handleUpdateInterfaceZoom(newZoom);
                     setIsZoomUserOverridden(true);
-                    localStorage.setItem("kiotlabel_interface_zoom_override", "true");
+                    safeLocalStorage.setItem("kiotlabel_interface_zoom_override", "true");
                   }}
                   className="p-1 rounded hover:bg-white text-sky-700 hover:text-sky-900 transition cursor-pointer"
                   title="Phóng to toàn bộ giao diện ứng dụng"
@@ -5889,7 +6061,7 @@ export default function App() {
                     type="button"
                     onClick={() => {
                       setIsZoomUserOverridden(false);
-                      localStorage.removeItem("kiotlabel_interface_zoom_override");
+                      safeLocalStorage.removeItem("kiotlabel_interface_zoom_override");
                     }}
                     className="text-[9px] bg-sky-200/80 hover:bg-sky-200 text-sky-900 font-black px-1.5 py-0.5 rounded transition select-none uppercase tracking-wide leading-none"
                     title="Khôi phục tự động scale theo độ phân giải màn hình của bạn"

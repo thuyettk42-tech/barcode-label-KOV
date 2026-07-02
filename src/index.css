@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* High-precision text and image rendering styles for crisp printing and offscreen capturing */
+#thermal-label-canvas, .batch-print-page, .office-print-page, .object-print-class {
+  text-rendering: geometricPrecision !important;
+  image-rendering: pixelated !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier New, monospace;
@@ -185,7 +193,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: transparent !important;
   }
 
@@ -227,7 +235,7 @@
     box-sizing: border-box !important;
     width: var(--cell-w, 50mm) !important;
     height: var(--cell-h, 30mm) !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: transparent !important;
     
     border: var(--cell-border, none) !important;

@@ -154,3 +154,36 @@ export function resizeImage(src: string, maxDimension: number = 1024): Promise<s
   });
 }
 
+/**
+ * Safely wraps localStorage to prevent crashing in sandboxed iframes or environments where localStorage is disabled
+ */
+export const safeLocalStorage = {
+  getItem(key: string): string | null {
+    try {
+      return typeof window !== "undefined" && window.localStorage ? localStorage.getItem(key) : null;
+    } catch (e) {
+      console.warn(`[Storage] Failed to read key "${key}" from localStorage:`, e);
+      return null;
+    }
+  },
+  setItem(key: string, value: string): void {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.setItem(key, value);
+      }
+    } catch (e) {
+      console.warn(`[Storage] Failed to write key "${key}" to localStorage:`, e);
+    }
+  },
+  removeItem(key: string): void {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        localStorage.removeItem(key);
+      }
+    } catch (e) {
+      console.warn(`[Storage] Failed to remove key "${key}" from localStorage:`, e);
+    }
+  }
+};
+
+

@@ -15,6 +15,7 @@ interface BarcodeRendererProps {
   barcodeWidth?: number;
   barcodeHeight?: number;
   pixelScale?: number;
+  objectHeightMm?: number;
 
   barcodeShowTextAbove?: boolean;
   barcodeShowTextBelow?: boolean;
@@ -108,6 +109,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
   barcodeWidth = 2,
   barcodeHeight = 15,
   pixelScale,
+  objectHeightMm,
   barcodeShowTextAbove = false,
   barcodeShowTextBelow,
   barcodeFontFamily = "sans",
@@ -188,12 +190,17 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     }
 
     const baseScale = BASE_DPI_SCALE; // Standard system factor of layout reference limits
-    const actualHeight = Math.max(5, Math.round(barcodeHeight * baseScale));
+    const parsedBarcodeHeight = typeof barcodeHeight === "string" ? parseFloat(barcodeHeight) : barcodeHeight;
+    const safeBarcodeHeight = (typeof parsedBarcodeHeight === "number" && !isNaN(parsedBarcodeHeight)) ? parsedBarcodeHeight : 15;
+    const actualHeight = Math.max(5, Math.round(safeBarcodeHeight * baseScale));
+
+    const parsedBarcodeWidth = typeof barcodeWidth === "string" ? parseFloat(barcodeWidth) : barcodeWidth;
+    const safeBarcodeWidth = (typeof parsedBarcodeWidth === "number" && !isNaN(parsedBarcodeWidth)) ? parsedBarcodeWidth : 2;
 
     try {
       JsBarcode(svgRef.current, effectiveContent, {
         format: format,
-        width: barcodeWidth,
+        width: safeBarcodeWidth,
         height: actualHeight,
         displayValue: false, // We render custom SVGs/text elements manually for layout precision
         margin: 0,
@@ -248,16 +255,18 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     resolvedFontFamily = "var(--font-mono)";
   }
 
+  const textHeight = finalFontSizePt * 0.3528 * finalPixelScale;
+  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
+  const marginPx = marginMm * finalPixelScale;
+
   const textStyle = {
     fontFamily: resolvedFontFamily,
-    fontSize: `${finalFontSizePt * 0.3528 * finalPixelScale}px`,
+    fontSize: `${textHeight}px`,
     fontWeight: barcodeFontWeight,
     fontStyle: barcodeFontStyle,
     color: barcodeTextColor || color || "#000000",
+    lineHeight: "1.25",
   };
-
-  const marginMm = barcodeTextMargin !== undefined ? barcodeTextMargin : 0.5;
-  const marginPx = marginMm * finalPixelScale;
 
   const origin = textFlowOrigin || "center";
 
@@ -291,8 +300,33 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
     ? naturalDimensions.height * scaleMultiplier
     : undefined;
 
+  // Precise layout geometry parsing for bulletproof print layout rendering
+  let textTotalHeight = 0;
+  if (showAbove) {
+    textTotalHeight += textHeight * 1.25 + marginPx;
+  }
+  if (showBelow) {
+    textTotalHeight += textHeight * 1.25 + marginPx;
+  }
+
+  // Safely parse and resolve the object height in millimeters to avoid NaN or undefined layout flattening
+  const parsedObjectHeightMm = typeof objectHeightMm === "string"
+    ? parseFloat(objectHeightMm)
+    : objectHeightMm;
+  const safeObjectHeightMm = (typeof parsedObjectHeightMm === "number" && !isNaN(parsedObjectHeightMm))
+    ? parsedObjectHeightMm
+    : (typeof barcodeHeight === "number" && !isNaN(barcodeHeight) ? barcodeHeight + 5 : 17);
+
+  const totalContainerHeightPx = safeObjectHeightMm * finalPixelScale;
+
+  const paddingSafetyPx = 1.0;
+  const availableSvgHeight = Math.max(
+    4,
+    totalContainerHeightPx - textTotalHeight - paddingSafetyPx
+  );
+
   return (
-    <div className="relative w-full h-full flex flex-col justify-between items-stretch overflow-hidden select-none">
+    <div className="relative w-full h-full flex flex-col justify-center items-stretch overflow-visible select-none">
       {/* Absolute overlay for error state so the actual <svg> tag is NEVER unmounted, preventing ref stuck behavior */}
       {effectiveError && !isEditing && (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-1 border-2 border-dashed border-red-300 bg-red-50 text-red-600 rounded text-center select-none overflow-hidden z-10">
@@ -305,12 +339,14 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
         </div>
       )}
 
-      {/* Main Barcode Display (made invisible while preserving layout size and ref bindings when in error state) */}
       <div
-        className={`w-full h-full flex flex-col justify-center items-center overflow-hidden ${effectiveError && !isEditing ? "invisible" : ""}`}
+        className={`w-full h-full flex flex-col justify-center items-center overflow-visible ${effectiveError && !isEditing ? "invisible" : ""}`}
       >
         <div
-          className={`flex flex-col ${alignClass} justify-between items-center w-full h-full py-[1.5px]`}
+          style={{
+            height: `${totalContainerHeightPx}px`,
+          }}
+          className={`flex flex-col ${alignClass} justify-center items-center w-full overflow-visible`}
         >
           {showAbove &&
             (isEditing ? (
@@ -330,8 +366,9 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                   fontStyle: barcodeFontStyle,
                   marginBottom: `${marginPx}px`,
                   textAlign: textalign as any,
+                  lineHeight: "1.25",
                 }}
-                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                className={`select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border shrink-0 ${
                   effectiveError
                     ? "border-red-500 ring-2 ring-red-100"
                     : "border-kiot-cyan ring-2 ring-cyan-100"
@@ -344,14 +381,19 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                   marginBottom: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
-                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                className="select-none whitespace-nowrap overflow-visible max-w-full w-full shrink-0 cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
                 onDoubleClick={handleStartEdit}
                 title="Nhấp đúp để sửa nhãn"
               >
                 {effectiveContent || content}
               </div>
             ))}
-          <div className="flex-grow flex items-center justify-center w-full min-h-0 overflow-hidden">
+          <div 
+            style={{
+              height: `${availableSvgHeight}px`,
+            }}
+            className="flex items-center justify-center w-full overflow-hidden shrink-0"
+          >
             <svg
               ref={svgRef}
               style={{
@@ -381,8 +423,9 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                   fontStyle: barcodeFontStyle,
                   marginTop: `${marginPx}px`,
                   textAlign: textalign as any,
+                  lineHeight: "1.25",
                 }}
-                className={`leading-tight select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border ${
+                className={`select-text outline-none px-1 py-0.5 w-full bg-white text-slate-900 border shrink-0 ${
                   effectiveError
                     ? "border-red-500 ring-2 ring-red-100"
                     : "border-kiot-cyan ring-2 ring-cyan-100"
@@ -395,7 +438,7 @@ export const BarcodeRenderer = memo(function BarcodeRenderer({
                   marginTop: `${marginPx}px`,
                   textAlign: textalign as any,
                 }}
-                className="leading-tight select-none truncate max-w-full w-full cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
+                className="select-none whitespace-nowrap overflow-visible max-w-full w-full shrink-0 cursor-text hover:bg-black/5 rounded px-0.5 transition-colors duration-150"
                 onDoubleClick={handleStartEdit}
                 title="Nhấp đúp để sửa nhãn"
               >

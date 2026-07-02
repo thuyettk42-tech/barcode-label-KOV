@@ -7,48 +7,13 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='28' fill='white'/%3E%3Cg opacity='0.18'%3E%3Crect x='14' y='16' width='3' height='52' fill='%23000000'/%3E%3Crect x='20' y='16' width='7' height='52' fill='%23000000'/%3E%3Crect x='31' y='16' width='2' height='52' fill='%23000000'/%3E%3Crect x='37' y='16' width='4' height='52' fill='%23000000'/%3E%3Crect x='45' y='16' width='2' height='52' fill='%23000000'/%3E%3Crect x='51' y='16' width='7' height='52' fill='%23000000'/%3E%3Crect x='62' y='16' width='3' height='52' fill='%23000000'/%3E%3Crect x='69' y='16' width='2' height='52' fill='%23000000'/%3E%3Crect x='75' y='16' width='4' height='52' fill='%23000000'/%3E%3Crect x='83' y='16' width='7' height='52' fill='%23000000'/%3E%3Crect x='94' y='16' width='2' height='52' fill='%23000000'/%3E%3Crect x='100' y='16' width='4' height='52' fill='%23000000'/%3E%3Crect x='108' y='16' width='3' height='52' fill='%23000000'/%3E%3C/g%3E%3Cg transform='translate(18, 10)'%3E%3Cpath fill-rule='evenodd' clipRule='evenodd' d='M28.2727 2.98791C11.8294 10.3389 0.371094 26.8343 0.371094 46.003C0.371094 65.1691 11.8294 81.6619 28.2727 89.0142C32.3642 90.8114 34.8979 91.2578 37.0608 91.2578C45.2554 91.2578 49.0083 65.0212 49.0083 46.0017C49.0083 26.9797 45.2567 0.741699 37.0608 0.741699C34.8979 0.741699 32.3642 1.19068 28.2727 2.98533V2.98791Z' fill='url(%23fav_paint0_radial)'/%3E%3Cpath fill-rule='evenodd' clipRule='evenodd' d='M76.5424 20.3537L55.1653 41.7134C53.7733 43.1044 52.8599 44.462 52.8599 46.0564C52.8599 47.6523 53.7733 49.0068 55.1653 50.3978L76.5424 71.7576C77.8777 73.0962 79.0747 73.6689 80.698 73.6689C86.4346 73.6689 92.3952 59.4251 92.3952 46.0564C92.3952 32.6862 86.4361 18.4453 80.698 18.4453C79.0733 18.4453 77.8777 19.018 76.5424 20.3552V20.3537Z' fill='url(%23fav_paint1_radial)'/%3E%3C/g%3E%3Ctext x='64' y='115' font-family='sans-serif' font-weight='900' font-size='18' fill='%23002248' text-anchor='middle' letter-spacing='-0.3'%3EKiotLabel%3C/text%3E%3Cdefs%3E%3CradialGradient id='fav_paint0_radial' cx='0' cy='0' r='1' gradientUnits='userSpaceOnUse' gradientTransform='translate(-11.3026 46.014) scale(66.031 95.596)'%3E%3Cstop stop-color='%233AE3FF'/%3E%3Cstop offset='1' stop-color='%230070F4'/%3E%3C/radialGradient%3E%3CradialGradient id='fav_paint1_radial' cx='0' cy='0' r='1' gradientUnits='userSpaceOnUse' gradientTransform='translate(51.3029 45.7941) scale(41.2594 67.9409)'%3E%3Cstop stop-color='%235BE92A'/%3E%3Cstop offset='0.39166' stop-color='%232DCF34'/%3E%3Cstop offset='1' stop-color='%2300B63E'/%3E%3C/radialGradient%3E%3C/defs%3E%3C/svg%3E" />
     <link rel="icon" type="image/svg+xml" href="./logo.svg" />
     <script>
-      // Diagnostics script to catch resource/syntax errors for Offline testing
+      // Safe logging for diagnostics
       window.addEventListener('error', function(e) {
-        console.error("Diagnostic catch:", e);
-        setTimeout(function() {
-          var loader = document.getElementById('startup-loader');
-          if (loader) {
-            showDiagnosticError(e.message || "Lỗi khởi tạo tệp tin mã lệnh.");
-          }
-        }, 800);
+        console.warn("Caught application error:", e.message);
       });
       window.addEventListener('unhandledrejection', function(e) {
-        console.error("Diagnostic rejection:", e);
-        setTimeout(function() {
-          var loader = document.getElementById('startup-loader');
-          if (loader) {
-            var msg = e.reason ? (e.reason.message || String(e.reason)) : "Ủy thác bất đồng bộ thất bại";
-            showDiagnosticError(msg);
-          }
-        }, 800);
+        console.warn("Caught unhandled rejection:", e.reason);
       });
-      function showDiagnosticError(msg) {
-        var loader = document.getElementById('startup-loader');
-        if (!loader) return;
-        loader.innerHTML = `
-          <div style="background-color: #ffffff; border: 1px solid #fee2e2; border-radius: 12px; padding: 24px; max-width: 440px; width: 90%; box-shadow: 0 10px 25px -5px rgba(220, 38, 38, 0.1); text-align: center;">
-            <div style="display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background-color: #fef2f2; color: #ef4444; border-radius: 50%; margin-bottom: 16px;">
-              <svg style="width: 24px; height: 24px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            </div>
-            <h3 style="margin: 0 0 6px; color: #111827; font-size: 15px; font-weight: 700;">Hệ thống phát hiện lỗi giải mã</h3>
-            <p style="margin: 0 0 16px; color: #4b5563; font-size: 12px; line-height: 1.5; text-align: left;">
-              Ứng dụng offline không thể khởi động do lỗi tương thích hoặc tài nguyên bị chặn.
-            </p>
-            <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px; margin-bottom: 20px; text-align: left;">
-              <span style="font-size: 10px; font-weight: bold; color: #ef4444; text-transform: uppercase;">Chi tiết:</span>
-              <code style="display: block; font-family: monospace; font-size: 10.5px; color: #dc2626; word-break: break-all; margin-top: 4px; line-height: 1.4;">${msg}</code>
-            </div>
-            <button onclick="window.location.reload(true)" style="background-color: #54B200; color: #ffffff; border: none; padding: 8px 16px; font-size: 12px; font-weight: 600; border-radius: 6px; cursor: pointer;">
-              Tải lại ứng dụng
-            </button>
-          </div>
-        `;
-      }
     </script>
     <style>
       /* Smooth spin and bounce styles for startup splash screen */
