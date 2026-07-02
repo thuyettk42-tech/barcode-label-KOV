@@ -64,7 +64,8 @@ import {
   Sparkles,
   Eye,
   EyeOff,
-  Key
+  Key,
+  CheckCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -505,8 +506,18 @@ export default function App() {
   const [activeFileHandle, setActiveFileHandle] = useState<any>(null);
   const [saveLogs, setSaveLogs] = useState<Array<{ time: string; path: string; type: 'save' | 'import' | 'quick-save' }>>([]);
 
+  // Printing Cache refs to prevent slow re-rendering when design hasn't changed
+  const lastPdfStateRef = React.useRef<string>("");
+  const lastPdfBlobUrlRef = React.useRef<string>("");
+  const cachedCanvasesRef = React.useRef<HTMLCanvasElement[]>([]);
+  const cachedCanvasesByContentKeyRef = React.useRef<Record<string, HTMLCanvasElement>>({});
+  const cacheDesignKeyRef = React.useRef<string>("");
+
   // Google Drive integration states removed for lightweight offline operations
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+  const [showPopupBlockedModal, setShowPopupBlockedModal] = useState<boolean>(false);
+  const [popupBlobUrl, setPopupBlobUrl] = useState<string>("");
+  const [isPopupBlocked, setIsPopupBlocked] = useState<boolean>(false);
   const [showImageImportModal, setShowImageImportModal] = useState<boolean>(false);
   const [driveUrlInput, setDriveUrlInput] = useState<string>("");
   const [webUrlInput, setWebUrlInput] = useState<string>("");
@@ -2812,48 +2823,51 @@ export default function App() {
 
   // Print execution call triggers standard printer dialog
   const handlePrintLabel = () => {
-    if (isPreparingPrint) return; // Chống spam click (double-click/flood prevention)
-    setIsPreparingPrint(true);
-    
-    handleSelectObject(null); // Deselect so focused outline does not print
-    setIsSystemPrinting(true); // Temporarily bypass UI preview limits to paint the full grid in DOM
-    
-    const wasDesign = officePreviewMode === 'design';
-    if (wasDesign) {
-      setOfficePreviewMode('sheet');
-      setWasDesignModeForPrint(true);
-    }
-
-    // Cơ chế "Await Render": Sắp xếp luồng vẽ thẻ <svg> của GPU & React render xong bằng requestAnimationFrame kép và microtasks
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          // Check if running inside iframe
-          const isInIframe = window.self !== window.top;
-          if (isInIframe) {
-            setShowPrintModal(true);
-            setIsPreparingPrint(false); // Reset nhanh để tương tác modal
-          } else {
-            window.focus();
-            window.print();
-            // Độ trễ an toàn sau in để khôi phục trạng thái nút bấm
-            setTimeout(() => {
-              setIsPreparingPrint(false);
-            }, 800);
-          }
-        }, 500); // 500ms hoàn hảo để đảm bảo 100% các linh kiện / JsBarcode SVG đã render xong
-      });
-    });
+    // Instead of old unstable window.print() that gets ruined by browser zoom/min font size,
+    // we now use our beautiful 300 DPI high-fidelity PDF exporter and open it automatically!
+    handleSavePrintFile('pdf', true);
   };
 
   // High-fidelity file exporter for small thermal labels to bypass browser print resolution limits
-  const handleSavePrintFile = (format: 'png' | 'pdf' | 'zpl' | 'tspl') => {
-    if (isSavingFile) return;
+  const handleSavePrintFile = (format: 'png' | 'pdf' | 'zpl' | 'tspl', autoOpen = false) => {
+    if (isSavingFile || isPreparingPrint) return;
+
+    if (format === 'pdf') {
+      const currentPrintState = JSON.stringify({
+        displayObjects,
+        labelConfig,
+        sheetConfig,
+        printCopies,
+        excelData,
+      });
+
+      if (lastPdfStateRef.current === currentPrintState && lastPdfBlobUrlRef.current) {
+        setPopupBlobUrl(lastPdfBlobUrlRef.current);
+        if (autoOpen) {
+          const newWindow = window.open(lastPdfBlobUrlRef.current, '_blank');
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            setIsPopupBlocked(true);
+          } else {
+            setIsPopupBlocked(false);
+          }
+          setShowPopupBlockedModal(true);
+        } else {
+          const link = document.createElement('a');
+          link.href = lastPdfBlobUrlRef.current;
+          link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`;
+          link.click();
+        }
+        return;
+      }
+    }
 
     const originalZoom = interfaceZoom;
     const originalPreviewMode = officePreviewMode;
     setIsSavingFile(true);
-    setSaveFileProgress("Đang chuẩn bị và đồng bộ hóa chế bản thiết kế...");
+    if (autoOpen) {
+      setIsPreparingPrint(true);
+    }
+    setSaveFileProgress(autoOpen ? "Đang xử lý và chuyển đổi tem sang PDF chất lượng cao..." : "Đang chuẩn bị và đồng bộ hóa chế bản thiết kế...");
 
     // Deselect currently selected items to clear design-focused helper boxes and sizing outlines
     handleSelectObject(null);
@@ -2943,10 +2957,65 @@ export default function App() {
           return;
         }
 
+        const designKey = JSON.stringify({
+          displayObjects,
+          labelConfig,
+          sheetConfig,
+          excelData,
+        });
+
+        if (designKey !== cacheDesignKeyRef.current) {
+          cachedCanvasesRef.current = [];
+          cachedCanvasesByContentKeyRef.current = {};
+          cacheDesignKeyRef.current = designKey;
+        }
+
+        const getResolvedObjectsKeyForPage = (pageIdx: number) => {
+          const isThermal = !sheetConfig || sheetConfig.mode === 'thermal';
+          const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+          const rows = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
+          const labelsPerPage = isThermal ? cols : (cols * rows);
+          
+          const startCellIdx = pageIdx * labelsPerPage;
+          const endCellIdx = startCellIdx + labelsPerPage;
+          
+          const pageContents = [];
+          for (let c = startCellIdx; c < endCellIdx; c++) {
+            const resolved = resolveDynamicObjectsForCell(objects, c);
+            const slimResolved = resolved.map(o => ({
+              type: o.type,
+              x: o.x,
+              y: o.y,
+              width: o.width,
+              height: o.height,
+              content: o.content,
+              fontSize: o.fontSize,
+              fontWeight: o.fontWeight,
+              fontStyle: o.fontStyle,
+              textDecorationUnderline: o.textDecorationUnderline,
+              textDecorationLineThrough: o.textDecorationLineThrough,
+              textAlign: o.textAlign,
+              color: o.color,
+              fontFamily: o.fontFamily,
+              barcodeFormat: o.barcodeFormat,
+              qrErrorCorrection: o.qrErrorCorrection,
+              excelColumn: o.excelColumn,
+              shapeType: o.shapeType,
+              shapeStrokeWidth: o.shapeStrokeWidth,
+              shapeStrokeColor: o.shapeStrokeColor,
+              shapeFillColor: o.shapeFillColor,
+              shapeCornerRadius: o.shapeCornerRadius,
+              shapeStrokeStyle: o.shapeStrokeStyle,
+            }));
+            pageContents.push(slimResolved);
+          }
+          return JSON.stringify(pageContents);
+        };
+
         const tempCanvases: (HTMLCanvasElement | null)[] = new Array(totalCount).fill(null);
 
         try {
-          const chunkSize = 6;
+          const chunkSize = 8; // Slightly larger chunk size for faster parallelization
           for (let i = 0; i < totalCount; i += chunkSize) {
             const chunkEnd = Math.min(i + chunkSize, totalCount);
             setSaveFileProgress(`Đang chuyển đổi trang ${i + 1} đến ${chunkEnd} trên tổng số ${totalCount}...`);
@@ -2957,6 +3026,45 @@ export default function App() {
             const chunkPromises = [];
             for (let j = i; j < chunkEnd; j++) {
               chunkPromises.push((async (index) => {
+                // Determine if we can reuse a canvas from cache (Duplicate Matching)
+                let cachedCanvas: HTMLCanvasElement | null = null;
+                const pageContentKey = getResolvedObjectsKeyForPage(index);
+
+                if (cachedCanvasesRef.current[index]) {
+                  cachedCanvas = cachedCanvasesRef.current[index];
+                } else if (cachedCanvasesByContentKeyRef.current[pageContentKey]) {
+                  cachedCanvas = cachedCanvasesByContentKeyRef.current[pageContentKey];
+                } else if (!excelData || excelData.length === 0) {
+                  const isThermal = !sheetConfig || sheetConfig.mode === 'thermal';
+                  if (isThermal) {
+                    const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+                    const totalItems = printCopies || cols;
+                    const labelsOnThisRow = Math.min(cols, totalItems - index * cols);
+                    if (labelsOnThisRow === cols && cachedCanvasesRef.current[0]) {
+                      cachedCanvas = cachedCanvasesRef.current[0];
+                    }
+                  } else {
+                    const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+                    const rows = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
+                    const labelsPerSheet = cols * rows;
+                    const totalItems = printCopies || labelsPerSheet;
+                    const labelsOnThisSheet = Math.min(labelsPerSheet, totalItems - index * labelsPerSheet);
+                    if (labelsOnThisSheet === labelsPerSheet && cachedCanvasesRef.current[0]) {
+                      cachedCanvas = cachedCanvasesRef.current[0];
+                    }
+                  }
+                }
+
+                if (cachedCanvas) {
+                  if (!cachedCanvasesRef.current[index]) {
+                    cachedCanvasesRef.current[index] = cachedCanvas;
+                  }
+                  if (!cachedCanvasesByContentKeyRef.current[pageContentKey]) {
+                    cachedCanvasesByContentKeyRef.current[pageContentKey] = cachedCanvas;
+                  }
+                  return { index, canvas: cachedCanvas };
+                }
+
                 let currentEl: HTMLElement | null = null;
                 if (!isSingleCanvas) {
                   const thermalPages = document.querySelectorAll('.batch-print-page');
@@ -2975,6 +3083,13 @@ export default function App() {
                   return { index, canvas: null };
                 }
 
+                // Get exact dimensions to restrict html2canvas rendering bounds.
+                // This prevents html2canvas from scanning and rendering the whole page viewport,
+                // which is extremely heavy and memory-intensive!
+                const rect = currentEl.getBoundingClientRect();
+                const width = rect.width || currentEl.offsetWidth || 1;
+                const height = rect.height || currentEl.offsetHeight || 1;
+
                 // Use html2canvas at 1.0 scale because the DOM is already rendered 
                 // at the high-fidelity 300 DPI native resolution (11.811 pixels per mm).
                 const canvas = await html2canvas(currentEl, {
@@ -2983,7 +3098,16 @@ export default function App() {
                   allowTaint: true,
                   backgroundColor: labelConfig.bgColor || "#ffffff",
                   logging: false,
+                  width: width,
+                  height: height,
+                  scrollX: 0,
+                  scrollY: 0,
+                  x: 0,
+                  y: 0,
                 });
+
+                cachedCanvasesRef.current[index] = canvas;
+                cachedCanvasesByContentKeyRef.current[pageContentKey] = canvas;
                 return { index, canvas };
               })(j));
             }
@@ -2992,6 +3116,9 @@ export default function App() {
             for (const res of results) {
               if (res.canvas) {
                 tempCanvases[res.index] = res.canvas;
+                if (!cachedCanvasesRef.current[res.index]) {
+                  cachedCanvasesRef.current[res.index] = res.canvas;
+                }
               }
             }
           }
@@ -3015,54 +3142,7 @@ export default function App() {
           labelHeightMm: labelConfig.height
         });
 
-        const appendMetadataToPng = async (dataUrl: string): Promise<string> => {
-          try {
-            const res = await fetch(dataUrl);
-            const blob = await res.blob();
-            const arrayBuffer = await blob.arrayBuffer();
-            const uint8Array = new Uint8Array(arrayBuffer);
-            
-            const metadataStr = `\n\n---KIOTVIET_PRINT_BRIDGE_METADATA---\n[ZPL]\n${silentZpl}\n[/ZPL]\n[TSPL]\n${silentTspl}\n[/TSPL]\n`;
-            const textEncoder = new TextEncoder();
-            const metadataBytes = textEncoder.encode(metadataStr);
-            
-            const combined = new Uint8Array(uint8Array.length + metadataBytes.length);
-            combined.set(uint8Array, 0);
-            combined.set(metadataBytes, uint8Array.length);
-            
-            const finalBlob = new Blob([combined], { type: 'image/png' });
-            return URL.createObjectURL(finalBlob);
-          } catch (e) {
-            console.error("Failed to append metadata to PNG:", e);
-            return dataUrl;
-          }
-        };
-
-        if (format === 'png') {
-          if (canvases.length === 1) {
-            const link = document.createElement('a');
-            link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.png`;
-            const rawDataUrl = canvases[0].toDataURL('image/png', 1.0);
-            link.href = await appendMetadataToPng(rawDataUrl);
-            link.click();
-            if (link.href.startsWith("blob:")) {
-              URL.revokeObjectURL(link.href);
-            }
-          } else {
-            for (let i = 0; i < canvases.length; i++) {
-              const link = document.createElement('a');
-              link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm_trang_${i + 1}.png`;
-              const rawDataUrl = canvases[i].toDataURL('image/png', 1.0);
-              link.href = await appendMetadataToPng(rawDataUrl);
-              link.click();
-              if (link.href.startsWith("blob:")) {
-                URL.revokeObjectURL(link.href);
-              }
-              // Prevent browser from throttling concurrent downloads
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
-          }
-        } else if (format === 'pdf') {
+        if (format === 'pdf') {
           let pdfW = labelConfig.width;
           let pdfH = labelConfig.height;
 
@@ -3101,12 +3181,53 @@ export default function App() {
             if (i > 0) {
               pdf.addPage([pdfW, pdfH], orientation);
             }
-            const imgData = canvases[i].toDataURL('image/png', 1.0);
-            // Embed at exact physical coordinates to guarantee 1:1 accuracy
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH, undefined, 'FAST');
+            // Embed the canvas directly in jsPDF to completely avoid slow toDataURL string encoding overhead!
+            pdf.addImage(canvases[i], 'PNG', 0, 0, pdfW, pdfH, undefined, 'FAST');
           }
 
-          pdf.save(`${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`);
+          // Generate PDF blob
+          const blob = pdf.output('blob');
+          const blobUrl = URL.createObjectURL(blob);
+
+          if (lastPdfBlobUrlRef.current) {
+            URL.revokeObjectURL(lastPdfBlobUrlRef.current);
+          }
+
+          // Save to cache
+          lastPdfBlobUrlRef.current = blobUrl;
+          lastPdfStateRef.current = JSON.stringify({
+            displayObjects,
+            labelConfig,
+            sheetConfig,
+            printCopies,
+            excelData,
+          });
+
+          if (autoOpen) {
+            try {
+              setPopupBlobUrl(blobUrl);
+              
+              const newWindow = window.open(blobUrl, '_blank');
+              if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                setIsPopupBlocked(true);
+              } else {
+                setIsPopupBlocked(false);
+              }
+              setShowPopupBlockedModal(true);
+            } catch (e) {
+              console.error("Auto-open PDF failed:", e);
+              // Fallback to traditional download if something unexpected happens
+              const link = document.createElement('a');
+              link.href = blobUrl;
+              link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`;
+              link.click();
+            }
+          } else {
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`;
+            link.click();
+          }
         }
 
         if (format === 'png' || format === 'pdf') {
@@ -3114,6 +3235,7 @@ export default function App() {
           setOfficePreviewMode(originalPreviewMode);
         }
         setIsSavingFile(false);
+        setIsPreparingPrint(false);
         setSaveFileProgress("");
       } catch (err) {
         console.error("Save file error:", err);
@@ -3123,6 +3245,7 @@ export default function App() {
           setOfficePreviewMode(originalPreviewMode);
         }
         setIsSavingFile(false);
+        setIsPreparingPrint(false);
         setSaveFileProgress("");
       }
     }, 1000);
@@ -4370,6 +4493,44 @@ export default function App() {
                       </p>
                     </div>
 
+                    {/* SET COLS */}
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] text-slate-900 font-black uppercase tracking-wider select-none">
+                        Thiết lập số tem 1 hàng
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="cols-roll-input"
+                          type="text"
+                          value={colsInput}
+                          onChange={(e) => {
+                            const s = e.target.value;
+                            setColsInput(s);
+                            const c = parseInt(s);
+                            if (!isNaN(c) && c >= 1) {
+                              setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 20) }));
+                            }
+                          }}
+                          onBlur={() => {
+                            const c = parseInt(colsInput);
+                            if (isNaN(c) || c < 1) {
+                              setSheetConfig(prev => ({ ...prev, cols: 1 }));
+                              setColsInput("1");
+                            } else if (c > 20) {
+                              setSheetConfig(prev => ({ ...prev, cols: 20 }));
+                              setColsInput("20");
+                            }
+                          }}
+                          className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
+                          placeholder="Nhập số tem ví dụ: 1, 2, 3, 4..."
+                        />
+                        <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">tem</span>
+                      </div>
+                    </div>
+
+                    {/* SEPARATOR */}
+                    <div className="border-t border-slate-900 my-3"></div>
+
                     {/* SET TARGET ROLL WIDTH */}
                     <div className="space-y-1.5">
                       <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex justify-between items-center">
@@ -4481,40 +4642,7 @@ export default function App() {
                       })()}
                     </div>
 
-                    {/* SET COLS */}
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none">
-                        Thiết lập số tem 1 hàng
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="cols-roll-input"
-                          type="text"
-                          value={colsInput}
-                          onChange={(e) => {
-                            const s = e.target.value;
-                            setColsInput(s);
-                            const c = parseInt(s);
-                            if (!isNaN(c) && c >= 1) {
-                              setSheetConfig(prev => ({ ...prev, cols: Math.min(c, 20) }));
-                            }
-                          }}
-                          onBlur={() => {
-                            const c = parseInt(colsInput);
-                            if (isNaN(c) || c < 1) {
-                              setSheetConfig(prev => ({ ...prev, cols: 1 }));
-                              setColsInput("1");
-                            } else if (c > 20) {
-                              setSheetConfig(prev => ({ ...prev, cols: 20 }));
-                              setColsInput("20");
-                            }
-                          }}
-                          className="w-full pl-2 pr-7 py-1.5 text-sm bg-white border border-gray-300 rounded-lg text-slate-800 font-bold font-mono focus:border-kiot-cyan focus:ring-1 focus:ring-kiot-cyan outline-none"
-                          placeholder="Nhập số tem ví dụ: 1, 2, 3, 4..."
-                        />
-                        <span className="absolute right-2 top-2 text-[11px] text-gray-400 font-extrabold select-none">tem</span>
-                      </div>
-                    </div>
+
 
                     {/* SET COL GAP */}
                     <div className="space-y-1.5">
@@ -5850,58 +5978,26 @@ export default function App() {
                   </div>
 
                   {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
-                  <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5 bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 font-sans">
-                    <div className="flex items-center justify-between">
-                      <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
-                        LƯU FILE ĐỂ IN CHẤT LƯỢNG CAO
-                      </span>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-sm">
-                        TEM NHỎ &lt; 10PX
-                      </span>
-                    </div>
-                    <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
-                      Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
-                    </p>
+                  <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5 font-sans">
                     <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSavePrintFile('pdf')}
-                          disabled={isSavingFile}
-                          className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
-                            isSavingFile
-                              ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                              : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
-                          }`}
-                          title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
-                        >
-                          {isSavingFile && saveFileProgress.includes("PDF") ? (
-                            <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-emerald-700" />
-                          ) : (
-                            <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
-                          )}
-                          <span className="uppercase tracking-wide">LƯU FILE PDF</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleSavePrintFile('png')}
-                          disabled={isSavingFile}
-                          className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
-                            isSavingFile
-                              ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                              : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
-                          }`}
-                          title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
-                        >
-                          {isSavingFile && saveFileProgress.includes("PNG") ? (
-                            <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-blue-700" />
-                          ) : (
-                            <Image className="w-3.5 h-3.5 stroke-[2.5]" />
-                          )}
-                          <span className="uppercase tracking-wide">LƯU FILE PNG</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSavePrintFile('pdf')}
+                        disabled={isSavingFile}
+                        className={`w-full py-2.5 px-2 rounded-lg flex items-center justify-center space-x-2 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                          isSavingFile
+                            ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                            : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:shadow-sm active:scale-[0.98]"
+                        }`}
+                        title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                      >
+                        {isSavingFile && saveFileProgress.includes("PDF") ? (
+                          <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-white" />
+                        ) : (
+                          <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+                        )}
+                        <span className="uppercase tracking-wider">LƯU PDF</span>
+                      </button>
                     </div>
 
                     {isSavingFile && (
@@ -5957,7 +6053,7 @@ export default function App() {
         </aside>
 
         {/* WORKSPACE AREA ON THE RIGHT - STRETCHABLE SPACE bg-slate-200 (Canvas wrapper is bg-gray-100) */}
-        <main className="flex-1 flex flex-col bg-[#E5E7EB] relative">
+        <main className="flex-1 flex flex-col bg-[#E5E7EB] relative min-w-0 overflow-hidden">
 
 
           
@@ -6395,7 +6491,88 @@ export default function App() {
         </div>
       )}
 
+      {showPopupBlockedModal && (
+        <div id="popup-blocked-backdrop" className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 no-print animate-fade-in">
+          <div 
+            id="popup-blocked-modal" 
+            className="bg-white border border-gray-200 shadow-2xl rounded-xl max-w-md w-full overflow-hidden text-slate-800 p-6 flex flex-col space-y-4 animate-scale-up"
+          >
+            {/* Header */}
+            <div className="flex items-start space-x-3.5">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 border ${
+                isPopupBlocked ? "bg-amber-50 border-amber-100 text-amber-600" : "bg-emerald-50 border-emerald-100 text-emerald-600"
+              }`}>
+                {isPopupBlocked ? <AlertCircle className="w-5 h-5 animate-bounce" /> : <CheckCircle className="w-5 h-5" />}
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-slate-900 leading-tight">
+                  {isPopupBlocked ? "Yêu Cầu Cấp Quyền Mở Bản In PDF" : "Đã Khởi Tạo Bản In PDF Thành Công"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isPopupBlocked ? "Trình duyệt đã ngăn cửa sổ bật lên tự động" : "Bản in PDF chất lượng cao 300 DPI đã sẵn sàng"}
+                </p>
+              </div>
+            </div>
 
+            {/* Warning / Informative box */}
+            {isPopupBlocked ? (
+              <div className="bg-amber-50 border border-amber-200/60 rounded-lg p-3 text-xs text-amber-900 space-y-2">
+                <p className="font-semibold leading-normal flex items-center space-x-1">
+                  <span>⚠️ Phát hiện trình duyệt chặn mở liên kết mới (Pop-up)!</span>
+                </p>
+                <p className="leading-relaxed text-[11px] text-amber-950">
+                  Để tự động mở trực tiếp bản in trong những lần tiếp theo, bạn vui lòng bấm vào biểu tượng <strong>Chặn cửa sổ bật lên</strong> trên thanh địa chỉ trình duyệt (ở góc trên bên phải) và chọn <strong>"Luôn cho phép..."</strong> cho trang web này.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-emerald-50 border border-emerald-200/65 rounded-lg p-3 text-xs text-emerald-900 space-y-1.5">
+                <p className="font-semibold">
+                  🎉 Bản in đã được chuyển sang tab mới!
+                </p>
+                <p className="leading-relaxed text-[11px] text-emerald-950">
+                  Vui lòng chuyển sang tab trình duyệt mới vừa mở, kiểm tra nhãn dán hiển thị cực kỳ sắc nét và nhấn <strong>Ctrl + P</strong> (hoặc Cmd + P trên Mac) để in dán ngay lập tức.
+                </p>
+              </div>
+            )}
+
+            <div className="text-xs text-gray-500 leading-relaxed font-normal bg-slate-50 border border-slate-100 rounded-lg p-2.5">
+              <p className="font-medium text-slate-700 mb-1">Mẹo in tem chuẩn xác nhất:</p>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] pl-0.5">
+                <li>Chọn đúng máy in tem (máy in nhiệt hoặc máy văn phòng).</li>
+                <li>Phần kích thước giấy (Paper size) chọn đúng kích thước thực tế tem.</li>
+                <li>Phần Tỷ lệ (Scale) đặt là <strong>100%</strong> hoặc <strong>Fit to page (Vừa với trang)</strong>.</li>
+              </ul>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-2 pt-2 border-t border-gray-150 flex flex-col">
+              <a
+                href={popupBlobUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => {
+                  // If they click, we assume they are opening it manually
+                  setIsPopupBlocked(false);
+                }}
+                className="w-full flex items-center justify-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-sm transition text-center text-xs tracking-wider uppercase cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>{isPopupBlocked ? "Mở Bản In Thủ Công" : "Mở Lại Bản In (Tab Mới)"}</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPopupBlockedModal(false);
+                }}
+                className="w-full py-2 bg-white border border-gray-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs transition cursor-pointer"
+              >
+                Đóng thông báo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showImageImportModal && (
         <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 no-print animate-fade-in">

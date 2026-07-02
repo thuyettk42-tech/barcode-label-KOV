@@ -498,6 +498,22 @@ export function LabelCanvas({
   const labelRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
 
+  const [containerWidth, setContainerWidth] = useState<number>(() => typeof window !== 'undefined' ? window.innerWidth : 800);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(entry.contentRect.width);
+        }
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [containerRef.current, officePreviewMode]);
+
   // Zoom compensation factor for active design selection handles, rotate button, target anchors, and coordinate tooltips
   const designZoom = pixelScale / 8.4915;
   const scaleComp = designZoom > 0 ? 1 / designZoom : 1;
@@ -724,64 +740,29 @@ export function LabelCanvas({
             </div>
 
             {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
-            <div className="pt-2.5 border-t border-slate-200/80 space-y-2 bg-slate-50/50 p-2.5 rounded-lg border border-slate-150 font-sans">
-              <div className="flex items-center justify-between">
-                <span className="block text-[10px] font-black text-slate-600 uppercase tracking-wider select-none">
-                  LƯU FILE ĐỂ IN CHẤT LƯỢNG CAO
-                </span>
-                <span className="text-[9px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-sm">
-                  TEM NHỎ &lt; 10PX
-                </span>
-              </div>
-              <p className="text-[9.5px] text-slate-500 leading-normal font-medium">
-                Bỏ qua giới hạn zoom chữ của Chrome. Tạo tệp kích thước gốc khớp tuyệt đối để kết nối in trực tiếp.
-              </p>
+            <div className="pt-2.5 border-t border-slate-200/80 space-y-2 font-sans">
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSavePrintFile?.('pdf');
-                    }}
-                    disabled={isSavingFile}
-                    className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
-                      isSavingFile
-                        ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                        : "bg-white text-emerald-700 border-emerald-250 hover:bg-emerald-50/50 hover:shadow-xs active:scale-[0.97]"
-                    }`}
-                    title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
-                  >
-                    {isSavingFile && saveFileProgress.includes("PDF") ? (
-                      <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-emerald-700" />
-                    ) : (
-                      <FileText className="w-3 h-3 stroke-[2.5]" />
-                    )}
-                    <span className="uppercase tracking-wide">FILE PDF</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSavePrintFile?.('png');
-                    }}
-                    disabled={isSavingFile}
-                    className={`py-2 px-1.5 rounded-lg flex items-center justify-center space-x-1.5 text-[10.5px] font-black border transition-all duration-150 cursor-pointer ${
-                      isSavingFile
-                        ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
-                        : "bg-white text-blue-700 border-blue-250 hover:bg-blue-50/50 hover:shadow-xs active:scale-[0.97]"
-                    }`}
-                    title="Lưu dưới dạng ảnh PNG độ nét cao (400% scale)"
-                  >
-                    {isSavingFile && saveFileProgress.includes("PNG") ? (
-                      <RefreshCw className="w-3 h-3 stroke-[3.5] animate-spin text-blue-700" />
-                    ) : (
-                      <Image className="w-3 h-3 stroke-[2.5]" />
-                    )}
-                    <span className="uppercase tracking-wide">FILE PNG</span>
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePrintFile?.('pdf');
+                  }}
+                  disabled={isSavingFile}
+                  className={`w-full py-2.5 px-2 rounded-lg flex items-center justify-center space-x-2 text-[11px] font-black border transition-all duration-150 cursor-pointer ${
+                    isSavingFile
+                      ? "bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed"
+                      : "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700 hover:shadow-sm active:scale-[0.98]"
+                  }`}
+                  title="Lưu dưới dạng tệp PDF với kích thước gốc (mm)"
+                >
+                  {isSavingFile && saveFileProgress.includes("PDF") ? (
+                    <RefreshCw className="w-3.5 h-3.5 stroke-[3.5] animate-spin text-white" />
+                  ) : (
+                    <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+                  )}
+                  <span className="uppercase tracking-wider">LƯU PDF</span>
+                </button>
               </div>
 
               {isSavingFile && (
@@ -1737,6 +1718,11 @@ export function LabelCanvas({
     }
 
     const totalSheets = Math.max(1, Math.ceil(totalItems / cellsPerSheet));
+    const totalSheetsCount = limitPreview ? Math.min(3, totalSheets) : totalSheets;
+    const sheetFitScale = (!isPrinting && !isSystemPrinting && !isSavingFile && containerWidth && pxSheetW > (containerWidth - 32))
+      ? (containerWidth - 32) / pxSheetW
+      : 1;
+    const unscaledHeight = pxSheetH * totalSheetsCount + (totalSheetsCount - 1) * 32;
 
     return (
       <div
@@ -1778,7 +1764,20 @@ export function LabelCanvas({
           </div>
         </div>
 
-        <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
+        <div 
+          className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto"
+          style={
+            sheetFitScale < 1
+              ? {
+                  transform: `scale(${sheetFitScale})`,
+                  transformOrigin: "top center",
+                  width: `${pxSheetW}px`,
+                  height: `${unscaledHeight}px`,
+                  marginBottom: `-${unscaledHeight * (1 - sheetFitScale)}px`,
+                }
+              : undefined
+          }
+        >
           {Array.from({ length: safeLength(limitPreview ? Math.min(3, totalSheets) : totalSheets) }).map((_, sIdx) => {
             const pageEl = (
               <div
@@ -2105,6 +2104,11 @@ export function LabelCanvas({
     }
 
     const totalRows = Math.max(1, Math.ceil(totalItems / cols));
+    const totalRowsCount = limitPreview ? Math.min(20, totalRows) : totalRows;
+    const thermalFitScale = (!isPrinting && !isSystemPrinting && !isSavingFile && containerWidth && pxBackingW > (containerWidth - 32))
+      ? (containerWidth - 32) / pxBackingW
+      : 1;
+    const unscaledThermalHeight = (pxBackingH + pxRowGap) * totalRowsCount;
 
     return (
       <div
@@ -2138,7 +2142,20 @@ export function LabelCanvas({
           </div>
         </div>
 
-        <div className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto">
+        <div 
+          className="flex flex-col select-none items-center print:m-0 print:p-0 print:block print:w-auto"
+          style={
+            thermalFitScale < 1
+              ? {
+                  transform: `scale(${thermalFitScale})`,
+                  transformOrigin: "top center",
+                  width: `${pxBackingW}px`,
+                  height: `${unscaledThermalHeight}px`,
+                  marginBottom: `-${unscaledThermalHeight * (1 - thermalFitScale)}px`,
+                }
+              : undefined
+          }
+        >
           {Array.from({ length: safeLength(limitPreview ? Math.min(20, totalRows) : totalRows) }).map((_, rIdx) => {
             const rowEl = (
               <div
