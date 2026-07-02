@@ -160,6 +160,7 @@ export default function App() {
 
   // State to manage showing the quick instructions pop up
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
+  const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   const [isSavingFile, setIsSavingFile] = useState<boolean>(false);
   const [saveFileProgress, setSaveFileProgress] = useState<string>("");
@@ -6238,9 +6239,20 @@ export default function App() {
                   <X className="w-4 h-4" />
                 </button>
                 
-                <div className="flex items-center space-x-2 pb-1 border-b border-slate-100">
-                  <span className="text-[12.3px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
-                  <span className="text-[10.8px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
+                <div className="flex items-center justify-between pb-1 border-b border-slate-100 pr-8">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[12.3px] font-black text-slate-800 uppercase tracking-widest">📌 HƯỚNG DẪN THIẾT KẾ VÀ IN TEM</span>
+                    <span className="text-[10.8px] bg-sky-50 text-kiot-cyan font-black px-1.5 py-0.5 rounded uppercase border border-kiot-cyan/15">Tuần tự 4 bước</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDownloadModal(true)}
+                    className="flex items-center space-x-1.5 px-3 py-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white text-[11px] font-black uppercase rounded-lg shadow-sm hover:shadow-md transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] mr-1 cursor-pointer"
+                    title="Tải ứng dụng bản cài đặt ngoại tuyến (Offline Desktop App)"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Tải bản offline</span>
+                  </button>
                 </div>
 
                 <div className="space-y-1.5">
@@ -6896,6 +6908,82 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* DOWNLOAD OFFLINE CONFIRMATION MODAL */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 z-[1000000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full overflow-hidden p-5 space-y-4 font-sans relative transform transition-all duration-200 scale-100">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowDownloadModal(false)}
+              className="absolute top-3.5 right-3.5 p-1.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header / Icon */}
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-amber-50 text-amber-500 rounded-xl">
+                <Lock className="w-5 h-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">
+                  Mật khẩu giải nén
+                </h3>
+                <p className="text-[11px] text-slate-400 font-bold">
+                  Bản cài đặt ngoại tuyến Offline App
+                </p>
+              </div>
+            </div>
+
+            {/* Password Box */}
+            <div className="bg-slate-50/80 rounded-xl p-3.5 border border-slate-150 text-center space-y-1">
+              <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Mật khẩu (Password) giải nén file ZIP:
+              </span>
+              <div className="flex items-center justify-center space-x-1.5 py-1 bg-white border border-slate-200/60 rounded-lg shadow-2xs select-all cursor-text">
+                <Key className="w-3.5 h-3.5 text-amber-500" />
+                <span className="font-mono text-base font-black text-kiot-green tracking-wide">
+                  Dvkhkiotviet
+                </span>
+              </div>
+              <span className="block text-[10px] text-zinc-400 font-bold leading-normal pt-1">
+                (Hãy sao chép mật khẩu này trước khi tải xuống)
+              </span>
+            </div>
+
+            {/* Alert / Instructions */}
+            <div className="flex items-start space-x-2 p-2.5 bg-amber-50/50 rounded-lg text-[11px] text-amber-800 leading-normal border border-amber-100/40">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <span>
+                Sau khi tải file <strong>.ZIP</strong> về máy tính, vui lòng click chuột phải chọn <strong>Extract here / Giải nén ở đây</strong> và nhập mật khẩu bên trên để sử dụng bản in ấn Offline đầy đủ nhất.
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center space-x-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                className="flex-1 py-2 border border-slate-200 rounded-xl hover:bg-slate-50 text-xs font-black text-slate-500 uppercase tracking-wider transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <a
+                href="https://drive.google.com/file/d/1OfMEVdVf66DQJuogCF_BTdZu9YmwP1m0/view?usp=sharing"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setShowDownloadModal(false)}
+                className="flex-1 py-2 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition text-center shadow-md flex items-center justify-center space-x-1 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Tiếp tục tải về</span>
+              </a>
+            </div>
           </div>
         </div>
       )}
