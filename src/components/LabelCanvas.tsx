@@ -370,19 +370,21 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
         textAlign: textalign as any,
         color: obj.color || "#000000",
         lineHeight: "1.25",
+        overflow: "hidden",
       }}
     >
       <div
-        className="max-w-full w-full overflow-visible"
+        className="max-w-full w-full overflow-hidden"
         style={{
           textAlign: textalign as any,
           whiteSpace: "pre-wrap",
           wordBreak: "break-word",
           overflowWrap: "anywhere",
-          display: isPrint ? "block" : "-webkit-box",
-          WebkitLineClamp: isPrint ? undefined : maxLines,
-          WebkitBoxOrient: isPrint ? undefined : "vertical",
+          display: "-webkit-box",
+          WebkitLineClamp: maxLines,
+          WebkitBoxOrient: "vertical",
           maxHeight: "100%",
+          overflow: "hidden",
         }}
       >
         {obj.prefixText &&
@@ -1912,7 +1914,7 @@ export function LabelCanvas({
                                   } as React.CSSProperties
                                 }
                               >
-                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint || obj.type === "text" ? "" : "overflow-hidden"}`}>
+                                <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint && obj.type !== "text" ? "" : "overflow-hidden"}`}>
                                   {obj.type === "text" &&
                                     renderTextElement(obj, previewScale, isMobileOrPrint)}
 
@@ -2276,7 +2278,7 @@ export function LabelCanvas({
                                 } as React.CSSProperties
                               }
                             >
-                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint || obj.type === "text" ? "" : "overflow-hidden"}`}>
+                              <div className={`w-full h-full p-0 select-none relative ${isMobileOrPrint && obj.type !== "text" ? "" : "overflow-hidden"}`}>
                                 {obj.type === "text" &&
                                   renderTextElement(obj, previewScale, isMobileOrPrint)}
 
@@ -2680,7 +2682,7 @@ export function LabelCanvas({
                 }
               >
                 {/* Dynamic Content Rendering */}
-                <div className={`w-full h-full p-0 select-none relative ${(isPrinting || isSystemPrinting || isSavingFile) || obj.type === "text" ? "" : "overflow-hidden"}`}>
+                <div className={`w-full h-full p-0 select-none relative ${(isPrinting || isSystemPrinting || isSavingFile) && obj.type !== "text" ? "" : "overflow-hidden"}`}>
                   {obj.type === "text" &&
                     (editingTextId === obj.id ? (
                       <textarea

@@ -737,7 +737,10 @@ export default function App() {
               future: [],
               selectedId: null,
               selectedIds: [],
-              officePreviewMode: 'design'
+              officePreviewMode: 'design',
+              printCopies: parsed.printCopies !== undefined ? parsed.printCopies : 24,
+              printQuantityMode: parsed.printQuantityMode || 'constant',
+              printQuantityColumn: parsed.printQuantityColumn || ""
             }
           ];
         }
@@ -786,7 +789,10 @@ export default function App() {
         future: [],
         selectedId: null,
         selectedIds: [],
-        officePreviewMode: 'design'
+        officePreviewMode: 'design',
+        printCopies: 24,
+        printQuantityMode: 'constant',
+        printQuantityColumn: ''
       }
     ];
   });
@@ -797,6 +803,47 @@ export default function App() {
       if (savedActiveId) return savedActiveId;
     } catch (e) {}
     return "tab-default-1";
+  });
+
+  const [printCopies, setPrintCopies] = useState<number>(() => {
+    try {
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.printCopies !== undefined) return parsed.printCopies;
+      }
+    } catch (e) {}
+    return 24;
+  });
+  const [printCopiesInput, setPrintCopiesInput] = useState<string>(() => {
+    try {
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.printCopies !== undefined) return String(parsed.printCopies);
+      }
+    } catch (e) {}
+    return "24";
+  });
+  const [printQuantityMode, setPrintQuantityMode] = useState<'constant' | 'excel_column'>(() => {
+    try {
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.printQuantityMode) return parsed.printQuantityMode;
+      }
+    } catch (e) {}
+    return 'constant';
+  });
+  const [printQuantityColumn, setPrintQuantityColumn] = useState<string>(() => {
+    try {
+      const saved = safeLocalStorage.getItem("barcode_designer_draft_v1");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.printQuantityColumn !== undefined) return parsed.printQuantityColumn;
+      }
+    } catch (e) {}
+    return "";
   });
 
   const handleSwitchTab = (targetTabId: string) => {
@@ -817,6 +864,13 @@ export default function App() {
       setSelectedId(targetTab.selectedId || null);
       setSelectedIds(targetTab.selectedIds || []);
       setOfficePreviewMode(targetTab.officePreviewMode || 'design');
+      
+      // Load print settings
+      setPrintCopies(targetTab.printCopies !== undefined ? targetTab.printCopies : 24);
+      setPrintCopiesInput(String(targetTab.printCopies !== undefined ? targetTab.printCopies : 24));
+      setPrintQuantityMode(targetTab.printQuantityMode || 'constant');
+      setPrintQuantityColumn(targetTab.printQuantityColumn || "");
+
       setActiveTabId(targetTabId);
       
       setWidthInput(String(targetTab.labelConfig.width));
@@ -928,7 +982,10 @@ export default function App() {
       future: [],
       selectedId: null,
       selectedIds: [],
-      officePreviewMode: 'design'
+      officePreviewMode: 'design',
+      printCopies: 24,
+      printQuantityMode: 'constant',
+      printQuantityColumn: ''
     };
     
     setTabs(prev => [...prev, newTab]);
@@ -947,6 +1004,13 @@ export default function App() {
     setSelectedId(null);
     setSelectedIds([]);
     setOfficePreviewMode('design');
+
+    // Reset print settings for new tab
+    setPrintCopies(24);
+    setPrintCopiesInput("24");
+    setPrintQuantityMode('constant');
+    setPrintQuantityColumn('');
+
     setActiveTabId(newTabId);
     
     setWidthInput(String(newTab.labelConfig.width));
@@ -1213,7 +1277,10 @@ export default function App() {
         excelData,
         excelFileBase64,
         excelFilePath,
-        currentExcelRowIndex
+        currentExcelRowIndex,
+        printCopies,
+        printQuantityMode,
+        printQuantityColumn
       };
       safeLocalStorage.setItem("barcode_designer_draft_v1", JSON.stringify(draft));
 
@@ -1237,7 +1304,10 @@ export default function App() {
               future,
               selectedId,
               selectedIds,
-              officePreviewMode
+              officePreviewMode,
+              printCopies,
+              printQuantityMode,
+              printQuantityColumn
             };
           }
           return t;
@@ -1266,15 +1336,14 @@ export default function App() {
     future,
     selectedId,
     selectedIds,
-    officePreviewMode
+    officePreviewMode,
+    printCopies,
+    printQuantityMode,
+    printQuantityColumn
   ]);
 
   const [desiredRollWidth, setDesiredRollWidth] = useState<number>(67);
   const [isQuickSizeOpen, setIsQuickSizeOpen] = useState<boolean>(false);
-  const [printCopies, setPrintCopies] = useState<number>(24);
-  const [printCopiesInput, setPrintCopiesInput] = useState<string>("24");
-  const [printQuantityMode, setPrintQuantityMode] = useState<'constant' | 'excel_column'>('constant');
-  const [printQuantityColumn, setPrintQuantityColumn] = useState<string>("");
   const [isBatchPrinting, setIsBatchPrinting] = useState<boolean>(false);
   const [isPrintExpanded, setIsPrintExpanded] = useState<boolean>(false);
   const [isStep1Expanded, setIsStep1Expanded] = useState<boolean>(true);
@@ -6837,7 +6906,7 @@ export default function App() {
           />
 
           {/* TAB THANH CONG CỤ THIẾT KẾ ĐA TAB / SHEET (DƯỚI CHÂN TRANG - ĐẬM MÀU CAO CẤP CHUYÊN NGHIỆP) */}
-          <div className="bg-slate-200 border-t border-slate-300 flex items-center justify-between px-3.5 py-2 select-none shrink-0 overflow-x-auto no-print scrollbar-thin shadow-inner">
+          <div className="bg-slate-200 border-t border-slate-300 flex items-center justify-between px-3.5 h-12 select-none shrink-0 overflow-x-auto no-print scrollbar-thin shadow-inner">
             <div className="flex items-center space-x-1.5 overflow-x-auto">
               {tabs.map((tab) => {
                 const isActive = tab.id === activeTabId;
@@ -6868,14 +6937,10 @@ export default function App() {
                       <button
                         type="button"
                         onClick={(e) => handleDeleteTabClick(tab.id, tab.name, e)}
-                        className={`p-1 ml-2 rounded-md transition-all relative z-30 cursor-pointer shrink-0 flex items-center justify-center ${
-                          isActive
-                            ? "hover:bg-red-50 text-slate-400 hover:text-red-500"
-                            : "hover:bg-slate-200 text-slate-400 hover:text-red-500"
-                        }`}
+                        className="p-0.5 ml-2 transition-all relative z-30 cursor-pointer shrink-0 flex items-center justify-center text-slate-400 hover:text-red-600 hover:scale-110"
                         title="Xóa mẫu thiết kế này"
                       >
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-5 h-5" strokeWidth={3} />
                       </button>
                     )}
                   </div>

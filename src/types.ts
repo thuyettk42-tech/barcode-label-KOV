@@ -157,4 +157,7 @@ export interface DesignerTab {
   selectedId: string | null;
   selectedIds: string[];
   officePreviewMode: 'design' | 'sheet';
+  printCopies?: number;
+  printQuantityMode?: 'constant' | 'excel_column';
+  printQuantityColumn?: string;
 }
