@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createRoot } from "react-dom/client";
-import { LabelConfig, LabelObject, ObjectType, SheetLayoutConfig } from "./types";
+import { LabelConfig, LabelObject, ObjectType, SheetLayoutConfig, DesignerTab } from "./types";
 import { resizeImage, safeLocalStorage } from "./utils";
 import { convertToZPL } from "./utils/zplGenerator";
 import { convertToTSPL } from "./utils/tsplGenerator";
@@ -161,6 +161,7 @@ export default function App() {
   // State to manage showing the quick instructions pop up
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
+  const [tabToDelete, setTabToDelete] = useState<{ id: string; name: string } | null>(null);
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   const [isSavingFile, setIsSavingFile] = useState<boolean>(false);
   const [saveFileProgress, setSaveFileProgress] = useState<string>("");
@@ -404,11 +405,13 @@ export default function App() {
     );
   }, [selectedIds, setObjectsWithHistory]);
 
-  const handleSelectObject = (id: string | null, isMultiSelect = false) => {
+  const handleSelectObject = (id: string | null, isMultiSelect = false, skipTabSwitch = false) => {
     if (id === null) {
       setSelectedId(null);
       setSelectedIds([]);
-      setActiveSidebarTab('design');
+      if (!skipTabSwitch) {
+        setActiveSidebarTab('design');
+      }
     } else {
       if (isMultiSelect) {
         setSelectedIds((prev) => {
@@ -623,6 +626,406 @@ export default function App() {
     };
   });
   const [officePreviewMode, setOfficePreviewMode] = useState<'design' | 'sheet'>('design');
+
+  const [tabs, setTabs] = useState<DesignerTab[]>(() => {
+    try {
+      const savedTabs = safeLocalStorage.getItem("kiotlabel_tabs_v1");
+      if (savedTabs) {
+        const parsed = JSON.parse(savedTabs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Error reading saved tabs:", e);
+    }
+
+    const initObjects: LabelObject[] = [
+      {
+        id: "init-text-1",
+        type: "text",
+        x: 0,
+        y: -16.0,
+        width: 59,
+        height: 5,
+        content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
+        fontSize: 9,
+        fontWeight: "bold",
+        textFlowOrigin: "center",
+        textAlign: "center"
+      },
+      {
+        id: "init-barcode-1",
+        type: "barcode",
+        x: -29.5,
+        y: -11.5,
+        width: 38,
+        height: 18,
+        content: "VND-2026-06",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.4,
+        barcodeHeight: 11,
+        textFlowOrigin: "center"
+      },
+      {
+        id: "init-text-2",
+        type: "text",
+        x: 0,
+        y: 14.0,
+        width: 59,
+        height: 5,
+        content: "Hotline: 1900 1234 - Địa chỉ: Hà Nội",
+        fontSize: 7.5,
+        textFlowOrigin: "center",
+        textAlign: "center"
+      },
+      {
+        id: "init-qrcode-1",
+        type: "qrcode",
+        x: 11.5,
+        y: -11.5,
+        width: 18,
+        height: 18,
+        content: "https://create-barcode-label.vercel.app/",
+        textFlowOrigin: "center"
+      }
+    ];
+
+    try {
+      const savedDraft = safeLocalStorage.getItem("barcode_designer_draft_v1");
+      if (savedDraft) {
+        const parsed = JSON.parse(savedDraft);
+        if (parsed) {
+          return [
+            {
+              id: "tab-default-1",
+              name: parsed.labelConfig?.name || "Mẫu Thiết Kế 1",
+              labelConfig: parsed.labelConfig || {
+                width: 65,
+                height: 45,
+                name: "Tem Kệ Siêu Thị Mặc Định"
+              },
+              sheetConfig: parsed.sheetConfig || {
+                mode: 'thermal',
+                paperSize: 'A4',
+                customWidth: 210,
+                customHeight: 297,
+                orientation: 'portrait',
+                marginTop: 10,
+                marginBottom: 10,
+                marginLeft: 10,
+                marginRight: 10,
+                rows: 8,
+                cols: 1,
+                rowGap: 3,
+                colGap: 0,
+                showBorder: false,
+                borderWidth: 1,
+                borderRadius: 2,
+                borderColor: '#9ca3af',
+                rollSideMargin: 1
+              },
+              objects: parsed.objects || initObjects,
+              excelData: parsed.excelData || [],
+              excelColumns: parsed.excelColumns || [],
+              excelFileName: parsed.excelFileName || "",
+              excelFileBase64: parsed.excelFileBase64 || "",
+              excelFilePath: parsed.excelFilePath || null,
+              currentExcelRowIndex: parsed.currentExcelRowIndex !== undefined ? parsed.currentExcelRowIndex : 0,
+              past: [],
+              future: [],
+              selectedId: null,
+              selectedIds: [],
+              officePreviewMode: 'design'
+            }
+          ];
+        }
+      }
+    } catch (e) {
+      console.error("Error reading draft during migration:", e);
+    }
+
+    return [
+      {
+        id: "tab-default-1",
+        name: "Mẫu Thiết Kế 1",
+        labelConfig: {
+          width: 65,
+          height: 45,
+          name: "Tem Kệ Siêu Thị Mặc Định"
+        },
+        sheetConfig: {
+          mode: 'thermal',
+          paperSize: 'A4',
+          customWidth: 210,
+          customHeight: 297,
+          orientation: 'portrait',
+          marginTop: 10,
+          marginBottom: 10,
+          marginLeft: 10,
+          marginRight: 10,
+          rows: 8,
+          cols: 1,
+          rowGap: 3,
+          colGap: 0,
+          showBorder: false,
+          borderWidth: 1,
+          borderRadius: 2,
+          borderColor: '#9ca3af',
+          rollSideMargin: 1
+        },
+        objects: initObjects,
+        excelData: [],
+        excelColumns: [],
+        excelFileName: "",
+        excelFileBase64: "",
+        excelFilePath: null,
+        currentExcelRowIndex: 0,
+        past: [],
+        future: [],
+        selectedId: null,
+        selectedIds: [],
+        officePreviewMode: 'design'
+      }
+    ];
+  });
+
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    try {
+      const savedActiveId = safeLocalStorage.getItem("kiotlabel_active_tab_id_v1");
+      if (savedActiveId) return savedActiveId;
+    } catch (e) {}
+    return "tab-default-1";
+  });
+
+  const handleSwitchTab = (targetTabId: string) => {
+    if (targetTabId === activeTabId) return;
+    const targetTab = tabs.find(t => t.id === targetTabId);
+    if (targetTab) {
+      setLabelConfig(targetTab.labelConfig);
+      setSheetConfig(targetTab.sheetConfig);
+      setObjects(targetTab.objects);
+      setExcelData(targetTab.excelData);
+      setExcelColumns(targetTab.excelColumns);
+      setExcelFileName(targetTab.excelFileName);
+      setExcelFileBase64(targetTab.excelFileBase64 || "");
+      setExcelFilePath(targetTab.excelFilePath || null);
+      setCurrentExcelRowIndex(targetTab.currentExcelRowIndex);
+      setPast(targetTab.past || []);
+      setFuture(targetTab.future || []);
+      setSelectedId(targetTab.selectedId || null);
+      setSelectedIds(targetTab.selectedIds || []);
+      setOfficePreviewMode(targetTab.officePreviewMode || 'design');
+      setActiveTabId(targetTabId);
+      
+      setWidthInput(String(targetTab.labelConfig.width));
+      setHeightInput(String(targetTab.labelConfig.height));
+      setColsInput(String(targetTab.sheetConfig.cols));
+      setRowsInput(String(targetTab.sheetConfig.rows));
+      setMarginLeftInput(String(targetTab.sheetConfig.marginLeft));
+      setMarginRightInput(String(targetTab.sheetConfig.marginRight));
+      setMarginTopInput(String(targetTab.sheetConfig.marginTop));
+      setMarginBottomInput(String(targetTab.sheetConfig.marginBottom));
+      setColGapOfficeInput(String(targetTab.sheetConfig.colGap));
+      setRowGapOfficeInput(String(targetTab.sheetConfig.rowGap));
+      setBorderRadiusInput(String(targetTab.sheetConfig.borderRadius));
+      setRollSideMarginInput(String(targetTab.sheetConfig.rollSideMargin !== undefined ? targetTab.sheetConfig.rollSideMargin : 1));
+    }
+  };
+
+  const handleAddTab = () => {
+    const nextIndex = tabs.length + 1;
+    const newTabId = `tab-custom-${Date.now()}`;
+    const initObjects: LabelObject[] = [
+      {
+        id: "init-text-1",
+        type: "text",
+        x: 0,
+        y: -16.0,
+        width: 59,
+        height: 5,
+        content: "CỬA HÀNG ĐIỆN TỬ VIỆT NAM",
+        fontSize: 9,
+        fontWeight: "bold",
+        textFlowOrigin: "center",
+        textAlign: "center"
+      },
+      {
+        id: "init-barcode-1",
+        type: "barcode",
+        x: -29.5,
+        y: -11.5,
+        width: 38,
+        height: 18,
+        content: "VND-2026-06",
+        barcodeFormat: "CODE128",
+        displayValue: true,
+        barcodeWidth: 1.4,
+        barcodeHeight: 11,
+        textFlowOrigin: "center"
+      },
+      {
+        id: "init-text-2",
+        type: "text",
+        x: 0,
+        y: 14.0,
+        width: 59,
+        height: 5,
+        content: "Hotline: 1900 1234 - Địa chỉ: Hà Nội",
+        fontSize: 7.5,
+        textFlowOrigin: "center",
+        textAlign: "center"
+      },
+      {
+        id: "init-qrcode-1",
+        type: "qrcode",
+        x: 11.5,
+        y: -11.5,
+        width: 18,
+        height: 18,
+        content: "https://create-barcode-label.vercel.app/",
+        textFlowOrigin: "center"
+      }
+    ];
+
+    const newTab: DesignerTab = {
+      id: newTabId,
+      name: `Mẫu Thiết Kế ${nextIndex}`,
+      labelConfig: {
+        width: 65,
+        height: 45,
+        name: `Mẫu Thiết Kế ${nextIndex}`
+      },
+      sheetConfig: {
+        mode: 'thermal',
+        paperSize: 'A4',
+        customWidth: 210,
+        customHeight: 297,
+        orientation: 'portrait',
+        marginTop: 10,
+        marginBottom: 10,
+        marginLeft: 10,
+        marginRight: 10,
+        rows: 8,
+        cols: 1,
+        rowGap: 3,
+        colGap: 0,
+        showBorder: false,
+        borderWidth: 1,
+        borderRadius: 2,
+        borderColor: '#9ca3af',
+        rollSideMargin: 1
+      },
+      objects: initObjects,
+      excelData: [],
+      excelColumns: [],
+      excelFileName: "",
+      excelFileBase64: "",
+      excelFilePath: null,
+      currentExcelRowIndex: 0,
+      past: [],
+      future: [],
+      selectedId: null,
+      selectedIds: [],
+      officePreviewMode: 'design'
+    };
+    
+    setTabs(prev => [...prev, newTab]);
+    
+    setLabelConfig(newTab.labelConfig);
+    setSheetConfig(newTab.sheetConfig);
+    setObjects(newTab.objects);
+    setExcelData(newTab.excelData);
+    setExcelColumns(newTab.excelColumns);
+    setExcelFileName(newTab.excelFileName);
+    setExcelFileBase64(newTab.excelFileBase64 || "");
+    setExcelFilePath(newTab.excelFilePath || null);
+    setCurrentExcelRowIndex(newTab.currentExcelRowIndex);
+    setPast([]);
+    setFuture([]);
+    setSelectedId(null);
+    setSelectedIds([]);
+    setOfficePreviewMode('design');
+    setActiveTabId(newTabId);
+    
+    setWidthInput(String(newTab.labelConfig.width));
+    setHeightInput(String(newTab.labelConfig.height));
+    setColsInput(String(newTab.sheetConfig.cols));
+    setRowsInput(String(newTab.sheetConfig.rows));
+    setMarginLeftInput(String(newTab.sheetConfig.marginLeft));
+    setMarginRightInput(String(newTab.sheetConfig.marginRight));
+    setMarginTopInput(String(newTab.sheetConfig.marginTop));
+    setMarginBottomInput(String(newTab.sheetConfig.marginBottom));
+    setColGapOfficeInput(String(newTab.sheetConfig.colGap));
+    setRowGapOfficeInput(String(newTab.sheetConfig.rowGap));
+    setBorderRadiusInput(String(newTab.sheetConfig.borderRadius));
+    setRollSideMarginInput(String(newTab.sheetConfig.rollSideMargin !== undefined ? newTab.sheetConfig.rollSideMargin : 1));
+  };
+
+  const handleDeleteTabClick = (tabIdToDelete: string, tabName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tabs.length <= 1) {
+      alert("Không thể xóa bản thiết kế cuối cùng!");
+      return;
+    }
+    setTabToDelete({ id: tabIdToDelete, name: tabName });
+  };
+
+  const handleConfirmDeleteTab = () => {
+    if (!tabToDelete) return;
+    const tabIdToDelete = tabToDelete.id;
+    const updatedTabs = tabs.filter(t => t.id !== tabIdToDelete);
+    setTabs(updatedTabs);
+    
+    if (activeTabId === tabIdToDelete) {
+      const remainingTab = updatedTabs[0];
+      
+      setLabelConfig(remainingTab.labelConfig);
+      setSheetConfig(remainingTab.sheetConfig);
+      setObjects(remainingTab.objects);
+      setExcelData(remainingTab.excelData);
+      setExcelColumns(remainingTab.excelColumns);
+      setExcelFileName(remainingTab.excelFileName);
+      setExcelFileBase64(remainingTab.excelFileBase64 || "");
+      setExcelFilePath(remainingTab.excelFilePath || null);
+      setCurrentExcelRowIndex(remainingTab.currentExcelRowIndex);
+      setPast(remainingTab.past || []);
+      setFuture(remainingTab.future || []);
+      setSelectedId(remainingTab.selectedId || null);
+      setSelectedIds(remainingTab.selectedIds || []);
+      setOfficePreviewMode(remainingTab.officePreviewMode || 'design');
+      setActiveTabId(remainingTab.id);
+      
+      setWidthInput(String(remainingTab.labelConfig.width));
+      setHeightInput(String(remainingTab.labelConfig.height));
+      setColsInput(String(remainingTab.sheetConfig.cols));
+      setRowsInput(String(remainingTab.sheetConfig.rows));
+      setMarginLeftInput(String(remainingTab.sheetConfig.marginLeft));
+      setMarginRightInput(String(remainingTab.sheetConfig.marginRight));
+      setMarginTopInput(String(remainingTab.sheetConfig.marginTop));
+      setMarginBottomInput(String(remainingTab.sheetConfig.marginBottom));
+      setColGapOfficeInput(String(remainingTab.sheetConfig.colGap));
+      setRowGapOfficeInput(String(remainingTab.sheetConfig.rowGap));
+      setBorderRadiusInput(String(remainingTab.sheetConfig.borderRadius));
+      setRollSideMarginInput(String(remainingTab.sheetConfig.rollSideMargin !== undefined ? remainingTab.sheetConfig.rollSideMargin : 1));
+    }
+    setTabToDelete(null);
+  };
+
+  const handleRenameTab = (tabId: string) => {
+    const tabToRename = tabs.find(t => t.id === tabId);
+    if (!tabToRename) return;
+    const newName = window.prompt("Nhập tên mới cho tab thiết kế:", tabToRename.name);
+    if (newName && newName.trim()) {
+      const trimmed = newName.trim();
+      setTabs(prev => prev.map(t => t.id === tabId ? { ...t, name: trimmed } : t));
+      if (tabId === activeTabId) {
+        setLabelConfig(prev => ({ ...prev, name: trimmed }));
+      }
+    }
+  };
+
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
   const [isSystemPrinting, setIsSystemPrinting] = useState<boolean>(false);
   // Google auth configurations removed for offline usage
@@ -813,6 +1216,38 @@ export default function App() {
         currentExcelRowIndex
       };
       safeLocalStorage.setItem("barcode_designer_draft_v1", JSON.stringify(draft));
+
+      // Update the active tab's full design and excel integration state in the tabs array
+      setTabs(prevTabs => {
+        const updatedTabs = prevTabs.map(t => {
+          if (t.id === activeTabId) {
+            return {
+              ...t,
+              name: labelConfig.name || t.name,
+              labelConfig,
+              objects,
+              sheetConfig,
+              excelFileName,
+              excelColumns,
+              excelData,
+              excelFileBase64,
+              excelFilePath,
+              currentExcelRowIndex,
+              past,
+              future,
+              selectedId,
+              selectedIds,
+              officePreviewMode
+            };
+          }
+          return t;
+        });
+        
+        safeLocalStorage.setItem("kiotlabel_tabs_v1", JSON.stringify(updatedTabs));
+        return updatedTabs;
+      });
+
+      safeLocalStorage.setItem("kiotlabel_active_tab_id_v1", activeTabId);
     } catch (err) {
       console.warn("Failed to auto-save workspace draft to localStorage:", err);
     }
@@ -825,7 +1260,13 @@ export default function App() {
     excelData,
     excelFileBase64,
     excelFilePath,
-    currentExcelRowIndex
+    currentExcelRowIndex,
+    activeTabId,
+    past,
+    future,
+    selectedId,
+    selectedIds,
+    officePreviewMode
   ]);
 
   const [desiredRollWidth, setDesiredRollWidth] = useState<number>(67);
@@ -1538,7 +1979,7 @@ export default function App() {
   // Apply dimensions presets
   const applyPresetDimensions = (w: number, h: number, name: string) => {
     setLabelConfig({ width: w, height: h, name });
-    handleSelectObject(null);
+    handleSelectObject(null, false, true);
     
     // Bounds check elements during resizing so they never fall outside boundaries
     setObjects(objects.map(obj => {
@@ -6055,8 +6496,6 @@ export default function App() {
 
         {/* WORKSPACE AREA ON THE RIGHT - STRETCHABLE SPACE bg-slate-200 (Canvas wrapper is bg-gray-100) */}
         <main className="flex-1 flex flex-col bg-[#E5E7EB] relative min-w-0 overflow-hidden">
-
-
           
           {/* HORIZONTAL WORKSPACE TOOLBAR - Responsive layout, flex-wrap to prevent overlaps */}
           <section id="workspace-toolbar" className="min-h-[48px] py-1.5 bg-white border-b border-gray-200 flex flex-wrap gap-2 items-center justify-between px-3 shrink-0 no-print shadow-xs">
@@ -6397,6 +6836,74 @@ export default function App() {
             saveFileProgress={saveFileProgress}
           />
 
+          {/* TAB THANH CONG CỤ THIẾT KẾ ĐA TAB / SHEET (DƯỚI CHÂN TRANG - ĐẬM MÀU CAO CẤP CHUYÊN NGHIỆP) */}
+          <div className="bg-slate-200 border-t border-slate-300 flex items-center justify-between px-3.5 py-2 select-none shrink-0 overflow-x-auto no-print scrollbar-thin shadow-inner">
+            <div className="flex items-center space-x-1.5 overflow-x-auto">
+              {tabs.map((tab) => {
+                const isActive = tab.id === activeTabId;
+                return (
+                  <div
+                    key={tab.id}
+                    onClick={() => handleSwitchTab(tab.id)}
+                    onDoubleClick={() => handleRenameTab(tab.id)}
+                    className={`group relative flex items-center space-x-2 px-3.5 py-1.5 text-[11px] rounded-lg transition-all duration-150 cursor-pointer border ${
+                      isActive
+                        ? "bg-white text-kiot-cyan font-black border-kiot-cyan shadow-sm scale-102 z-10"
+                        : "bg-slate-100 text-slate-600 hover:text-slate-800 hover:bg-white border-slate-300"
+                    }`}
+                    title="Nháy đúp chuột (Double click) để đổi tên bản thiết kế"
+                  >
+                    <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-kiot-cyan animate-pulse" : "text-slate-400"}`} />
+                    <span className="truncate max-w-[130px] font-sans">
+                      {tab.name}
+                    </span>
+                    
+                    {/* Rename tooltip or button on hover */}
+                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-[9px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-50 font-bold">
+                      Đúp chuột để đổi tên
+                    </span>
+
+                    {/* Delete tab button */}
+                    {tabs.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteTabClick(tab.id, tab.name, e)}
+                        className={`p-1 ml-2 rounded-md transition-all relative z-30 cursor-pointer shrink-0 flex items-center justify-center ${
+                          isActive
+                            ? "hover:bg-red-50 text-slate-400 hover:text-red-500"
+                            : "hover:bg-slate-200 text-slate-400 hover:text-red-500"
+                        }`}
+                        title="Xóa mẫu thiết kế này"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Nút Thêm Tab Mới */}
+              <button
+                type="button"
+                onClick={handleAddTab}
+                className="flex items-center space-x-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 hover:text-kiot-cyan hover:bg-slate-100 rounded-lg transition border border-dashed border-slate-400 hover:border-kiot-cyan/50 cursor-pointer"
+                title="Thêm Mẫu Thiết Kế Mới"
+              >
+                <Plus className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline font-sans">Mẫu mới</span>
+              </button>
+            </div>
+            
+            {/* Tab info text */}
+            <div className="hidden md:flex items-center space-x-2 text-[10px] text-slate-500 font-bold font-sans pr-1">
+              <span className="flex items-center space-x-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
+                <span>Đa tab thiết kế hoạt động độc lập</span>
+              </span>
+              <span className="bg-sky-50 text-kiot-cyan px-2 py-0.5 rounded border border-kiot-cyan/25 text-[9px]">V3.2+ Stable</span>
+            </div>
+          </div>
+
         </main>
       </div>
 
@@ -6498,6 +7005,54 @@ export default function App() {
                   Bỏ qua
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DIALOG XÁC NHẬN ĐÓNG TAB THIẾT KẾ (CHỐNG TẮT NHẦM) */}
+      {tabToDelete && (
+        <div id="tab-delete-backdrop" className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 no-print animate-fade-in">
+          <div 
+            id="tab-delete-modal" 
+            className="bg-white border border-gray-200 shadow-2xl rounded-xl max-w-sm w-full overflow-hidden text-slate-800 p-6 flex flex-col space-y-4 animate-scale-up"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start space-x-3.5">
+              <div className="w-10 h-10 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0 text-red-600">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-bold text-sm text-slate-900 leading-tight">Xác Nhận Đóng Thiết Kế</h3>
+                <p className="text-xs text-slate-500">Mẫu: <strong className="text-slate-800 font-bold">{tabToDelete.name}</strong></p>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="text-xs text-slate-600 leading-relaxed">
+              <p>
+                Bạn có chắc chắn muốn xóa bản thiết kế <strong className="text-red-600 font-semibold">"{tabToDelete.name}"</strong>? 
+                Hành động này sẽ xóa toàn bộ nội dung của mẫu thiết kế này và **không thể hoàn tác** lại.
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-150">
+              <button
+                type="button"
+                onClick={() => setTabToDelete(null)}
+                className="py-2 px-4 border border-gray-300 rounded-lg hover:bg-slate-50 text-slate-700 text-xs font-semibold transition cursor-pointer"
+              >
+                Hủy bỏ (Giữ lại)
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteTab}
+                className="py-2 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition shadow-sm hover:shadow cursor-pointer flex items-center space-x-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Đồng ý xóa mẫu</span>
+              </button>
             </div>
           </div>
         </div>

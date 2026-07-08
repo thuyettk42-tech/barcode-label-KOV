@@ -139,3 +139,22 @@ export interface LabelTemplate {
   objects: LabelObject[];
   sheetConfig?: Partial<SheetLayoutConfig>;
 }
+
+export interface DesignerTab {
+  id: string;
+  name: string;
+  labelConfig: LabelConfig;
+  sheetConfig: SheetLayoutConfig;
+  objects: LabelObject[];
+  excelData: any[];
+  excelColumns: string[];
+  excelFileName: string;
+  excelFileBase64: string;
+  excelFilePath: string | null;
+  currentExcelRowIndex: number;
+  past: LabelObject[][];
+  future: LabelObject[][];
+  selectedId: string | null;
+  selectedIds: string[];
+  officePreviewMode: 'design' | 'sheet';
+}
