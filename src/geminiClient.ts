@@ -222,49 +222,44 @@ CÁC PHẦN TỬ VÀ THÔNG SỐ:
       // --- SELF-CORRECTION / CRITIQUE-CORRECTION TURN ---
       console.log("[AI Client] Launching Critic-Correct Loop to ensure 98%+ match accuracy...");
       try {
-        const critiquePrompt = `Dưới đây là thiết kế thô (bản thảo thiết kế) các đối tượng được nhận diện từ bức ảnh nhãn dán ở trên cho kích thước nhãn W = ${labelWidth}mm, H = ${labelHeight}mm:
+        const critiquePrompt = `Dưới đây là bản thảo thiết kế thô các đối tượng được nhận diện từ ảnh nhãn dán cho kích thước W = ${labelWidth}mm, H = ${labelHeight}mm:
 ${JSON.stringify(resultJson.objects, null, 2)}
 
-Hãy đóng vai trò là một Chuyên gia Kiểm định UI và Thiết kế Đồ họa cao cấp. Hãy đánh giá kỹ lưỡng bản thảo thiết kế thô này so với hình ảnh nhãn dán gốc ở trên. Bản thảo thô này có thể có lỗi lệch cột, đè chữ lên nhau, đè chữ lên mã vạch/mã QR, sai màu hoặc ẩn chữ.
-Nhiệm vụ của bạn là hiệu chỉnh lại tọa độ và các thuộc tính để đạt độ khớp trên 98% so với ảnh gốc, giải quyết triệt để các lỗi sau:
+Hãy đóng vai trò Chuyên gia Kiểm định UI/UX và Thiết kế Đồ họa cao cấp. Hãy thực hiện quy trình tự đánh giá và sửa lỗi BẮT BUỘC theo đúng 5 bước sau đây. Bạn PHẢI giải quyết và phân tích hoàn tất từng bước một theo thứ tự trước khi chuyển sang bước tiếp theo:
 
-1. ĐÚNG CHUẨN ĐỊNH DẠNG MÃ VẠCH (CODE128 vs EAN13):
-   - Hãy nhìn thật kỹ cấu trúc hình ảnh mã vạch:
-     * Nếu mã vạch có các thanh sọc dài thò hẳn xuống bên dưới ở hai đầu và ở giữa (vạch bảo vệ/guard bars), và hàng chữ số bên dưới bị chia thành các cụm chữ số tách rời (ví dụ: số đầu tiên đứng bên ngoài lề trái, các số tiếp theo chia cụm ở giữa), thì đó là 'EAN13'.
-     * Nếu mã vạch có tất cả các thanh sọc cao bằng nhau tuyệt đối ở phía dưới (không có vạch dài thò xuống), đồng thời hàng chữ số được in căn giữa liên tục ngay sát dưới các sọc đen, thì ĐÂY CHẮC CHẮN LÀ 'CODE128' (bất kể độ dài dãy số là 13 chữ số hay bao nhiêu).
-   - Hãy phân tích đúng và đặt 'barcodeFormat' chính xác, tuyệt đối không được nhầm lẫn CODE128 thành EAN13 chỉ vì độ dài chuỗi số!
+BƯỚC 1: XÁC MINH VÀ PHÂN BIỆT ĐỊNH DẠNG MÃ VẠCH THỰC TẾ (CODE128 vs EAN13)
+- Hãy phóng to vùng chứa mã vạch (barcode) trong ảnh gốc để kiểm định:
+  + Nếu mã vạch có vạch bảo vệ nhô dài hơn các vạch còn lại ở hai đầu và chính giữa, đồng thời hàng số bên dưới bị chia thành cụm (ví dụ: chữ số đầu ngoài lề trái, 12 số tiếp theo chia hai cụm ở giữa), thì ĐÓ LÀ 'EAN13'.
+  + Nếu tất cả các vạch mã vạch có chiều cao bằng nhau tắp ở phía dưới đáy, không có vạch nào nhô dài hơn, đồng thời hàng số mã vạch được căn giữa liên tục sát dưới mã vạch, thì ĐÂY CHẮC CHẮN LÀ 'CODE128' (bất kể dãy số dài bao nhiêu ký tự).
+- Hãy sửa lại 'barcodeFormat' đúng 100%. Tuyệt đối không được gán EAN13 sai lệch cho mã vạch CODE128 thực tế chỉ vì dãy số có 13 số!
 
-2. TRÁNH TRÙNG LẶP VÀ ĐÈ SỐ MÃ VẠCH:
-   - Bản thân đối tượng 'barcode' khi được render với 'displayValue: true' (mặc định) sẽ tự động hiển thị hàng số mã vạch (ví dụ: 2510003000016) ngay sát phía dưới các sọc đen. Do đó, bạn KHÔNG ĐƯỢC tạo thêm bất cứ đối tượng 'text' nào chứa nội dung là chuỗi số mã vạch này nữa, vì sẽ làm chúng chồng đè dính lên nhau. Hãy loại bỏ đối tượng 'text' phụ trùng số mã vạch đó nếu có!
+BƯỚC 2: LOẠI BỎ CHỮ TRÙNG LẶP SỐ MÃ VẠCH (Barcode Number Overlap Cleanup)
+- Đối tượng 'barcode' khi được đặt 'displayValue: true' sẽ tự động in chuỗi số (ví dụ: 2510003000016) ngay sát dưới sọc đen.
+- Kiểm tra danh sách: Nếu có bất kỳ đối tượng 'text' nào khác có nội dung trùng lặp đúng với dãy số mã vạch này, bạn KHÔNG ĐƯỢC giữ lại đối tượng đó. Hãy xóa hoàn toàn đối tượng 'text' phụ đó để tránh đè chồng chữ số lên nhau gây mất thẩm mỹ!
 
-3. PHÂN CHIA KHOẢNG CÁCH CỘT VÀ TRÁNH ĐÈ CHỮ (Horizontal Spacing & Overlap Prevention):
-   - ĐẶC BIỆT LƯU Ý KHI CÓ NHIỀU CỘT NẰM NGANG (ví dụ: 'ĐƠN GIÁ' - 'SỐ LƯỢNG' hoặc 'NGÀY ĐÓNG GÓI' - 'NGÀY HẾT HẠN' - 'NHIỆT ĐỘ BẢO QUẢN'):
-     * Các cột nằm ngang phải có 'left_percent' cách xa nhau một khoảng an toàn rõ rệt để không bao giờ đè dính chữ lên nhau!
-     * Ví dụ, nếu nhãn rộng W=60mm và có 3 cột:
-       + Cột 1 ('NGÀY ĐÓNG GÓI'): nên đặt ở left_percent từ 1% đến 3% (width_percent khoảng 30%).
-       + Cột 2 ('NGÀY HẾT HẠN'): nên đặt ở left_percent từ 34% đến 36% (width_percent khoảng 30%).
-       + Cột 3 ('NHIỆT ĐỘ BẢO QUẢN'): nên đặt ở left_percent từ 67% đến 69% (width_percent khoảng 30%).
-       (Tuyệt đối không được đặt left_percent của Cột 2 là 20-30% hay Cột 3 là 50% vì chữ rất dài sẽ đè nát lên nhau!)
-     * Ví dụ nếu có 2 cột (ví dụ 'ĐƠN GIÁ' và 'SỐ LƯỢNG' nằm bên phải mã vạch):
-       + 'ĐƠN GIÁ' và số tiền bên dưới: nên đặt ở left_percent khoảng 45% đến 48% (width_percent khoảng 25-30%).
-       + 'SỐ LƯỢNG' và '1 cái' bên dưới: nên đặt ở left_percent khoảng 75% đến 78% (width_percent khoảng 20-22%).
-       (Nếu đặt SỐ LƯỢNG ở left=55% hoặc 60%, nó chắc chắn sẽ đè dính lên ĐƠN GIÁ!).
-     * Hãy điều chỉnh 'left_percent' của các cột thật chính xác và cách xa nhau rõ rệt để chữ không chồng đè nhau!
+BƯỚC 3: KIỂM ĐỊNH IN ĐẬM (fontWeight: 'bold' Audit)
+- Kiểm tra độ tương phản trong ảnh gốc:
+  + Tên sản phẩm (ví dụ: 'MÁ ĐÙI GÀ CP'), các con số giá trị/giá tiền (ví dụ: '105.000'), hoặc các số ngày tháng quan trọng thường được in rất đậm để dễ đọc.
+  + Bạn BẮT BUỘC phải đặt thuộc tính 'fontWeight' là 'bold' cho tất cả các đối tượng này. Tuyệt đối không được đưa chúng về 'normal'!
 
-4. GIỮ NGUYÊN HOẶC ĐẶT THUỘC TÍNH IN ĐẬM (fontWeight: 'bold'):
-   - Bạn BẮT BUỘC phải đặt 'fontWeight' là 'bold' cho các văn bản quan trọng cần in đậm và nổi bật như: Tên sản phẩm ('MÁ ĐÙI GÀ CP'), các con số giá trị/giá tiền ('105.000'), các giá trị chữ/ngày tháng quan trọng khác. Tuyệt đối không được bỏ quên thuộc tính in đậm hoặc đưa chúng về 'normal', điều này làm mất đi tính tương phản của nhãn!
+BƯỚC 4: THIẾT LẬP KHOẢNG CÁCH CỘT VÀ TRÁNH CHỒNG ĐÈ NGANG (Column Alignment & Spacing)
+- ĐẶC BIỆT LƯU Ý KHI CÓ NHIỀU CỘT NẰM NGANG (Ví dụ: cột 'NGÀY ĐÓNG GÓI' - 'NGÀY HẾT HẠN' - 'NHIỆT ĐỘ BẢO QUẢN', hoặc cột 'ĐƠN GIÁ' - 'SỐ LƯỢNG' ở bên phải mã vạch):
+  + Các cột nằm ngang phải có 'left_percent' cách xa nhau một khoảng rõ rệt để chữ không đè dính lên nhau!
+  + Ví dụ, đối với 3 cột nằm ngang trên nhãn rộng 60mm:
+    * Cột 1: left_percent khoảng 2% đến 5%
+    * Cột 2: left_percent khoảng 36% đến 40%
+    * Cột 3: left_percent khoảng 70% đến 74%
+  + Ví dụ, đối với 2 cột bên phải mã vạch (ví dụ ĐƠN GIÁ và SỐ LƯỢNG):
+    * Cột ĐƠN GIÁ và số tiền tương ứng bên dưới: left_percent khoảng 45% đến 48%
+    * Cột SỐ LƯỢNG và '1 cái' bên dưới: left_percent khoảng 78% đến 82% (Nếu đặt left=55% hoặc 60%, nó chắc chắn sẽ đè dính lên ĐƠN GIÁ!)
+  + CĂN DỌC HOÀN HẢO: Các tiêu đề và giá trị tương ứng nằm trong cùng một cột dọc BẮT BUỘC phải có 'left_percent' bằng nhau tuyệt đối để căn thẳng hàng dọc tắp!
+  + CĂN NGANG HOÀN HẢO: Các phần tử nằm trên cùng một hàng ngang phải có 'top_percent' bằng nhau tuyệt đối!
 
-5. THẲNG HÀNG THEO CỘT VÀ HÀNG (Grid Alignment):
-   - Các phần tử thuộc cùng một cột dọc (ví dụ: tiêu đề 'ĐƠN GIÁ' và giá trị '105.000' bên dưới, tiêu đề 'NGÀY ĐÓNG GÓI' và giá trị '21/04/12' bên dưới) BẮT BUỘC phải có 'left_percent' bằng nhau tuyệt đối để căn hàng thẳng tắp từ trên xuống dưới!
-   - Các tiêu đề cột nằm ngang (ví dụ: 'NGÀY ĐÓNG GÓI', 'NGÀY HẾT HẠN', 'NHIỆT ĐỘ BẢO QUẢN') phải có cùng 'top_percent' để thẳng hàng ngang. Các con số giá trị tương ứng bên dưới cũng phải có cùng 'top_percent' để thẳng hàng ngang.
+BƯỚC 5: ĐẢM BẢO KHÔNG BỊ TRÀN CHỮ HOẶC DẤU BA CHẤM (No Truncation)
+- Đối với các chữ dài như "THÀNH TIỀN", "TƯƠI NGON MỖI NGÀY", hãy đảm bảo 'width_percent' được đặt rộng rãi và an toàn (từ 35% đến 95% tùy độ dài chữ).
+- Hãy dịch chuyển 'left_percent' và 'top_percent' của tất cả đối tượng sao cho không có hai đối tượng nào nằm đè lên nhau. Nếu khoảng trống quá hẹp, hãy chủ động giảm 'fontSize' xuống mức tối thiểu (ví dụ 6.5 hoặc 7 pt) để có khoảng cách an toàn tối thiểu giữa các dòng và cột!
 
-6. ĐẢM BẢO KHÔNG BỊ DẤU BA CHẤM (No Truncation):
-   - Các chữ dài như "THÀNH TIỀN", "TƯƠI NGON MỖI NGÀY" tuyệt đối không được để 'width_percent' quá nhỏ. Hãy tính toán 'width_percent' rộng rãi, tối thiểu từ 35% đến 95% chiều ngang nhãn tùy độ dài chữ, để có không gian chứa văn bản trọn vẹn mà không bị co ngắn hay hiện dấu ba chấm '...'.
-
-7. NHẬN DIỆN MÀU SẮC CHÍNH XÁC 100%:
-   - Hãy nhìn thật kỹ ảnh gốc để xem chữ nào màu đỏ (ví dụ: chữ tiêu đề 'ĐƠN GIÁ', 'SỐ LƯỢNG', 'THÀNH TIỀN', 'NGÀY ĐÓNG GÓI', 'NGÀY HẾT HẠN', 'NHIỆT ĐỘ BẢO QUẢN'), chữ nào màu xanh dương (ví dụ: 'KiotViet'), chữ nào màu xanh lá (ví dụ: 'TƯƠI NGON MỖI NGÀY'), chữ nào màu đen (ví dụ: 'MÁ ĐÙI GÀ CP', giá trị con số '105.000', v.v.). Sửa lại mã màu HEX 'color' chính xác cho từng đối tượng!
-
-Hãy thực hiện bước tự đánh giá trực quan (Self-Evaluation Checklist) chi tiết so với ảnh mẫu trong thuộc tính 'thought_process'. Trả về JSON duy nhất chứa thuộc tính 'thought_process' và 'objects' chứa danh sách các đối tượng sau khi đã sửa lỗi hoàn chỉnh và tối ưu hóa 100%.`;
+Yêu cầu đầu ra: Hãy thực hiện viết báo cáo phân tích chi tiết từng bước 1, 2, 3, 4, 5 trên trong thuộc tính 'thought_process'. Sau đó, trả về JSON duy nhất chứa thuộc tính 'thought_process' và mảng 'objects' chứa danh sách các đối tượng đã được hiệu chỉnh hoàn hảo 100%.`;
 
         const critiquePayload = {
           contents: [
@@ -340,19 +335,16 @@ Hãy thực hiện bước tự đánh giá trực quan (Self-Evaluation Checkli
             const linesCount = lines.length;
             const maxLineChars = Math.max(...lines.map((l: string) => l.length), 1);
             
-            // Adjust character width aspect ratio estimate dynamically to avoid truncation "..."
-            // Uppercase and Bold characters are significantly wider in modern sans fonts (Inter).
+            // Adjust character width aspect ratio estimate dynamically to be exactly snug (text length + 15%)
             const isBold = obj.fontWeight === "bold";
             const isUpper = textContent === textContent.toUpperCase();
-            const multiplier = (isBold ? 0.75 : 0.58) * (isUpper ? 1.25 : 1.0);
+            const multiplier = (isBold ? 0.62 : 0.52) * (isUpper ? 1.15 : 1.0);
             
             const charWidthEstimate = fontSize * 0.3528 * multiplier;
-            const estimatedTextWidth = maxLineChars * charWidthEstimate + 4.0; // 4mm safety padding to prevent truncation "..."
-            width = Math.max(width, estimatedTextWidth);
+            width = maxLineChars * charWidthEstimate * 1.15; // snug fit text length + 15%
             
-            const lineH = fontSize * 0.3528 * 1.30;
-            const estimatedTextHeight = linesCount * lineH + 1.2; // 1.2mm safety padding
-            height = Math.max(height, estimatedTextHeight);
+            const lineH = fontSize * 0.3528 * 1.25;
+            height = linesCount * lineH * 1.15; // snug height + 15%
           }
 
           return {
