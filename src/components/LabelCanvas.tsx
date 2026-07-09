@@ -272,15 +272,184 @@ const ShapeRenderer = ({ obj, pixelScale }: { obj: LabelObject; pixelScale: numb
   );
 };
 
+const resolveFontFamilyHelper = (family: string | undefined) => {
+  if (family === "Arial") return "Arial, Helvetica, sans-serif";
+  if (family === "Times New Roman") return "'Times New Roman', Times, serif";
+  if (family === "Tahoma") return "Tahoma, Geneva, sans-serif";
+  if (family === "monospace") return "var(--font-mono)";
+  return "var(--font-sans)";
+};
+
+const resolveFontFamilyForCanvas = (family: string | undefined) => {
+  if (family === "Arial") return "Arial, Helvetica, sans-serif";
+  if (family === "Times New Roman") return "'Times New Roman', Times, serif";
+  if (family === "Tahoma") return "Tahoma, Geneva, sans-serif";
+  if (family === "monospace" || family === "var(--font-mono)") {
+    return "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace";
+  }
+  return "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+};
+
+const truncateTextToFit = (
+  text: string,
+  maxWidthPx: number,
+  fontStyle: string,
+  maxLines: number,
+): string => {
+  if (!text || maxWidthPx <= 0) return text;
+
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return text;
+    ctx.font = fontStyle;
+
+    // Fast check: if the entire text fits, return as-is
+    const totalWidth = ctx.measureText(text).width;
+    if (totalWidth <= maxWidthPx && !text.includes("\n") && maxLines === 1) {
+      return text;
+    }
+
+    if (maxLines === 1) {
+      const singleText = text.replace(/\n/g, " ");
+      const w = ctx.measureText(singleText).width;
+      if (w <= maxWidthPx) return singleText;
+
+      // Binary search the truncation point
+      let low = 0;
+      let high = singleText.length;
+      let result = "";
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const testStr = singleText.substring(0, mid) + "...";
+        if (ctx.measureText(testStr).width <= maxWidthPx) {
+          result = testStr;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      return result || "...";
+    }
+
+    // For multi-line text (maxLines > 1)
+    const paragraphs = text.split("\n");
+    const lines: string[] = [];
+    let overflowed = false;
+
+    for (let p = 0; p < paragraphs.length; p++) {
+      if (lines.length >= maxLines) {
+        overflowed = true;
+        break;
+      }
+      const paragraph = paragraphs[p];
+      if (paragraph === "") {
+        lines.push("");
+        continue;
+      }
+
+      const words = paragraph.split(" ");
+      let currentLine = "";
+
+      for (let w = 0; w < words.length; w++) {
+        const word = words[w];
+        const testLine = currentLine ? currentLine + " " + word : word;
+
+        if (ctx.measureText(testLine).width <= maxWidthPx) {
+          currentLine = testLine;
+        } else {
+          // If a single word is too long, split it by characters
+          if (ctx.measureText(word).width > maxWidthPx) {
+            if (currentLine) {
+              lines.push(currentLine);
+              currentLine = "";
+              if (lines.length >= maxLines) {
+                overflowed = true;
+                break;
+              }
+            }
+
+            let tempWord = word;
+            while (tempWord.length > 0) {
+              let low = 0;
+              let high = tempWord.length;
+              let lenToTake = 0;
+              while (low <= high) {
+                const mid = Math.floor((low + high) / 2);
+                const testSub = tempWord.substring(0, mid);
+                if (ctx.measureText(testSub).width <= maxWidthPx) {
+                  lenToTake = mid;
+                  low = mid + 1;
+                } else {
+                  high = mid - 1;
+                }
+              }
+              if (lenToTake === 0) lenToTake = 1;
+
+              const chunk = tempWord.substring(0, lenToTake);
+              tempWord = tempWord.substring(lenToTake);
+
+              if (lines.length + 1 > maxLines) {
+                overflowed = true;
+                break;
+              } else {
+                lines.push(chunk);
+              }
+            }
+            if (overflowed) break;
+          } else {
+            lines.push(currentLine);
+            currentLine = word;
+            if (lines.length >= maxLines) {
+              overflowed = true;
+              break;
+            }
+          }
+        }
+      }
+
+      if (overflowed) break;
+      if (currentLine) {
+        lines.push(currentLine);
+      }
+    }
+
+    if (overflowed || lines.length > maxLines) {
+      const finalLines = lines.slice(0, maxLines);
+      if (finalLines.length > 0) {
+        const lastLineIdx = finalLines.length - 1;
+        const lastLine = finalLines[lastLineIdx];
+
+        let low = 0;
+        let high = lastLine.length;
+        let truncatedLast = "";
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2);
+          const testStr = lastLine.substring(0, mid) + "...";
+          if (ctx.measureText(testStr).width <= maxWidthPx) {
+            truncatedLast = testStr;
+            low = mid + 1;
+          } else {
+            high = mid - 1;
+          }
+        }
+        finalLines[lastLineIdx] = truncatedLast || "...";
+      }
+      return finalLines.join("\n");
+    }
+
+    return lines.join("\n");
+  } catch (e) {
+    console.error("Error truncating text to fit:", e);
+    return text;
+  }
+};
+
 const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolean = false) => {
   const displayContent = formatLabelText(obj);
 
   const resolveFontFamily = (family: string | undefined) => {
-    if (family === "Arial") return "Arial, Helvetica, sans-serif";
-    if (family === "Times New Roman") return "'Times New Roman', Times, serif";
-    if (family === "Tahoma") return "Tahoma, Geneva, sans-serif";
-    if (family === "monospace") return "var(--font-mono)";
-    return "var(--font-sans)";
+    return resolveFontFamilyHelper(family);
   };
 
   // Resolve alignment / flow origin classes
@@ -363,6 +532,36 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
   const lineH_mm = (obj.fontSize || 10) * 0.3528 * 1.25;
   const maxLines = Math.max(1, Math.floor(obj.height / lineH_mm));
 
+  // Determine dynamic truncation to ensure perfect match on preview & print/PDF
+  let truncatedContent = displayContent;
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    const totalBoxWidthPx = obj.width * pixelScale;
+    const safetyPaddingPx = 3; // safety padding for browser rendering variances
+    const maxAvailableWidthPx = Math.max(0, totalBoxWidthPx - safetyPaddingPx);
+
+    // Measure prefix width
+    let prefixWidthPx = 0;
+    if (obj.prefixText) {
+      const prefixFont = `${obj.prefixFontStyle || "normal"} ${obj.prefixFontWeight || "normal"} ${(obj.prefixFontSize || obj.fontSize || 10) * 0.3528 * pixelScale}px ${resolveFontFamilyForCanvas(obj.prefixFontFamily || obj.fontFamily)}`;
+      ctx.font = prefixFont;
+      prefixWidthPx = ctx.measureText(obj.prefixText).width;
+    }
+
+    // Measure suffix width
+    let suffixWidthPx = 0;
+    if (obj.suffixText) {
+      const suffixFont = `${obj.suffixFontStyle || "normal"} ${obj.suffixFontWeight || "normal"} ${(obj.suffixFontSize || obj.fontSize || 10) * 0.3528 * pixelScale}px ${resolveFontFamilyForCanvas(obj.suffixFontFamily || obj.fontFamily)}`;
+      ctx.font = suffixFont;
+      suffixWidthPx = ctx.measureText(obj.suffixText).width;
+    }
+
+    const mainMaxWidthPx = Math.max(0, maxAvailableWidthPx - prefixWidthPx - suffixWidthPx);
+    const mainFont = `${obj.fontStyle || "normal"} ${obj.fontWeight || "normal"} ${(obj.fontSize || 10) * 0.3528 * pixelScale}px ${resolveFontFamilyForCanvas(obj.fontFamily)}`;
+    truncatedContent = truncateTextToFit(displayContent, mainMaxWidthPx, mainFont, maxLines);
+  }
+
   return (
     <div
       className={`w-full h-full select-none flex flex-col ${justifyClass} ${alignClass}`}
@@ -400,7 +599,7 @@ const renderTextElement = (obj: LabelObject, pixelScale: number, isPrint: boolea
             obj.prefixColor,
           )}
         {renderSegment(
-          displayContent,
+          truncatedContent,
           obj.fontSize,
           obj.fontFamily,
           obj.fontWeight,
