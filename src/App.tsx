@@ -10,6 +10,7 @@ import { resizeImage, safeLocalStorage } from "./utils";
 import { convertToZPL } from "./utils/zplGenerator";
 import { convertToTSPL } from "./utils/tsplGenerator";
 import { LabelCanvas } from "./components/LabelCanvas";
+import { callGeminiClientSide } from "./geminiClient";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { TemplateSelector } from "./components/TemplateSelector";
 import * as XLSX from "xlsx";
@@ -162,6 +163,8 @@ export default function App() {
   const [showHowToUse, setShowHowToUse] = useState<boolean>(false);
   const [showDownloadModal, setShowDownloadModal] = useState<boolean>(false);
   const [tabToDelete, setTabToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [editingTabId, setEditingTabId] = useState<string | null>(null);
+  const [editingTabName, setEditingTabName] = useState<string>("");
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   const [isSavingFile, setIsSavingFile] = useState<boolean>(false);
   const [saveFileProgress, setSaveFileProgress] = useState<string>("");
@@ -1080,14 +1083,19 @@ export default function App() {
   const handleRenameTab = (tabId: string) => {
     const tabToRename = tabs.find(t => t.id === tabId);
     if (!tabToRename) return;
-    const newName = window.prompt("Nhập tên mới cho tab thiết kế:", tabToRename.name);
-    if (newName && newName.trim()) {
-      const trimmed = newName.trim();
+    setEditingTabId(tabId);
+    setEditingTabName(tabToRename.name);
+  };
+
+  const handleSaveTabName = (tabId: string) => {
+    if (editingTabName && editingTabName.trim()) {
+      const trimmed = editingTabName.trim();
       setTabs(prev => prev.map(t => t.id === tabId ? { ...t, name: trimmed } : t));
       if (tabId === activeTabId) {
         setLabelConfig(prev => ({ ...prev, name: trimmed }));
       }
     }
+    setEditingTabId(null);
   };
 
   const [wasDesignModeForPrint, setWasDesignModeForPrint] = useState<boolean>(false);
@@ -3831,7 +3839,7 @@ export default function App() {
             <h1 className="text-lg md:text-[26px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
               <span className="text-kiot-cyan">KiotLabel</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.2</span>
+              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.3</span>
             </h1>
           </div>
         </div>
@@ -5678,27 +5686,66 @@ export default function App() {
                                     }
                                   }, 950);
 
-                                  const response = await fetch("/api/gemini/analyze-label", {
-                                    method: "POST",
-                                    headers: {
-                                      "Content-Type": "application/json"
-                                    },
-                                    body: JSON.stringify({
-                                      image: optimizedImg,
-                                      width: labelConfig.width,
-                                      height: labelConfig.height,
-                                      userApiKey: userCustomApiKey.trim() || undefined
-                                    })
-                                  });
+                                  let result;
+                                  const trimmedUserApiKey = userCustomApiKey.trim();
 
-                                  clearInterval(progressInterval);
+                                  if (trimmedUserApiKey) {
+                                    // If user has supplied their own API key, bypass server/proxy and call Gemini REST API directly in-browser
+                                    // This guarantees success on platforms like Vercel which lack server-side handlers
+                                    setAiStatusMessage("Đang gọi trực tiếp API Gemini từ trình duyệt...");
+                                    try {
+                                      result = await callGeminiClientSide(
+                                        optimizedImg,
+                                        labelConfig.width,
+                                        labelConfig.height,
+                                        trimmedUserApiKey
+                                      );
+                                    } catch (directErr: any) {
+                                      console.error("Direct API call failed, trying server-side proxy as fallback...", directErr);
+                                      // Fallback to server call just in case
+                                      const response = await fetch("/api/gemini/analyze-label", {
+                                        method: "POST",
+                                        headers: {
+                                          "Content-Type": "application/json"
+                                        },
+                                        body: JSON.stringify({
+                                          image: optimizedImg,
+                                          width: labelConfig.width,
+                                          height: labelConfig.height,
+                                          userApiKey: trimmedUserApiKey
+                                        })
+                                      });
+                                      if (!response.ok) {
+                                        const errData = await response.json().catch(() => ({}));
+                                        throw new Error(errData.error || errData.message || `Lỗi máy chủ (${response.status}): ${directErr.message || directErr}`);
+                                      }
+                                      result = await response.json();
+                                    }
+                                  } else {
+                                    // No custom API key provided, call server-side proxy
+                                    const response = await fetch("/api/gemini/analyze-label", {
+                                      method: "POST",
+                                      headers: {
+                                        "Content-Type": "application/json"
+                                      },
+                                      body: JSON.stringify({
+                                        image: optimizedImg,
+                                        width: labelConfig.width,
+                                        height: labelConfig.height
+                                      })
+                                    });
 
-                                  if (!response.ok) {
-                                    const errData = await response.json().catch(() => ({}));
-                                    throw new Error(errData.error || errData.message || `Lỗi máy chủ: ${response.status}`);
+                                    if (!response.ok) {
+                                      const errData = await response.json().catch(() => ({}));
+                                      if (response.status === 404) {
+                                        throw new Error("Để sử dụng tính năng phân tích tem bằng AI trên phiên bản Web (Vercel), vui lòng cấu hình API Key cá nhân của bạn trong phần 'Cấu hình Gemini API Key' ở thanh bên trái.");
+                                      }
+                                      throw new Error(errData.error || errData.message || `Lỗi máy chủ: ${response.status}`);
+                                    }
+                                    result = await response.json();
                                   }
 
-                                  const result = await response.json();
+                                  clearInterval(progressInterval);
                                   
                                   if (!result.objects || !Array.isArray(result.objects)) {
                                     throw new Error("Không nhận được danh sách đối tượng hợp lệ từ AI.");
@@ -6910,30 +6957,61 @@ export default function App() {
             <div className="flex items-center space-x-1.5 overflow-x-auto">
               {tabs.map((tab) => {
                 const isActive = tab.id === activeTabId;
+                const isEditing = tab.id === editingTabId;
                 return (
                   <div
                     key={tab.id}
-                    onClick={() => handleSwitchTab(tab.id)}
-                    onDoubleClick={() => handleRenameTab(tab.id)}
+                    onClick={() => {
+                      if (!isEditing) {
+                        handleSwitchTab(tab.id);
+                      }
+                    }}
+                    onDoubleClick={() => {
+                      if (!isEditing) {
+                        handleRenameTab(tab.id);
+                      }
+                    }}
                     className={`group relative flex items-center space-x-2 px-3.5 py-1.5 text-[11px] rounded-lg transition-all duration-150 cursor-pointer border ${
                       isActive
                         ? "bg-white text-kiot-cyan font-black border-kiot-cyan shadow-sm scale-102 z-10"
                         : "bg-slate-100 text-slate-600 hover:text-slate-800 hover:bg-white border-slate-300"
                     }`}
-                    title="Nháy đúp chuột (Double click) để đổi tên bản thiết kế"
+                    title={isEditing ? "" : "Nháy đúp chuột (Double click) để đổi tên bản thiết kế"}
                   >
                     <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? "text-kiot-cyan animate-pulse" : "text-slate-400"}`} />
-                    <span className="truncate max-w-[130px] font-sans">
-                      {tab.name}
-                    </span>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingTabName}
+                        onChange={(e) => setEditingTabName(e.target.value)}
+                        onBlur={() => handleSaveTabName(tab.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleSaveTabName(tab.id);
+                          } else if (e.key === "Escape") {
+                            setEditingTabId(null);
+                          }
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        onDoubleClick={(e) => e.stopPropagation()}
+                        className="bg-slate-50 border border-kiot-cyan text-slate-800 px-1 py-0.5 rounded outline-none w-[110px] font-sans text-[11px]"
+                      />
+                    ) : (
+                      <span className="truncate max-w-[130px] font-sans">
+                        {tab.name}
+                      </span>
+                    )}
                     
                     {/* Rename tooltip or button on hover */}
-                    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-[9px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-50 font-bold">
-                      Đúp chuột để đổi tên
-                    </span>
+                    {!isEditing && (
+                      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-900 text-white text-[9px] px-2 py-0.5 rounded shadow-lg whitespace-nowrap z-50 font-bold">
+                        Đúp chuột để đổi tên
+                      </span>
+                    )}
 
                     {/* Delete tab button */}
-                    {tabs.length > 1 && (
+                    {tabs.length > 1 && !isEditing && (
                       <button
                         type="button"
                         onClick={(e) => handleDeleteTabClick(tab.id, tab.name, e)}
@@ -6965,7 +7043,7 @@ export default function App() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
                 <span>Đa tab thiết kế hoạt động độc lập</span>
               </span>
-              <span className="bg-sky-50 text-kiot-cyan px-2 py-0.5 rounded border border-kiot-cyan/25 text-[9px]">V3.2+ Stable</span>
+              <span className="bg-sky-50 text-kiot-cyan px-2 py-0.5 rounded border border-kiot-cyan/25 text-[9px]">V3.3+ Stable</span>
             </div>
           </div>
 
@@ -7594,7 +7672,7 @@ export default function App() {
                 Hủy bỏ
               </button>
               <a
-                href="https://drive.google.com/file/d/1OfMEVdVf66DQJuogCF_BTdZu9YmwP1m0/view?usp=sharing"
+                href="https://drive.google.com/file/d/1J3U6504ft4TjlPv-Uov7eFONI-lukPTa/view?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowDownloadModal(false)}
