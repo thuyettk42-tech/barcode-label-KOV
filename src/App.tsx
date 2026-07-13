@@ -3351,6 +3351,35 @@ export default function App() {
   const handleSavePrintFile = (format: 'png' | 'pdf' | 'zpl' | 'tspl', autoOpen = false) => {
     if (isSavingFile || isPreparingPrint) return;
 
+    if (format === 'pdf') {
+      const currentPrintState = JSON.stringify({
+        displayObjects,
+        labelConfig,
+        sheetConfig,
+        printCopies,
+        excelData,
+      });
+
+      if (lastPdfStateRef.current === currentPrintState && lastPdfBlobUrlRef.current) {
+        setPopupBlobUrl(lastPdfBlobUrlRef.current);
+        if (autoOpen) {
+          const newWindow = window.open(lastPdfBlobUrlRef.current, '_blank');
+          if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+            setIsPopupBlocked(true);
+          } else {
+            setIsPopupBlocked(false);
+          }
+          setShowPopupBlockedModal(true);
+        } else {
+          const link = document.createElement('a');
+          link.href = lastPdfBlobUrlRef.current;
+          link.download = `${labelConfig.name || 'ThietKe_Tem'}_${labelConfig.width}x${labelConfig.height}mm.pdf`;
+          link.click();
+        }
+        return;
+      }
+    }
+
     const originalZoom = interfaceZoom;
     const originalPreviewMode = officePreviewMode;
     setIsSavingFile(true);
@@ -3368,12 +3397,6 @@ export default function App() {
     if (format === 'png' || format === 'pdf') {
       setInterfaceZoom(1.0);
       setOfficePreviewMode('sheet');
-
-      // Clear the canvas caches unconditionally on each export run. This completely resolves the memory-bloat
-      // issues and guarantees that stale, cropped, or shifted canvases from a previous window resize,
-      // zoom change, or scroll event are never reused.
-      cachedCanvasesRef.current = [];
-      cachedCanvasesByContentKeyRef.current = {};
     }
 
     // Give a generous 1000ms timeout for the browser to completely reflow,
@@ -3426,56 +3449,9 @@ export default function App() {
 
         // For PNG & PDF: Target the active on-screen perfectly rendered elements directly
         setSaveFileProgress("Đang phân tích cấu trúc nhãn thiết kế...");
-
-        // Wait until all custom fonts are completely loaded by the browser before doing any DOM queries or measurements
-        if (typeof document !== "undefined" && document.fonts && document.fonts.ready) {
-          try {
-            await document.fonts.ready;
-          } catch (e) {
-            console.warn("Font loading wait failed:", e);
-          }
-        }
         
         let totalCount = 0;
         let isSingleCanvas = false;
-
-        // Calculate expected pages programmatically to compare with actual rendered DOM count
-        const isThermal = !sheetConfig || sheetConfig.mode === 'thermal';
-        const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
-        const rows = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
-        const hasExcel = excelData && excelData.length > 0;
-        
-        let totalItems = 0;
-        if (hasExcel) {
-          totalItems = excelData.length;
-        } else {
-          if (isThermal) {
-            totalItems = printCopies || cols;
-          } else {
-            totalItems = printCopies || (cols * rows);
-          }
-        }
-
-        let expectedPages = 1;
-        if (isThermal) {
-          expectedPages = Math.max(1, Math.ceil(totalItems / cols));
-        } else {
-          const cellsPerSheet = cols * rows;
-          expectedPages = Math.max(1, Math.ceil(totalItems / cellsPerSheet));
-        }
-
-        // Wait up to 4000ms for React and browser to fully render the exact expected number of pages in the DOM
-        const startTime = Date.now();
-        while (Date.now() - startTime < 4000) {
-          const thermalPages = document.querySelectorAll('.batch-print-page');
-          const officePages = document.querySelectorAll('.office-print-page');
-          const currentCount = thermalPages.length > 0 ? thermalPages.length : officePages.length;
-          
-          if (currentCount === expectedPages) {
-            break;
-          }
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        }
 
         const thermalPages = document.querySelectorAll('.batch-print-page');
         const officePages = document.querySelectorAll('.office-print-page');
@@ -3514,10 +3490,10 @@ export default function App() {
         }
 
         const getResolvedObjectsKeyForPage = (pageIdx: number) => {
-          const isThermalPage = !sheetConfig || sheetConfig.mode === 'thermal';
-          const colsPage = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
-          const rowsPage = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
-          const labelsPerPage = isThermalPage ? colsPage : (colsPage * rowsPage);
+          const isThermal = !sheetConfig || sheetConfig.mode === 'thermal';
+          const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+          const rows = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
+          const labelsPerPage = isThermal ? cols : (cols * rows);
           
           const startCellIdx = pageIdx * labelsPerPage;
           const endCellIdx = startCellIdx + labelsPerPage;
@@ -3557,64 +3533,6 @@ export default function App() {
 
         const tempCanvases: (HTMLCanvasElement | null)[] = new Array(totalCount).fill(null);
 
-        // Find scrollable ancestors to temporarily reset their scroll to 0 and disable smooth scrolling.
-        // This is extremely important because if any parent container of the label has scroll (scrollTop > 0 or scrollLeft > 0)
-        // or animated smooth scrolling transitions, html2canvas will render with severe cropping, shifting, or offsets.
-        const scrollableAncestors: { element: HTMLElement; scrollTop: number; scrollLeft: number; originalScrollBehavior: string }[] = [];
-        const targetPrintElements: HTMLElement[] = [];
-        
-        thermalPages.forEach(el => targetPrintElements.push(el as HTMLElement));
-        officePages.forEach(el => targetPrintElements.push(el as HTMLElement));
-        
-        const singleLabelCanvas = document.getElementById('thermal-label-canvas');
-        if (singleLabelCanvas) {
-          targetPrintElements.push(singleLabelCanvas);
-        }
-
-        // Collect all unique scrollable parent elements of our target print elements, including html and body
-        const uniqueScrollParents = new Set<HTMLElement>();
-        uniqueScrollParents.add(document.documentElement);
-        uniqueScrollParents.add(document.body);
-
-        targetPrintElements.forEach((el) => {
-          let parent = el.parentElement;
-          while (parent) {
-            if (parent.scrollHeight > parent.clientHeight || parent.scrollWidth > parent.clientWidth) {
-              const overflowY = window.getComputedStyle(parent).overflowY;
-              const overflowX = window.getComputedStyle(parent).overflowX;
-              if (overflowY === 'auto' || overflowY === 'scroll' || overflowX === 'auto' || overflowX === 'scroll') {
-                uniqueScrollParents.add(parent);
-              }
-            }
-            parent = parent.parentElement;
-          }
-        });
-
-        // Save current scroll positions and original scroll behaviors
-        uniqueScrollParents.forEach((el) => {
-          scrollableAncestors.push({
-            element: el,
-            scrollTop: el.scrollTop,
-            scrollLeft: el.scrollLeft,
-            originalScrollBehavior: el.style.scrollBehavior || "",
-          });
-        });
-
-        // Also save document/window scroll position
-        const documentScrollTop = window.scrollY || document.documentElement.scrollTop;
-        const documentScrollLeft = window.scrollX || document.documentElement.scrollLeft;
-
-        // Force 'auto' scroll behavior and reset scroll positions of scrollable parents and window to 0 instantly
-        uniqueScrollParents.forEach((el) => {
-          el.style.setProperty('scroll-behavior', 'auto', 'important');
-          el.scrollTop = 0;
-          el.scrollLeft = 0;
-        });
-        window.scrollTo({ left: 0, top: 0, behavior: 'auto' });
-
-        // Wait a couple of layout frames for the scrolls to settle and browsers to layout correctly
-        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-
         try {
           const chunkSize = 8; // Slightly larger chunk size for faster parallelization
           for (let i = 0; i < totalCount; i += chunkSize) {
@@ -3636,20 +3554,20 @@ export default function App() {
                 } else if (cachedCanvasesByContentKeyRef.current[pageContentKey]) {
                   cachedCanvas = cachedCanvasesByContentKeyRef.current[pageContentKey];
                 } else if (!excelData || excelData.length === 0) {
-                  const isThermalPage = !sheetConfig || sheetConfig.mode === 'thermal';
-                  if (isThermalPage) {
-                    const colsPage = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
-                    const totalItemsPage = printCopies || colsPage;
-                    const labelsOnThisRow = Math.min(colsPage, totalItemsPage - index * colsPage);
-                    if (labelsOnThisRow === colsPage && cachedCanvasesRef.current[0]) {
+                  const isThermal = !sheetConfig || sheetConfig.mode === 'thermal';
+                  if (isThermal) {
+                    const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+                    const totalItems = printCopies || cols;
+                    const labelsOnThisRow = Math.min(cols, totalItems - index * cols);
+                    if (labelsOnThisRow === cols && cachedCanvasesRef.current[0]) {
                       cachedCanvas = cachedCanvasesRef.current[0];
                     }
                   } else {
-                    const colsPage = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
-                    const rowsPage = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
-                    const labelsPerSheet = colsPage * rowsPage;
-                    const totalItemsPage = printCopies || labelsPerSheet;
-                    const labelsOnThisSheet = Math.min(labelsPerSheet, totalItemsPage - index * labelsPerSheet);
+                    const cols = Math.max(1, (sheetConfig && sheetConfig.cols) || 1);
+                    const rows = Math.max(1, (sheetConfig && sheetConfig.rows) || 1);
+                    const labelsPerSheet = cols * rows;
+                    const totalItems = printCopies || labelsPerSheet;
+                    const labelsOnThisSheet = Math.min(labelsPerSheet, totalItems - index * labelsPerSheet);
                     if (labelsOnThisSheet === labelsPerSheet && cachedCanvasesRef.current[0]) {
                       cachedCanvas = cachedCanvasesRef.current[0];
                     }
@@ -3668,12 +3586,12 @@ export default function App() {
 
                 let currentEl: HTMLElement | null = null;
                 if (!isSingleCanvas) {
-                  const thermalPagesRendered = document.querySelectorAll('.batch-print-page');
-                  const officePagesRendered = document.querySelectorAll('.office-print-page');
-                  if (thermalPagesRendered.length > 0) {
-                    currentEl = thermalPagesRendered[index] as HTMLElement;
-                  } else if (officePagesRendered.length > 0) {
-                    currentEl = officePagesRendered[index] as HTMLElement;
+                  const thermalPages = document.querySelectorAll('.batch-print-page');
+                  const officePages = document.querySelectorAll('.office-print-page');
+                  if (thermalPages.length > 0) {
+                    currentEl = thermalPages[index] as HTMLElement;
+                  } else if (officePages.length > 0) {
+                    currentEl = officePages[index] as HTMLElement;
                   }
                 } else {
                   currentEl = document.getElementById('thermal-label-canvas');
@@ -3684,30 +3602,25 @@ export default function App() {
                   return { index, canvas: null };
                 }
 
-                // Get exact dimensions of the element at 1.0 scale.
-                // Using offsetWidth/offsetHeight is cleaner and independent of viewport scale transforms.
-                const width = currentEl.offsetWidth || currentEl.getBoundingClientRect().width || 1;
-                const height = currentEl.offsetHeight || currentEl.getBoundingClientRect().height || 1;
+                // Get exact dimensions to restrict html2canvas rendering bounds.
+                // This prevents html2canvas from scanning and rendering the whole page viewport,
+                // which is extremely heavy and memory-intensive!
+                const rect = currentEl.getBoundingClientRect();
+                const width = rect.width || currentEl.offsetWidth || 1;
+                const height = rect.height || currentEl.offsetHeight || 1;
 
-                // Use a high-precision multiplier on top of the DOM's native 300 DPI resolution.
-                // We use 3.5x scale (equivalent to ~1050 DPI) for small thermal labels to eliminate 
-                // any font subpixel anti-aliasing fuzziness or barcode edge blur. 
-                // For A4/A5 office sheets, we use 2.0x scale (equivalent to ~600 DPI) to prevent 
-                // excessive memory overhead while maintaining ultra-sharp text and graphics.
-                const captureScale = isThermal ? 3.5 : 2.0;
-
+                // Use html2canvas at 1.0 scale because the DOM is already rendered 
+                // at the high-fidelity 300 DPI native resolution (11.811 pixels per mm).
                 const canvas = await html2canvas(currentEl, {
-                  scale: captureScale, 
+                  scale: 1.0, 
                   useCORS: true,
                   allowTaint: true,
                   backgroundColor: labelConfig.bgColor || "#ffffff",
                   logging: false,
                   width: width,
                   height: height,
-                  // Enable scrollX/scrollY to be 0 for exact viewport capture bounds
                   scrollX: 0,
                   scrollY: 0,
-                  // Crop precisely from coordinates (0, 0) of the target element to bypass layout offset issues
                   x: 0,
                   y: 0,
                 });
@@ -3729,18 +3642,6 @@ export default function App() {
             }
           }
         } finally {
-          // Restore scroll positions of parent elements and document
-          scrollableAncestors.forEach((item) => {
-            try {
-              item.element.style.scrollBehavior = item.originalScrollBehavior;
-              item.element.scrollTop = item.scrollTop;
-              item.element.scrollLeft = item.scrollLeft;
-            } catch (err) {
-              console.error("Lỗi khi khôi phục thanh cuộn:", err);
-            }
-          });
-          window.scrollTo({ left: documentScrollLeft, top: documentScrollTop, behavior: 'auto' });
-
           await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         }
 

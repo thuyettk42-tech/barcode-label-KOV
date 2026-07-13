@@ -8,11 +8,6 @@
   -moz-osx-font-smoothing: grayscale !important;
 }
 
-#thermal-label-canvas *, .batch-print-page *, .office-print-page * {
-  image-rendering: pixelated !important;
-  -webkit-font-smoothing: antialiased !important;
-}
-
 @theme {
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier New, monospace;
