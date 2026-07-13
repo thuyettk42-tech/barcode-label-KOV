@@ -2758,7 +2758,7 @@ export function LabelCanvas({
             }
           }}
           className={`shadow-xl absolute transition-shadow duration-300 print:shadow-none print:border-none print:m-0 print:p-0 ${
-            gridSnapSize > 0
+            gridSnapSize > 0 && !(isPrinting || isSystemPrinting || isSavingFile)
               ? "bg-[radial-gradient(#e2e8f0_1px,transparent_1.2px)] [background-size:10px_10px]"
               : ""
           }`}
