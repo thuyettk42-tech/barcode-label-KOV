@@ -136,6 +136,49 @@ const InfoTooltip = ({ content }: { content: React.ReactNode }) => (
   </span>
 );
 
+function binarizeCanvas(canvas: HTMLCanvasElement, threshold: number = 200) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  try {
+    const width = canvas.width;
+    const height = canvas.height;
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    const len = data.length;
+    for (let i = 0; i < len; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      const a = data[i + 3];
+
+      if (a < 128) {
+        // Transparent is white
+        data[i] = 255;
+        data[i + 1] = 255;
+        data[i + 2] = 255;
+        data[i + 3] = 255;
+      } else {
+        const v = 0.299 * r + 0.587 * g + 0.114 * b;
+        if (v < threshold) {
+          // Dark pixel becomes solid black
+          data[i] = 0;
+          data[i + 1] = 0;
+          data[i + 2] = 0;
+        } else {
+          // Light pixel becomes solid white
+          data[i] = 255;
+          data[i + 1] = 255;
+          data[i + 2] = 255;
+        }
+        data[i + 3] = 255; // Solid opacity
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  } catch (e) {
+    console.error("Binarization failed:", e);
+  }
+}
+
 export default function App() {
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const pasteInputRef = useRef<HTMLInputElement>(null);
@@ -168,6 +211,9 @@ export default function App() {
   const [isPreparingPrint, setIsPreparingPrint] = useState<boolean>(false);
   const [isSavingFile, setIsSavingFile] = useState<boolean>(false);
   const [saveFileProgress, setSaveFileProgress] = useState<string>("");
+  const [optimizeThermalBinarization, setOptimizeThermalBinarization] = useState<boolean>(true);
+  const [cachedPagesCount, setCachedPagesCount] = useState<number>(0);
+  const [autoReleaseRam, setAutoReleaseRam] = useState<boolean>(true);
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>(() => {
@@ -520,6 +566,34 @@ export default function App() {
   const cachedCanvasesByContentKeyRef = React.useRef<Record<string, HTMLCanvasElement>>({});
   const cacheDesignKeyRef = React.useRef<string>("");
 
+  const clearCanvasMemory = useCallback(() => {
+    try {
+      if (cachedCanvasesRef.current) {
+        cachedCanvasesRef.current.forEach((canvas) => {
+          if (canvas) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+        });
+        cachedCanvasesRef.current = [];
+      }
+      if (cachedCanvasesByContentKeyRef.current) {
+        Object.values(cachedCanvasesByContentKeyRef.current).forEach((canvas) => {
+          if (canvas) {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+        });
+        cachedCanvasesByContentKeyRef.current = {};
+      }
+      cacheDesignKeyRef.current = "";
+      setCachedPagesCount(0);
+      console.log("Memory optimized: High-fidelity canvas elements purged & dereferenced successfully.");
+    } catch (err) {
+      console.error("Error during manual cache purge:", err);
+    }
+  }, []);
+
   // Google Drive integration states removed for lightweight offline operations
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
   const [showPopupBlockedModal, setShowPopupBlockedModal] = useState<boolean>(false);
@@ -619,7 +693,7 @@ export default function App() {
       marginRight: 10,
       rows: 8,
       cols: 1,
-      rowGap: 3,
+      rowGap: 0,
       colGap: 0,
       showBorder: false,
       borderWidth: 1,
@@ -721,7 +795,7 @@ export default function App() {
                 marginRight: 10,
                 rows: 8,
                 cols: 1,
-                rowGap: 3,
+                rowGap: 0,
                 colGap: 0,
                 showBorder: false,
                 borderWidth: 1,
@@ -773,7 +847,7 @@ export default function App() {
           marginRight: 10,
           rows: 8,
           cols: 1,
-          rowGap: 3,
+          rowGap: 0,
           colGap: 0,
           showBorder: false,
           borderWidth: 1,
@@ -966,7 +1040,7 @@ export default function App() {
         marginRight: 10,
         rows: 8,
         cols: 1,
-        rowGap: 3,
+        rowGap: 0,
         colGap: 0,
         showBorder: false,
         borderWidth: 1,
@@ -2282,6 +2356,7 @@ export default function App() {
     if (window.confirm("Bạn có chắc chắn muốn xóa tất cả các phần tử trên nhãn này?")) {
       setObjectsWithHistory([]);
       handleSelectObject(null);
+      clearCanvasMemory();
     }
   };
 
@@ -2371,6 +2446,7 @@ export default function App() {
       setExcelFilePath(null);
       setCurrentExcelRowIndex(0);
       handleSelectObject(null);
+      clearCanvasMemory();
     }
   };
 
@@ -3481,12 +3557,30 @@ export default function App() {
           labelConfig,
           sheetConfig,
           excelData,
+          optimizeThermalBinarization,
         });
 
         if (designKey !== cacheDesignKeyRef.current) {
+          if (cachedCanvasesRef.current) {
+            cachedCanvasesRef.current.forEach((canvas) => {
+              if (canvas) {
+                canvas.width = 0;
+                canvas.height = 0;
+              }
+            });
+          }
+          if (cachedCanvasesByContentKeyRef.current) {
+            Object.values(cachedCanvasesByContentKeyRef.current).forEach((canvas) => {
+              if (canvas) {
+                canvas.width = 0;
+                canvas.height = 0;
+              }
+            });
+          }
           cachedCanvasesRef.current = [];
           cachedCanvasesByContentKeyRef.current = {};
           cacheDesignKeyRef.current = designKey;
+          setCachedPagesCount(0);
         }
 
         const getResolvedObjectsKeyForPage = (pageIdx: number) => {
@@ -3609,10 +3703,11 @@ export default function App() {
                 const width = rect.width || currentEl.offsetWidth || 1;
                 const height = rect.height || currentEl.offsetHeight || 1;
 
-                // Use html2canvas at 1.0 scale because the DOM is already rendered 
-                // at the high-fidelity 300 DPI native resolution (11.811 pixels per mm).
+                // Use html2canvas at 3.0 scale (equivalent to 900 DPI high-definition)
+                // to eliminate pixelation ("vỡ nét"), ensuring smooth text and crisp curves
+                // on retina/high-DPI screens and ultra-sharp thermal print quality.
                 const canvas = await html2canvas(currentEl, {
-                  scale: 1.0, 
+                  scale: 3.0, 
                   useCORS: true,
                   allowTaint: true,
                   backgroundColor: labelConfig.bgColor || "#ffffff",
@@ -3624,6 +3719,10 @@ export default function App() {
                   x: 0,
                   y: 0,
                 });
+
+                if (optimizeThermalBinarization) {
+                  binarizeCanvas(canvas);
+                }
 
                 cachedCanvasesRef.current[index] = canvas;
                 cachedCanvasesByContentKeyRef.current[pageContentKey] = canvas;
@@ -3756,6 +3855,13 @@ export default function App() {
         setIsSavingFile(false);
         setIsPreparingPrint(false);
         setSaveFileProgress("");
+        
+        // Auto-release heavy canvases to free RAM/GPU memory immediately
+        if (autoReleaseRam) {
+          clearCanvasMemory();
+        } else {
+          setCachedPagesCount(Object.keys(cachedCanvasesByContentKeyRef.current || {}).length);
+        }
       } catch (err) {
         console.error("Save file error:", err);
         alert("Đã xảy ra lỗi khi tạo tệp: " + String(err));
@@ -3766,6 +3872,9 @@ export default function App() {
         setIsSavingFile(false);
         setIsPreparingPrint(false);
         setSaveFileProgress("");
+        if (autoReleaseRam) {
+          clearCanvasMemory();
+        }
       }
     }, 1000);
   };
@@ -3839,7 +3948,7 @@ export default function App() {
             <h1 className="text-lg md:text-[26px] font-black tracking-tight text-kiot-navy flex items-center space-x-2 leading-none">
               <span className="text-kiot-cyan">KiotLabel</span>
               <span className="text-kiot-green">Designer</span>
-              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.3</span>
+              <span className="text-[11.5px] font-mono font-black text-white bg-kiot-green px-2 py-0.5 rounded-full shadow-md">Web V3.4</span>
             </h1>
           </div>
         </div>
@@ -4602,7 +4711,7 @@ export default function App() {
                   <div className="grid grid-cols-2 gap-3 text-[12px]">
                     <button
                       type="button"
-                      onClick={() => setSheetConfig(prev => ({ ...prev, mode: 'thermal' }))}
+                      onClick={() => setSheetConfig(prev => ({ ...prev, mode: 'thermal', rowGap: 0 }))}
                       className={`p-3 border rounded-xl text-left transition flex items-center space-x-2 cursor-pointer focus:outline-none ${
                         sheetConfig.mode === 'thermal'
                           ? 'bg-sky-50/50 border-kiot-cyan text-kiot-navy ring-1 ring-kiot-cyan/50 shadow-xs'
@@ -5200,54 +5309,6 @@ export default function App() {
                               setColGapInput(String(parseFloat((val / 25.4).toFixed(4))));
                             } else {
                               setColGapInput(String(val));
-                            }
-                          }}
-                          className="bg-gray-50 border-l border-gray-300 px-2.5 py-1.5 text-xs font-extrabold outline-none text-slate-600 hover:text-slate-900 cursor-pointer"
-                        >
-                          <option value="mm">mm</option>
-                          <option value="inch">inch</option>
-                        </select>
-                      </div>
-
-                    </div>
-
-                    {/* SET ROW GAP (GAP BETWEEN ROWS) */}
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] text-gray-500 font-bold uppercase tracking-wider select-none flex items-center gap-1">
-                        <span>Khoảng cách giữa các hàng tem (gap)</span>
-                        <InfoTooltip content={<>Khoảng trống phân cách hàng (Gap sensor). Giá trị mặc định phổ biến của cuộn decal nhãn thường là <strong>3.0 mm</strong>.</>} />
-                      </label>
-                      <div className="flex border border-gray-300 rounded-lg overflow-hidden focus-within:ring-1 focus-within:ring-kiot-cyan focus-within:ring-offset-0 focus-within:border-kiot-cyan">
-                        <input
-                          id="row-gap-input"
-                          type="text"
-                          value={rowGapInput}
-                          onChange={(e) => {
-                            const valStr = e.target.value;
-                            setRowGapInput(valStr);
-                            const valNum = parseFloat(valStr) || 0;
-                            const valMm = rowGapUnit === 'inch' ? valNum * 25.4 : valNum;
-                            setSheetConfig(prev => ({ ...prev, rowGap: valMm }));
-                          }}
-                          onBlur={() => {
-                            if (!rowGapInput.trim()) {
-                              setRowGapInput("3");
-                              setSheetConfig(prev => ({ ...prev, rowGap: 3 }));
-                            }
-                          }}
-                          className="flex-1 pl-2 pr-2 py-1.5 text-sm font-bold font-mono text-slate-800 bg-white outline-none"
-                          placeholder="3.0"
-                        />
-                        <select
-                          value={rowGapUnit}
-                          onChange={(e) => {
-                            const newUnit = e.target.value as 'mm' | 'inch';
-                            setRowGapUnit(newUnit);
-                            const val = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0;
-                            if (newUnit === 'inch') {
-                              setRowGapInput(String(parseFloat((val / 25.4).toFixed(4))));
-                            } else {
-                              setRowGapInput(String(val));
                             }
                           }}
                           className="bg-gray-50 border-l border-gray-300 px-2.5 py-1.5 text-xs font-extrabold outline-none text-slate-600 hover:text-slate-900 cursor-pointer"
@@ -6537,6 +6598,29 @@ export default function App() {
 
                   {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
                   <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5 font-sans">
+                    {/* OPTIMIZE THERMAL BINARIZATION TOGGLE */}
+                    <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200/60 shadow-xs">
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        <label htmlFor="optimize-thermal-toggle" className="text-[10px] font-black text-slate-600 uppercase tracking-wide cursor-pointer select-none truncate">
+                          Tối ưu in nhiệt (Đơn sắc nét)
+                        </label>
+                        <InfoTooltip content={
+                          <div>
+                            <p className="font-bold mb-1">Tính năng binarize ảnh đơn sắc:</p>
+                            <p>Loại bỏ hoàn toàn các điểm ảnh mờ/xám (anti-aliasing) xung quanh chữ và nét vẽ. Toàn bộ nét vẽ sẽ được chuyển thành màu đen tuyền tuyệt đối trên nền trắng tinh khiết.</p>
+                            <p className="mt-1 font-semibold text-kiot-cyan">Giúp bản in trên máy in nhiệt cực kỳ sắc nét, không bị dính nét, xước hoặc nhòe mờ mã vạch/chữ viết!</p>
+                          </div>
+                        } />
+                      </div>
+                      <input
+                        id="optimize-thermal-toggle"
+                        type="checkbox"
+                        checked={optimizeThermalBinarization}
+                        onChange={(e) => setOptimizeThermalBinarization(e.target.checked)}
+                        className="w-4 h-4 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
+                      />
+                    </div>
+
                     <div className="space-y-2">
                       <button
                         type="button"
@@ -6564,6 +6648,44 @@ export default function App() {
                         <span>{saveFileProgress}</span>
                       </div>
                     )}
+
+                    {/* BỘ LỌC GIẢI PHÓNG RAM & TỐI ƯU HIỆU NĂNG CHO IN ẤN DÀI HẠN */}
+                    <div className="p-2.5 bg-sky-50/50 border border-sky-100 rounded-lg space-y-2 text-[10.5px]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse animate-duration-1000"></span>
+                          <span className="font-extrabold text-slate-700 uppercase tracking-wider text-[9.5px]">Độ ổn định RAM/Bộ nhớ</span>
+                        </div>
+                        <span className="font-mono font-bold text-sky-800 bg-sky-100/80 px-1.5 py-0.5 rounded text-[10px]">
+                          Cache: {cachedPagesCount} trang
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="auto-release-ram-toggle" className="text-[10px] font-bold text-slate-500 cursor-pointer select-none">
+                          Tự động xả RAM sau khi in
+                        </label>
+                        <input
+                          id="auto-release-ram-toggle"
+                          type="checkbox"
+                          checked={autoReleaseRam}
+                          onChange={(e) => setAutoReleaseRam(e.target.checked)}
+                          className="w-3.5 h-3.5 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearCanvasMemory();
+                          alert("Đã giải phóng toàn bộ RAM cache ảnh thành công! Bộ nhớ trình duyệt đã được đưa về trạng thái tối ưu.");
+                        }}
+                        className="w-full py-1 px-2 text-center text-[10px] font-extrabold text-white bg-kiot-cyan hover:bg-sky-600 transition-colors rounded-md cursor-pointer select-none"
+                        title="Giải phóng ngay lập tức toàn bộ bộ nhớ đệm GPU và RAM trình duyệt bằng cách dọn sạch các đối tượng canvas độ phân giải cao"
+                      >
+                        ⚡ XẢ RAM & DỌN CACHED CANVASES
+                      </button>
+                    </div>
                   </div>
 
                   <button
@@ -7043,7 +7165,7 @@ export default function App() {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-ping"></span>
                 <span>Đa tab thiết kế hoạt động độc lập</span>
               </span>
-              <span className="bg-sky-50 text-kiot-cyan px-2 py-0.5 rounded border border-kiot-cyan/25 text-[9px]">V3.3+ Stable</span>
+              <span className="bg-sky-50 text-kiot-cyan px-2 py-0.5 rounded border border-kiot-cyan/25 text-[9px]">V3.4+ Stable</span>
             </div>
           </div>
 
@@ -7633,7 +7755,7 @@ export default function App() {
                   Mật khẩu giải nén
                 </h3>
                 <p className="text-[11px] text-slate-400 font-bold">
-                  Bản cài đặt ngoại tuyến Offline App
+                  Bản cài đặt ngoại tuyến Offline App V3.4
                 </p>
               </div>
             </div>
@@ -7672,7 +7794,7 @@ export default function App() {
                 Hủy bỏ
               </button>
               <a
-                href="https://drive.google.com/file/d/1J3U6504ft4TjlPv-Uov7eFONI-lukPTa/view?usp=sharing"
+                href="https://drive.google.com/file/d/1ssb0tSp92YCOjDqK1Vxk1_aw7O32kUAp/view?usp=sharing"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setShowDownloadModal(false)}

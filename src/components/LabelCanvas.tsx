@@ -2278,7 +2278,7 @@ export function LabelCanvas({
     const zoomRatio = 1;
     const cols = Math.max(1, sheetConfig.cols || 1);
     const colGap = sheetConfig.colGap || 0;
-    const rowGap = sheetConfig.rowGap !== undefined ? sheetConfig.rowGap : 3.0; // standard 3mm (~0.12 in)
+    const rowGap = 0; // Forced to 0 for thermal roll mode as gap is handled by the physical printer/media sensor
     const labelW = labelConfig.width;
     const labelH = labelConfig.height;
     const rollSideMargin = sheetConfig.rollSideMargin !== undefined ? sheetConfig.rollSideMargin : 1;
