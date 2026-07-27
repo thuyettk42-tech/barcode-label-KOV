@@ -44,6 +44,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   Search,
   FileSpreadsheet,
   Image,
@@ -214,6 +215,7 @@ export default function App() {
   const [optimizeThermalBinarization, setOptimizeThermalBinarization] = useState<boolean>(true);
   const [cachedPagesCount, setCachedPagesCount] = useState<number>(0);
   const [autoReleaseRam, setAutoReleaseRam] = useState<boolean>(true);
+  const [isExtendedSettingsOpen, setIsExtendedSettingsOpen] = useState<boolean>(false);
 
   // 2. Active list of objects placed on the label canvas
   const [objects, setObjects] = useState<LabelObject[]>(() => {
@@ -6598,27 +6600,93 @@ export default function App() {
 
                   {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
                   <div className="pt-2.5 border-t border-slate-200/80 space-y-2.5 font-sans">
-                    {/* OPTIMIZE THERMAL BINARIZATION TOGGLE */}
-                    <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200/60 shadow-xs">
-                      <div className="flex items-center space-x-1.5 min-w-0">
-                        <label htmlFor="optimize-thermal-toggle" className="text-[10px] font-black text-slate-600 uppercase tracking-wide cursor-pointer select-none truncate">
-                          Tối ưu in nhiệt (Đơn sắc nét)
-                        </label>
-                        <InfoTooltip content={
-                          <div>
-                            <p className="font-bold mb-1">Tính năng binarize ảnh đơn sắc:</p>
-                            <p>Loại bỏ hoàn toàn các điểm ảnh mờ/xám (anti-aliasing) xung quanh chữ và nét vẽ. Toàn bộ nét vẽ sẽ được chuyển thành màu đen tuyền tuyệt đối trên nền trắng tinh khiết.</p>
-                            <p className="mt-1 font-semibold text-kiot-cyan">Giúp bản in trên máy in nhiệt cực kỳ sắc nét, không bị dính nét, xước hoặc nhòe mờ mã vạch/chữ viết!</p>
+                    {/* THIẾT LẬP MỞ RỘNG (GOM TỐI ƯU IN NHIỆT & XẢ RAM / CACHE) */}
+                    <div className="bg-slate-50/90 rounded-xl border border-slate-200/80 overflow-hidden text-[10.5px] shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => setIsExtendedSettingsOpen(!isExtendedSettingsOpen)}
+                        className="w-full px-2.5 py-1.5 bg-slate-100/80 hover:bg-slate-100 flex items-center justify-between text-slate-700 font-extrabold cursor-pointer select-none transition-colors focus:outline-none"
+                      >
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <Settings className="w-3.5 h-3.5 text-kiot-cyan shrink-0" />
+                          <span className="uppercase tracking-wider text-[10px] text-slate-800">Thiết lập mở rộng</span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-slate-400">
+                          <span className="text-[9px] font-medium text-slate-500">
+                            {isExtendedSettingsOpen ? "Ẩn" : "Hiện"}
+                          </span>
+                          {isExtendedSettingsOpen ? (
+                            <ChevronUp className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          ) : (
+                            <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                          )}
+                        </div>
+                      </button>
+
+                      {isExtendedSettingsOpen && (
+                        <div className="p-2.5 space-y-2.5 border-t border-slate-200/70 bg-white">
+                          {/* 1. TỐI ƯU IN NHIỆT (ĐƠN SẮC NÉT) */}
+                          <div className="flex items-center justify-between bg-slate-50 p-2 rounded-lg border border-slate-200/60 shadow-2xs">
+                            <div className="flex items-center space-x-1.5 min-w-0">
+                              <label htmlFor="sidebar-optimize-thermal-toggle" className="text-[10px] font-black text-slate-700 uppercase tracking-wide cursor-pointer select-none truncate">
+                                Tối ưu in nhiệt (Đơn sắc nét)
+                              </label>
+                              <InfoTooltip content={
+                                <div>
+                                  <p className="font-bold mb-1">Tính năng binarize ảnh đơn sắc:</p>
+                                  <p>Loại bỏ hoàn toàn các điểm ảnh mờ/xám (anti-aliasing) xung quanh chữ và nét vẽ. Toàn bộ nét vẽ sẽ được chuyển thành màu đen tuyền tuyệt đối trên nền trắng tinh khiết.</p>
+                                  <p className="mt-1 font-semibold text-kiot-cyan">Giúp bản in trên máy in nhiệt cực kỳ sắc nét, không bị dính nét, xước hoặc nhòe mờ mã vạch/chữ viết!</p>
+                                </div>
+                              } />
+                            </div>
+                            <input
+                              id="sidebar-optimize-thermal-toggle"
+                              type="checkbox"
+                              checked={optimizeThermalBinarization}
+                              onChange={(e) => setOptimizeThermalBinarization(e.target.checked)}
+                              className="w-4 h-4 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
+                            />
                           </div>
-                        } />
-                      </div>
-                      <input
-                        id="optimize-thermal-toggle"
-                        type="checkbox"
-                        checked={optimizeThermalBinarization}
-                        onChange={(e) => setOptimizeThermalBinarization(e.target.checked)}
-                        className="w-4 h-4 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
-                      />
+
+                          {/* 2. BỘ LỌC GIẢI PHÓNG RAM & TỐI ƯU HIỆU NĂNG CHO IN ẤN DÀI HẠN */}
+                          <div className="p-2.5 bg-sky-50/50 border border-sky-100 rounded-lg space-y-2 text-[10.5px]">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span className="font-extrabold text-slate-700 uppercase tracking-wider text-[9.5px]">Độ ổn định RAM/Bộ nhớ</span>
+                              </div>
+                              <span className="font-mono font-bold text-sky-800 bg-sky-100/80 px-1.5 py-0.5 rounded text-[10px]">
+                                Cache: {cachedPagesCount} trang
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center justify-between">
+                              <label htmlFor="sidebar-auto-release-ram-toggle" className="text-[10px] font-bold text-slate-600 cursor-pointer select-none">
+                                Tự động xả RAM sau khi in
+                              </label>
+                              <input
+                                id="sidebar-auto-release-ram-toggle"
+                                type="checkbox"
+                                checked={autoReleaseRam}
+                                onChange={(e) => setAutoReleaseRam(e.target.checked)}
+                                className="w-3.5 h-3.5 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
+                              />
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                clearCanvasMemory();
+                                alert("Đã giải phóng toàn bộ RAM cache ảnh thành công! Bộ nhớ trình duyệt đã được đưa về trạng thái tối ưu.");
+                              }}
+                              className="w-full py-1 px-2 text-center text-[10px] font-extrabold text-white bg-kiot-cyan hover:bg-sky-600 transition-colors rounded-md cursor-pointer select-none active:scale-[0.98]"
+                              title="Giải phóng ngay lập tức toàn bộ bộ nhớ đệm GPU và RAM trình duyệt bằng cách dọn sạch các đối tượng canvas độ phân giải cao"
+                            >
+                              ⚡ XẢ RAM & DỌN CACHED CANVASES
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -6648,44 +6716,6 @@ export default function App() {
                         <span>{saveFileProgress}</span>
                       </div>
                     )}
-
-                    {/* BỘ LỌC GIẢI PHÓNG RAM & TỐI ƯU HIỆU NĂNG CHO IN ẤN DÀI HẠN */}
-                    <div className="p-2.5 bg-sky-50/50 border border-sky-100 rounded-lg space-y-2 text-[10.5px]">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse animate-duration-1000"></span>
-                          <span className="font-extrabold text-slate-700 uppercase tracking-wider text-[9.5px]">Độ ổn định RAM/Bộ nhớ</span>
-                        </div>
-                        <span className="font-mono font-bold text-sky-800 bg-sky-100/80 px-1.5 py-0.5 rounded text-[10px]">
-                          Cache: {cachedPagesCount} trang
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <label htmlFor="auto-release-ram-toggle" className="text-[10px] font-bold text-slate-500 cursor-pointer select-none">
-                          Tự động xả RAM sau khi in
-                        </label>
-                        <input
-                          id="auto-release-ram-toggle"
-                          type="checkbox"
-                          checked={autoReleaseRam}
-                          onChange={(e) => setAutoReleaseRam(e.target.checked)}
-                          className="w-3.5 h-3.5 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan"
-                        />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearCanvasMemory();
-                          alert("Đã giải phóng toàn bộ RAM cache ảnh thành công! Bộ nhớ trình duyệt đã được đưa về trạng thái tối ưu.");
-                        }}
-                        className="w-full py-1 px-2 text-center text-[10px] font-extrabold text-white bg-kiot-cyan hover:bg-sky-600 transition-colors rounded-md cursor-pointer select-none"
-                        title="Giải phóng ngay lập tức toàn bộ bộ nhớ đệm GPU và RAM trình duyệt bằng cách dọn sạch các đối tượng canvas độ phân giải cao"
-                      >
-                        ⚡ XẢ RAM & DỌN CACHED CANVASES
-                      </button>
-                    </div>
                   </div>
 
                   <button
@@ -7072,6 +7102,12 @@ export default function App() {
             onSavePrintFile={handleSavePrintFile}
             isSavingFile={isSavingFile}
             saveFileProgress={saveFileProgress}
+            optimizeThermalBinarization={optimizeThermalBinarization}
+            onUpdateOptimizeThermalBinarization={setOptimizeThermalBinarization}
+            autoReleaseRam={autoReleaseRam}
+            onUpdateAutoReleaseRam={setAutoReleaseRam}
+            cachedPagesCount={cachedPagesCount}
+            onClearCanvasMemory={clearCanvasMemory}
           />
 
           {/* TAB THANH CONG CỤ THIẾT KẾ ĐA TAB / SHEET (DƯỚI CHÂN TRANG - ĐẬM MÀU CAO CẤP CHUYÊN NGHIỆP) */}

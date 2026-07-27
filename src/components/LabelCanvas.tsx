@@ -9,7 +9,7 @@ import { LabelConfig, LabelObject, SheetLayoutConfig } from "../types";
 import { BarcodeRenderer } from "./BarcodeRenderer";
 import { QRCodeRenderer } from "./QRCodeRenderer";
 import { mmToPx, pxToMm, BASE_DPI_SCALE } from "../utils";
-import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal, FileText, Image, Barcode, QrCode } from "lucide-react";
+import { Trash, Maximize2, Move, LayoutGrid, RefreshCw, Info, Printer, Plus, Minus, Terminal, FileText, Image, Barcode, QrCode, Settings, ChevronDown, ChevronUp, Zap } from "lucide-react";
 
 interface LabelCanvasProps {
   labelConfig: LabelConfig;
@@ -62,6 +62,12 @@ interface LabelCanvasProps {
   onSavePrintFile?: (format: 'png' | 'pdf' | 'zpl' | 'tspl') => void;
   isSavingFile?: boolean;
   saveFileProgress?: string;
+  optimizeThermalBinarization?: boolean;
+  onUpdateOptimizeThermalBinarization?: (val: boolean) => void;
+  autoReleaseRam?: boolean;
+  onUpdateAutoReleaseRam?: (val: boolean) => void;
+  cachedPagesCount?: number;
+  onClearCanvasMemory?: () => void;
 }
 
 const getRotatedCursor = (
@@ -694,7 +700,14 @@ export function LabelCanvas({
   onSavePrintFile,
   isSavingFile = false,
   saveFileProgress = "",
+  optimizeThermalBinarization = true,
+  onUpdateOptimizeThermalBinarization,
+  autoReleaseRam = true,
+  onUpdateAutoReleaseRam,
+  cachedPagesCount = 0,
+  onClearCanvasMemory,
 }: LabelCanvasProps) {
+  const [isExtendedSettingsOpen, setIsExtendedSettingsOpen] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const labelRef = useRef<HTMLDivElement | null>(null);
   const workspaceRef = useRef<HTMLDivElement | null>(null);
@@ -941,7 +954,102 @@ export function LabelCanvas({
             </div>
 
             {/* LƯU FILE IN SECTION FOR SMALL LABELS (BYPASS WEBVIEW SCALE LIMITATIONS) */}
-            <div className="pt-2.5 border-t border-slate-200/80 space-y-2 font-sans">
+            <div className="pt-2 border-t border-slate-200/80 space-y-2 font-sans">
+              {/* THIẾT LẬP MỞ RỘNG (GOM TỐI ƯU IN NHIỆT & XẢ RAM / CACHE) */}
+              <div className="bg-slate-50/90 rounded-xl border border-slate-200/80 overflow-hidden text-[10.5px] shadow-2xs">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsExtendedSettingsOpen(!isExtendedSettingsOpen);
+                  }}
+                  className="w-full px-2.5 py-1.5 bg-slate-100/80 hover:bg-slate-100 flex items-center justify-between text-slate-700 font-extrabold cursor-pointer select-none transition-colors focus:outline-none"
+                >
+                  <div className="flex items-center space-x-1.5 min-w-0">
+                    <Settings className="w-3.5 h-3.5 text-kiot-cyan shrink-0" />
+                    <span className="uppercase tracking-wider text-[9.5px] text-slate-800">Thiết lập mở rộng</span>
+                  </div>
+                  <div className="flex items-center space-x-1 text-slate-400">
+                    <span className="text-[9px] font-medium text-slate-500">
+                      {isExtendedSettingsOpen ? "Ẩn" : "Hiện"}
+                    </span>
+                    {isExtendedSettingsOpen ? (
+                      <ChevronUp className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    )}
+                  </div>
+                </button>
+
+                {isExtendedSettingsOpen && (
+                  <div className="p-2 space-y-2 border-t border-slate-200/70 bg-white">
+                    {/* 1. TỐI ƯU IN NHIỆT (ĐƠN SẮC NÉT) */}
+                    <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-lg border border-slate-200/60">
+                      <div className="flex items-center space-x-1 min-w-0">
+                        <label htmlFor="quick-optimize-thermal-toggle" className="text-[9.5px] font-black text-slate-700 uppercase tracking-wide cursor-pointer select-none truncate">
+                          Tối ưu in nhiệt (Đơn sắc nét)
+                        </label>
+                        <span title="Tính năng binarize ảnh đơn sắc: Loại bỏ hoàn toàn điểm mờ anti-aliasing, giúp bản in trên máy in nhiệt đen tuyền tuyệt đối và cực kỳ sắc nét!">
+                          <Info className="w-3 h-3 text-slate-400 hover:text-kiot-cyan cursor-help shrink-0" />
+                        </span>
+                      </div>
+                      <input
+                        id="quick-optimize-thermal-toggle"
+                        type="checkbox"
+                        checked={optimizeThermalBinarization}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onUpdateOptimizeThermalBinarization?.(e.target.checked);
+                        }}
+                        className="w-3.5 h-3.5 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
+                      />
+                    </div>
+
+                    {/* 2. ĐỘ ỔN ĐỊNH RAM & XẢ CACHE */}
+                    <div className="p-2 bg-sky-50/50 border border-sky-100 rounded-lg space-y-1.5 text-[10px]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <span className="font-extrabold text-slate-700 uppercase tracking-wider text-[9px]">Độ ổn định RAM/Bộ nhớ</span>
+                        </div>
+                        <span className="font-mono font-bold text-sky-800 bg-sky-100/80 px-1.5 py-0.2 rounded text-[9px]">
+                          Cache: {cachedPagesCount} trang
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <label htmlFor="quick-auto-release-ram-toggle" className="text-[9.5px] font-bold text-slate-600 cursor-pointer select-none">
+                          Tự động xả RAM sau khi in
+                        </label>
+                        <input
+                          id="quick-auto-release-ram-toggle"
+                          type="checkbox"
+                          checked={autoReleaseRam}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            onUpdateAutoReleaseRam?.(e.target.checked);
+                          }}
+                          className="w-3.5 h-3.5 text-kiot-cyan bg-gray-100 border-gray-300 rounded focus:ring-kiot-cyan focus:ring-1 cursor-pointer accent-kiot-cyan shrink-0"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClearCanvasMemory?.();
+                          alert("Đã giải phóng toàn bộ RAM cache ảnh thành công! Bộ nhớ trình duyệt đã được đưa về trạng thái tối ưu.");
+                        }}
+                        className="w-full py-1 px-1.5 text-center text-[9.5px] font-extrabold text-white bg-kiot-cyan hover:bg-sky-600 transition-colors rounded cursor-pointer select-none active:scale-[0.98]"
+                        title="Giải phóng ngay bộ nhớ đệm canvas để tránh giật lag khi in hàng loạt"
+                      >
+                        ⚡ XẢ RAM & DỌN CACHED CANVASES
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <button
                   type="button"
